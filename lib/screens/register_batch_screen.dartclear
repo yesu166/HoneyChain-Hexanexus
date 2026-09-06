@@ -1,0 +1,231 @@
+import 'package:flutter/material.dart';
+
+class RegisterBatchScreen extends StatefulWidget {
+  const RegisterBatchScreen({super.key});
+
+  @override
+  State<RegisterBatchScreen> createState() => _RegisterBatchScreenState();
+}
+
+class _RegisterBatchScreenState extends State<RegisterBatchScreen> {
+  final _formKey = GlobalKey<FormState>();
+
+  final beekeeperController =
+      TextEditingController(text: 'Ravi Kumar');
+  final originController =
+      TextEditingController(text: 'Tamil Nadu');
+  final honeyTypeController =
+      TextEditingController(text: 'Multifloral Honey');
+  final quantityController =
+      TextEditingController(text: '25');
+
+  String harvestDate = '27 Aug 2026';
+
+  @override
+  void dispose() {
+    beekeeperController.dispose();
+    originController.dispose();
+    honeyTypeController.dispose();
+    quantityController.dispose();
+    super.dispose();
+  }
+
+  void createBatch() {
+    if (!_formKey.currentState!.validate()) return;
+
+    final id =
+        'HC-${DateTime.now().year}-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        icon: const Icon(
+          Icons.check_circle,
+          color: Colors.green,
+          size: 55,
+        ),
+        title: const Text('Batch Created'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Your honey batch has been registered.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                id,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 15),
+            const Text(
+              'Next ? Collection ? Laboratory',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text('View My Batches'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Register Honey Batch'),
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 650),
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                const Text(
+                  'Create a new batch',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'This batch will become the traceability identity '
+                  'for the honey journey.',
+                  style: TextStyle(color: Colors.black54),
+                ),
+                const SizedBox(height: 28),
+
+                _field(
+                  controller: beekeeperController,
+                  label: 'Beekeeper Name',
+                  icon: Icons.person_outline,
+                ),
+
+                _field(
+                  controller: originController,
+                  label: 'Origin / Location',
+                  icon: Icons.location_on_outlined,
+                ),
+
+                _field(
+                  controller: honeyTypeController,
+                  label: 'Honey Type',
+                  icon: Icons.water_drop_outlined,
+                ),
+
+                _field(
+                  controller: quantityController,
+                  label: 'Quantity (kg)',
+                  icon: Icons.scale_outlined,
+                  keyboardType: TextInputType.number,
+                ),
+
+                const SizedBox(height: 8),
+
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.calendar_today),
+                    title: const Text('Harvest Date'),
+                    subtitle: Text(harvestDate),
+                    trailing: const Icon(Icons.edit_calendar),
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2035),
+                        initialDate: DateTime.now(),
+                      );
+
+                      if (date != null) {
+                        setState(() {
+                          harvestDate =
+                              '${date.day.toString().padLeft(2, '0')} '
+                              '${date.month.toString().padLeft(2, '0')} '
+                              '${date.year}';
+                        });
+                      }
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+
+                SizedBox(
+                  height: 55,
+                  child: FilledButton.icon(
+                    onPressed: createBatch,
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: const Text(
+                      'Create Honey Batch',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 15),
+
+                const Text(
+                  'Prototype: batch data is currently stored locally.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.black45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _field({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType? keyboardType,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'Please enter $label';
+          }
+          return null;
+        },
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon),
+          border: const OutlineInputBorder(),
+        ),
+      ),
+    );
+  }
+}

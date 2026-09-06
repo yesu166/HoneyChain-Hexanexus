@@ -1,0 +1,250 @@
+{
+  "checks": [
+    {
+      "check": "exported_tree_matches_sklearn_on_all_rows",
+      "mismatches": 0,
+      "ok": true
+    },
+    {
+      "check": "representative vector -> Acarine",
+      "expected": "Acarine",
+      "got": "Acarine",
+      "ok": true,
+      "vector": {
+        "adult_crawling_unable_to_fly": 1,
+        "adult_k_wing": 1,
+        "adult_scattered_clusters": 1,
+        "adult_swollen_black_abdomen": 0,
+        "adult_yellow_fecal_spots": 0,
+        "brood_larvae_yellow_curled": 0,
+        "brood_sour_odor": 0,
+        "brood_spotted_comb": 0
+      }
+    },
+    {
+      "check": "representative vector -> EFB",
+      "expected": "EFB",
+      "got": "EFB",
+      "ok": true,
+      "vector": {
+        "adult_crawling_unable_to_fly": 0,
+        "adult_k_wing": 0,
+        "adult_scattered_clusters": 0,
+        "adult_swollen_black_abdomen": 0,
+        "adult_yellow_fecal_spots": 0,
+        "brood_larvae_yellow_curled": 1,
+        "brood_sour_odor": 1,
+        "brood_spotted_comb": 1
+      }
+    },
+    {
+      "check": "representative vector -> Healthy",
+      "expected": "Healthy",
+      "got": "Healthy",
+      "ok": true,
+      "vector": {
+        "adult_crawling_unable_to_fly": 0,
+        "adult_k_wing": 0,
+        "adult_scattered_clusters": 0,
+        "adult_swollen_black_abdomen": 0,
+        "adult_yellow_fecal_spots": 0,
+        "brood_larvae_yellow_curled": 0,
+        "brood_sour_odor": 0,
+        "brood_spotted_comb": 0
+      }
+    },
+    {
+      "check": "representative vector -> Nosema",
+      "expected": "Nosema",
+      "got": "Nosema",
+      "ok": true,
+      "vector": {
+        "adult_crawling_unable_to_fly": 1,
+        "adult_k_wing": 0,
+        "adult_scattered_clusters": 0,
+        "adult_swollen_black_abdomen": 1,
+        "adult_yellow_fecal_spots": 1,
+        "brood_larvae_yellow_curled": 0,
+        "brood_sour_odor": 0,
+        "brood_spotted_comb": 0
+      }
+    },
+    {
+      "check": "representative vector -> Unknown",
+      "expected": "Unknown",
+      "got": "Unknown",
+      "ok": true,
+      "vector": {
+        "adult_crawling_unable_to_fly": 1,
+        "adult_k_wing": 0,
+        "adult_scattered_clusters": 0,
+        "adult_swollen_black_abdomen": 0,
+        "adult_yellow_fecal_spots": 0,
+        "brood_larvae_yellow_curled": 0,
+        "brood_sour_odor": 0,
+        "brood_spotted_comb": 0
+      }
+    },
+    {
+      "check": "canonical 'clear_all_no' -> Healthy",
+      "expected": "Healthy",
+      "got": "Healthy",
+      "ok": true,
+      "vector": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "check": "canonical 'all_not_sure' -> Unknown",
+      "expected": "Unknown",
+      "got": "Unknown",
+      "ok": true,
+      "vector": [
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    {
+      "check": "canonical 'single_crawling' -> Unknown",
+      "expected": "Unknown",
+      "got": "Unknown",
+      "ok": true,
+      "vector": [
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "check": "canonical 'strong_efb' -> EFB",
+      "expected": "EFB",
+      "got": "EFB",
+      "ok": true,
+      "vector": [
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "check": "canonical 'strong_acarine' -> Acarine",
+      "expected": "Acarine",
+      "got": "Acarine",
+      "ok": true,
+      "vector": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "check": "canonical 'strong_nosema' -> Nosema",
+      "expected": "Nosema",
+      "got": "Nosema",
+      "ok": true,
+      "vector": [
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "check": "canonical 'crawl_kwing_partial_acarine' -> Acarine",
+      "expected": "Acarine",
+      "got": "Acarine",
+      "ok": true,
+      "vector": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    {
+      "check": "canonical 'crawl_kwing_no' -> Unknown",
+      "expected": "Unknown",
+      "got": "Unknown",
+      "ok": true,
+      "vector": [
+        0,
+        0,
+        0,
+        1,
+        0,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    {
+      "check": "canonical 'larval_curled_only' -> EFB",
+      "expected": "EFB",
+      "got": "EFB",
+      "ok": true,
+      "vector": [
+        0,
+        1,
+        0,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    {
+      "check": "canonical 'fecal_only' -> Nosema",
+      "expected": "Nosema",
+      "got": "Nosema",
+      "ok": true,
+      "vector": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        -1
+      ]
+    }
+  ],
+  "dataset_hash": "e8dd57da9af65307"
+}

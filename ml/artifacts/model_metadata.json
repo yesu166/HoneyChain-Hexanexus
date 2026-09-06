@@ -1,0 +1,122 @@
+{
+  "class_labels": [
+    "EFB",
+    "Acarine",
+    "Nosema",
+    "Healthy",
+    "Unknown"
+  ],
+  "data_type": "SYNTHETIC_PROTOTYPE",
+  "dataset_path": "ml/data/honeychain_bee_health_final_demo_dataset.csv",
+  "dataset_size": 40,
+  "dataset_version_or_hash": "e8dd57da9af65307",
+  "deployment_policy": "Hold-out metrics measured on a 70/30 stratified split; the exported model is then REFIT on all rows so the deployed tree honours this small demo set's own canonical labels. See metrics.json.",
+  "evaluation_label": "DEMO / PROTOTYPE ONLY",
+  "evaluation_metrics": {
+    "accuracy": 0.6666666666666666,
+    "chosen_max_depth": "all",
+    "confusion_matrix": [
+      [
+        3,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        0,
+        2
+      ],
+      [
+        0,
+        0,
+        3,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        2,
+        0
+      ]
+    ],
+    "confusion_matrix_labels": [
+      "EFB",
+      "Acarine",
+      "Nosema",
+      "Healthy",
+      "Unknown"
+    ],
+    "cv_accuracy_mean_by_depth": {
+      "3": 0.7583333333333333,
+      "4": 0.7583333333333333,
+      "5": 0.7916666666666666,
+      "6": 0.825,
+      "all": 0.85
+    },
+    "cv_accuracy_std_by_depth": {
+      "3": 0.08498365855987974,
+      "4": 0.08498365855987974,
+      "5": 0.08740073734751262,
+      "6": 0.08897565210026093,
+      "all": 0.09354143466934854
+    },
+    "demonstration_only": true,
+    "dummy_baseline_accuracy": 0.25,
+    "evaluation_split": "28 train / 12 test (30% hold-out)",
+    "label": "DEMO / PROTOTYPE ONLY \u2014 synthetic data, not clinically validated",
+    "macro_f1": 0.6,
+    "macro_precision": 0.6666666666666667,
+    "macro_recall": 0.6666666666666666,
+    "per_class_f1": {
+      "Acarine": 0.5,
+      "EFB": 1.0,
+      "Healthy": 0.5,
+      "Nosema": 1.0,
+      "Unknown": 0.0
+    }
+  },
+  "excluded_columns": [
+    "sample_id",
+    "data_type",
+    "label_source",
+    "feature_encoding",
+    "obs_target"
+  ],
+  "feature_encoding": {
+    "note": "Decision tree splits on raw integer thresholds, so -1 may be separated at <= -0.5, grouped with No at <= 0.5, or used as the default match for unanswered questions only if the learned rules say so.",
+    "values": {
+      "-1": "Not sure (retained as a distinct value; never rewritten)",
+      "0": "No",
+      "1": "Yes"
+    }
+  },
+  "feature_order": [
+    "brood_spotted_comb",
+    "brood_larvae_yellow_curled",
+    "brood_sour_odor",
+    "adult_crawling_unable_to_fly",
+    "adult_k_wing",
+    "adult_scattered_clusters",
+    "adult_yellow_fecal_spots",
+    "adult_swollen_black_abdomen"
+  ],
+  "max_depth": null,
+  "model_type": "DecisionTreeClassifier",
+  "obs_target_note": "obs_target is metadata/observation-target encoding; used only as a leak probe and excluded from training features.",
+  "random_state": 42,
+  "source_honesty": "Synthetic prototype data. NOT clinically validated; NOT real-world training data.",
+  "training_timestamp_utc": "2026-08-31T07:30:33Z"
+}

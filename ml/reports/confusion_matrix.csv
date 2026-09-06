@@ -1,0 +1,6 @@
+,pred_EFB,pred_Acarine,pred_Nosema,pred_Healthy,pred_Unknown
+true_EFB,3,0,0,0,0
+true_Acarine,0,1,0,0,2
+true_Nosema,0,0,3,0,0
+true_Healthy,0,0,0,1,0
+true_Unknown,0,0,0,2,0

@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "syntheticDataNotice": "This screening guidance is derived from a SYNTHETIC PROTOTYPE dataset and edited for demo clarity. It is not a substitute for local expertise or veterinary diagnosis.",
+  "diseases": {
+    "EFB": {
+      "en": {
+        "description": "A bacterial brood disease affecting young larvae. Larvae appear twisted, yellow, or slumped in cells, sometimes with a sour smell.",
+        "signs": ["Larvae yellow, twisted, or curled in cells", "Dead brood in a spotted pattern on the comb", "Sour or unpleasant odor from the brood area", "Sunken or punctured cappings"],
+        "management": ["Consult an experienced beekeeper or agricultural field officer promptly", "Remove affected frames carefully, keeping equipment separate from healthy hives", "Ensure good hive ventilation and reduce colony stress", "Do not use antibiotics or chemical treatments without professional guidance"],
+        "warning": "Can spread between hives through shared tools and frames. Minimize moving equipment between colonies.",
+        "confirmationRequired": "Laboratory examination is recommended for confirmed identification."
+      },
+      "ta": {
+        "description": "இளம் புழுக்களை பாதிக்கும் ஒரு பாக்டீரியா நோய். புழுக்கள் சுருண்டு, மஞ்சளாக அல்லது கல்லறையில் சாய்ந்து காணப்படும், சில நேரங்களில் புளிப்பு வாசனை வரும்.",
+        "signs": ["புழுக்கள் கல்லறையில் மஞ்சளாக, சுருண்டு அல்லது மடிந்து காணப்படுதல்", "கல்லறையில் இறந்த புழுக்கள் சிதறிய நிலையில் இருத்தல்", "புழு பகுதியில் புளிப்பு அல்லது விரும்பத்தகாத நாற்றம்", "குழிகள் அல்லது சிதைந்த மூடிகள்"],
+        "management": ["உடனடியாக அனுபவமுள்ள தேனீ வளர்ப்பாளர் அல்லது வேளாண் அலுவலரை அணுகவும்", "பாதிக்கப்பட்ட சட்டங்களை கவனமாக அகற்றி, ஆரோக்கியமான கூட்டிலிருந்து தனியே வைக்கவும்", "கூட்டிற்கு நல்ல காற்றோட்டம் உறுதி செய்து மன அழுத்தத்தைக் குறைக்கவும்", "தொழில்முறை வழிகாட்டுதல் இல்லாமல் நுண்ணுயிர் எதிர்ப்பு அல்லது இரசாயன சிகிச்சைகளைப் பயன்படுத்த வேண்டாம்"],
+        "warning": "பகிரப்பட்ட கருவிகள் மற்றும் சட்டங்கள் மூலம் கூட்டுக்கு கூட்டு பரவலாம். உபகரணங்களை குறைவாக நகர்த்தவும்.",
+        "confirmationRequired": "உறுதியான கண்டறிதலுக்கு ஆய்வக பரிசோதனை பரிந்துரைக்கப்படுகிறது."
+      },
+      "hi": {
+        "description": "युवा लार्वा को प्रभावित करने वाला एक जीवाणु ब्रूड रोग। लार्वा मुड़े हुए, पीले या कोशिकाओं में सिकुड़े दिखते हैं, कभी-कभी खट्टी बदबू आती है।",
+        "signs": ["कोशिकाओं में लार्वा पीला, मुड़ा या सिकुड़ा हुआ", "छत्ते पर मरे हुए ब्रूड का धब्बेदार पैटर्न", "ब्रूड क्षेत्र से खट्टी या अप्रिय गंध", "धंसे या छिद्रित मोम में छेद"],
+        "management": ["तुरंत अनुभवी मधुमक्खी पालक या कृषि अधिकारी से सलाह लें", "प्रभावित फ्रेम को सावधानी से हटाएं, उपकरण को स्वस्थ छत्तों से अलग रखें", "छत्ते में अच्छी हवा सुनिश्चित करें और तनाव कम करें", "बिना पेशेवर मार्गदर्शन के एंटीबायोटिक या रासायनिक उपचार का उपयोग न करें"],
+        "warning": "साझा उपकरणों और फ्रेम के माध्यम से छत्तों के बीच फैल सकता है। उपकरणों की आवाजाही कम करें।",
+        "confirmationRequired": "निश्चित पहचान के लिए प्रयोगशाला परीक्षण की सिफारिश की जाती है।"
+      }
+    },
+    "Acarine": {
+      "en": {
+        "description": "A parasitic mite that inhabits bee tracheae (breathing tubes), causing breathing difficulty and weakness.",
+        "signs": ["Bees crawling on ground or hive front", "Damaged, short, or K-shaped wings", "Scattered clusters of bees outside the hive", "Reduced flight activity and shortened lifespan"],
+        "management": ["Seek guidance from experienced beekeepers", "Ensure good nutrition and clean water supply", "Monitor colony strength regularly", "Introduce resistant bee stock where available"],
+        "warning": "Can significantly weaken colonies over time. Avoid spreading frames between weak and strong colonies.",
+        "confirmationRequired": "Microscopic examination of bee tracheae is needed for a definitive diagnosis."
+      },
+      "ta": {
+        "description": "தேனீக்களின் சுவாசக் குழாய்களில் வாழும் ஒரு ஒட்டுண்ணி பூச்சி, மூச்சுத் திணறல் மற்றும் பலவீனத்தை ஏற்படுத்துகிறது.",
+        "signs": ["தேனீக்கள் தரையில் அல்லது கூட்டின் முன்பு ஊர்கின்றன", "சேதமடைந்த, குறுகிய அல்லது கே-வடிவ இறக்கைகள்", "கூட்டுக்கு வெளியே சிதறிய குழுக்களில் தேனீக்கள்", "பறக்கும் செயல்பாடு குறைதல் மற்றும் ஆயுள் குறைதல்"],
+        "management": ["அனுபவமுள்ள தேனீ வளர்ப்பாளர்களிடம் வழிகாட்டுதல் தேடுங்கள்", "நல்ல ஊட்டச்சத்து மற்றும் சுத்தமான நீர் வழங்கலை உறுதி செய்யுங்கள்", "கூட்டின் வலிமையை தொடர்ந்து கண்காணியுங்கள்", "கிடைக்கும் இடங்களில் எதிர்ப்பு தேனீ இனங்களை அறிமுகப்படுத்துங்கள்"],
+        "warning": "காலப்போக்கில் கூட்டுகளை கணிசமாக பலவீனப்படுத்தலாம். பலவீனமான மற்றும் வலுவான கூட்டுகளுக்கு இடையே சட்டங்களை பரப்புவதைத் தவிர்க்கவும்.",
+        "confirmationRequired": "நிச்சயமான நோயறிதலுக்கு தேனீ சுவாசக் குழாய்களின் நுண்ணோக்கி பரிசோதனை தேவை."
+      },
+      "hi": {
+        "description": "मधुमक्खी की श्वास नलिकाओं में रहने वाला एक परजीवी कणिका, जो सांस लेने में कठिनाई और कमजोरी पैदा करता है।",
+        "signs": ["मधुमक्खियाँ ज़मीन या छत्ते के सामने रेंग रही हैं", "टूटी, छोटी या के-आकार की पंख", "छत्ते के बाहर बिखरे झुंडों में मधुमक्खियाँ", "उड़ान गतिविधि में कमी और आयु में कमी"],
+        "management": ["अनुभवी मधुमक्खी पालकों से मार्गदर्शन लें", "अच्छी पोषण और साफ़ पानी की आपूर्ति सुनिश्चित करें", "छत्ते की मज़बूती नियमित रूप से जाँचें", "जहाँ उपलब्ध हो वहाँ प्रतिरोधी मधुमक्खी नस्लें पेश करें"],
+        "warning": "समय के साथ छत्तों को काफ़ी कमज़ोर कर सकता है। कमज़ोर और मज़बूत छत्तों के बीच फ्रेम साझा करने से बचें।",
+        "confirmationRequired": "निश्चित निदान के लिए मधुमक्खी श्वास नलिकाओं की सूक्ष्मदर्शी जाँच आवश्यक है।"
+      }
+    },
+    "Nosema": {
+      "en": {
+        "description": "A microscopic fungal parasite affecting the bee gut, common in cool or wet seasons.",
+        "signs": ["Yellow or brownish fecal staining on frames and hive front", "Swollen or discolored abdomen", "Crawling bees unable to fly", "Reduced flight activity and colony decline"],
+        "management": ["Ensure good nutrition and a clean water supply", "Provide strong, well-drained hives with good ventilation", "Consult an agricultural officer for persistent or severe cases", "Minimize stress during cold or wet periods"],
+        "warning": "Can spread through fecal contamination of hive surfaces. Clean hive floors and equipment regularly.",
+        "confirmationRequired": "Microscopic examination is required for a definitive identification."
+      },
+      "ta": {
+        "description": "தேனீ குடலை பாதிக்கும் நுண்ணோக்கி பூஞ்சை பராசைட், குளிர் அல்லது ஈரமான பருவங்களில் பொதுவானது.",
+        "signs": ["சட்டங்கள் மற்றும் கூட்டின் முன்பு மஞ்சள் அல்லது பழுப்பு நிற மல கறைகள்", "வீங்கிய அல்லது நிறம் மாறிய வயிறு", "பறக்க இயலாமல் ஊரும் தேனீக்கள்", "பறக்கும் செயல்பாடு குறைதல் மற்றும் கூட்டு வீழ்ச்சி"],
+        "management": ["நல்ல ஊட்டச்சத்து மற்றும் சுத்தமான நீர் வழங்கலை உறுதி செய்யுங்கள்", "வலுவான, நன்கு வடிகால் கொண்ட கூட்டுகளை நல்ல காற்றோட்டத்துடன் வழங்குங்கள்", "நிலையான அல்லது தீவிர நிகழ்வுகளுக்கு வேளாண் அலுவலரை அணுகவும்", "குளிர் அல்லது ஈரமான காலங்களில் மன அழுத்தத்தைக் குறைக்கவும்"],
+        "warning": "கூட்டின் மேற்பரப்புகளின் மல மாசுபாடு மூலம் பரவலாம். தரைகள் மற்றும் உபகரணங்களை தொடர்ந்து சுத்தம் செய்யுங்கள்.",
+        "confirmationRequired": "உறுதியான அடையாளம் காண நுண்ணோக்கி பரிசோதனை தேவை."
+      },
+      "hi": {
+        "description": "मधुमक्खी की आंत को प्रभावित करने वाला एक सूक्ष्म कवक परजीवी, ठंडे या गीले मौसम में आम है।",
+        "signs": ["फ्रेम और छत्ते के सामने पीली या भूरी मल दाग", "फूला हुआ या रंग बदला पेट", "उड़ न पाने वाली रेंगती मधुमक्खियाँ", "उड़ान गतिविधि में कमी और छत्ते की गिरावट"],
+        "management": ["अच्छी पोषण और साफ़ पानी की आपूर्ति सुनिश्चित करें", "अच्छी हवादार, अच्छी जल निकासी वाले मज़बूत छत्ते उपलब्ध कराएँ", "लगातार या गंभीर मामलों के लिए कृषि अधिकारी से सलाह लें", "ठंडे या गीले मौसम में तनाव कम करें"],
+        "warning": "छत्ते की सतहों के मल दूषण से फैल सकता है। छत्ते की ज़मीन और उपकरण नियमित रूप से साफ़ करें।",
+        "confirmationRequired": "निश्चित पहचान के लिए सूक्ष्मदर्शी जाँच आवश्यक है।"
+      }
+    }
+  },
+  "healthy": {
+    "en": {
+      "description": "No obvious signs of disease or abnormality were detected in this screening.",
+      "management": ["Continue routine hive inspections", "Maintain good hive hygiene and ventilation", "Monitor colony strength regularly"],
+      "warning": "Regular monitoring is essential. Symptoms can appear gradually."
+    },
+    "ta": {
+      "description": "இந்தத் திரையிடலில் நோய் அல்லது அசாதாரணத்தின் வெளிப்படையான அறிகுறிகள் கண்டறியப்படவில்லை.",
+      "management": ["வழக்கமான கூட்டு ஆய்வுகளைத் தொடருங்கள்", "நல்ல கூட்டு சுகாதாரம் மற்றும் காற்றோட்டத்தை பராமரியுங்கள்", "கூட்டின் வலிமையை தொடர்ந்து கண்காணியுங்கள்"],
+      "warning": "தொடர்ந்து கண்காணிப்பு அவசியம். அறிகுறிகள் படிப்படியாக தோன்றலாம்."
+    },
+    "hi": {
+      "description": "इस जाँच में रोग या असामान्यता के कोई स्पष्ट संकेत नहीं मिले।",
+      "management": ["नियमित छत्ता निरीक्षण जारी रखें", "अच्छी छत्ता स्वच्छता और हवादार बनाए रखें", "छत्ते की मज़बूती नियमित रूप से जाँचें"],
+      "warning": "नियमित निगरानी आवश्यक है। लक्षण धीरे-धीरे दिख सकते हैं।"
+    }
+  },
+  "unknown": {
+    "en": {
+      "description": "Unable to determine a possible condition with the observations provided. This may be due to mixed symptoms or limited observations.",
+      "management": ["Observe the hive again in a few days", "Note any changes in bee behavior or brood pattern", "Consult an experienced beekeeper if symptoms persist"],
+      "warning": "An unknown result does not mean the colony is healthy. Continue monitoring."
+    },
+    "ta": {
+      "description": "வழங்கப்பட்ட கவனிப்புகளின் அடிப்படையில் சாத்தியமான நிலையை தீர்மானிக்க இயலவில்லை. இது கலப்பு அறிகுறிகள் அல்லது குறைவான கவனிப்புகள் காரணமாக இருக்கலாம்.",
+      "management": ["ஒரு சில நாட்களில் மீண்டும் கூட்டை கவனியுங்கள்", "தேனீ நடத்தை அல்லது புழு வடிவத்தில் ஏற்படும் மாற்றங்களை குறித்துக் கொள்ளுங்கள்", "அறிகுறிகள் நீடித்தால் அனுபவமுள்ள தேனீ வளர்ப்பாளரை அணுகவும்"],
+      "warning": "தெரியாத முடிவு என்பது கூட்டம் ஆரோக்கியமாக இருக்கிறது என்று அர்த்தமல்ல. கண்காணிப்பைத் தொடருங்கள்."
+    },
+    "hi": {
+      "description": "दी गई जानकारी के आधार पर संभावित स्थिति निर्धारित करने में असमर्थ। यह मिश्रित लक्षणों या सीमित जानकारी के कारण हो सकता है।",
+      "management": ["कुछ दिनों में छत्ते को फिर से देखें", "मधुमक्खी के व्यवहार या ब्रूड पैटर्न में कोई बदलाव नोट करें", "लक्षण जारी रहने पर अनुभवी मधुमक्खी पालक से सलाह लें"],
+      "warning": "अज्ञात परिणाम का मतलब यह नहीं है कि छत्ता स्वस्थ है। निगरानी जारी रखें।"
+    }
+  }
+}

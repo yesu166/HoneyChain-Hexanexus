@@ -1,0 +1,76 @@
+{
+  "accuracy": 0.6666666666666666,
+  "chosen_max_depth": "all",
+  "confusion_matrix": [
+    [
+      3,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      0,
+      2
+    ],
+    [
+      0,
+      0,
+      3,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      2,
+      0
+    ]
+  ],
+  "confusion_matrix_labels": [
+    "EFB",
+    "Acarine",
+    "Nosema",
+    "Healthy",
+    "Unknown"
+  ],
+  "cv_accuracy_mean_by_depth": {
+    "3": 0.7583333333333333,
+    "4": 0.7583333333333333,
+    "5": 0.7916666666666666,
+    "6": 0.825,
+    "all": 0.85
+  },
+  "cv_accuracy_std_by_depth": {
+    "3": 0.08498365855987974,
+    "4": 0.08498365855987974,
+    "5": 0.08740073734751262,
+    "6": 0.08897565210026093,
+    "all": 0.09354143466934854
+  },
+  "demonstration_only": true,
+  "dummy_baseline_accuracy": 0.25,
+  "evaluation_split": "28 train / 12 test (30% hold-out)",
+  "label": "DEMO / PROTOTYPE ONLY \u2014 synthetic data, not clinically validated",
+  "macro_f1": 0.6,
+  "macro_precision": 0.6666666666666667,
+  "macro_recall": 0.6666666666666666,
+  "per_class_f1": {
+    "Acarine": 0.5,
+    "EFB": 1.0,
+    "Healthy": 0.5,
+    "Nosema": 1.0,
+    "Unknown": 0.0
+  }
+}
