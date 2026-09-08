@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 2.0.1+2
+version: 2.0.1+3
 
 environment:
   sdk: ^3.13.1
@@ -44,6 +44,12 @@ dependencies:
 
   # Real QR code generation for the Honey Passport traceability URL.
   qr_flutter: ^4.1.0
+  mobile_scanner: ^7.4.0
+  supabase_flutter: ^2.17.2
+  connectivity_plus: ^7.3.1
+
+  # Canonical HTTP client for the FastAPI backend (Flutter -> HTTPS -> FastAPI).
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:

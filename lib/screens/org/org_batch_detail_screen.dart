@@ -4,14 +4,14 @@ import '../../data/honeychain_store.dart';
 import '../../models/domain.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
-import '../../widgets/product_qr.dart';
 import '../../widgets/status_pill.dart';
 import '../../widgets/section_label.dart';
 import '../honey_passport_screen.dart';
 import 'org_products_screen.dart';
 
 /// Organization-side detail for a consolidated batch: genealogy of source
-/// hives/harvests, lab, processing, packaging and the consumer product QR.
+/// hives/harvests, lab, processing, packaging (individual jars) and the
+/// marketplace release.
 class OrgBatchDetailScreen extends StatelessWidget {
   const OrgBatchDetailScreen({super.key, required this.batch});
 
@@ -89,13 +89,7 @@ class OrgBatchDetailScreen extends StatelessWidget {
                 packagingBatches: packagingBatches,
                 store: store,
               ),
-              const SizedBox(height: 22),
-              if (products.isNotEmpty) ...[
-                SectionLabel(store.tr('org.detail.product.qr')),
-                const SizedBox(height: 10),
-                _ProductQrCards(products: products),
-                const SizedBox(height: 26),
-              ],
+              const SizedBox(height: 26),
             ],
           );
         },
@@ -385,34 +379,42 @@ class _LabCard extends StatelessWidget {
             style: const TextStyle(fontSize: 13, color: AppTheme.inkSoft),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 42,
-            child: OutlinedButton.icon(
-              onPressed: () {
-                store.verifyV2Batch(batch, VerificationStatus.pass);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(store.tr('org.detail.demo.passed')),
-                    backgroundColor: AppTheme.green,
-                    behavior: SnackBarBehavior.floating,
+          // One-click demo verification is demo/developer tooling only. In a
+          // production build the org works against the live lab pipeline.
+          if (HoneyChainStore.testMode)
+            SizedBox(
+              width: double.infinity,
+              height: 42,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  store.verifyV2Batch(batch, VerificationStatus.pass);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(store.tr('org.detail.demo.passed')),
+                      backgroundColor: AppTheme.green,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.orangeDark,
+                  side: const BorderSide(color: AppTheme.orangeDark),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
                   ),
-                );
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.orangeDark,
-                side: const BorderSide(color: AppTheme.orangeDark),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
+                ),
+                icon: const Icon(Icons.science_outlined, size: 18),
+                label: Text(
+                  store.tr('org.detail.verify.btn'),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
-              icon: const Icon(Icons.science_outlined, size: 18),
-              label: Text(
-                store.tr('org.detail.verify.btn'),
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
+            )
+          else
+            Text(
+              store.tr('org.detail.lab.pending.note'),
+              style: const TextStyle(fontSize: 12, color: AppTheme.inkFaint),
             ),
-          ),
         ],
       ),
     );
@@ -1139,74 +1141,6 @@ class _PackagingBatchTile extends StatelessWidget {
         backgroundColor: AppTheme.green,
         behavior: SnackBarBehavior.floating,
       ),
-    );
-  }
-}
-
-class _ProductQrCards extends StatelessWidget {
-  const _ProductQrCards({required this.products});
-
-  final List<ProductBatch> products;
-
-  @override
-  Widget build(BuildContext context) {
-    final store = HoneyChainStore.instance;
-    return Column(
-      children: [
-        for (final product in products) ...[
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.card,
-              borderRadius: AppTheme.radiusCard,
-              border: Border.all(color: AppTheme.border),
-            ),
-            child: Row(
-              children: [
-                ProductQrWidget(productCode: product.productCode, size: 96),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        product.productCode,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '${product.size.label} · ${formatDate(product.createdAt)}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.inkFaint,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        store
-                            .tr('org.detail.parent.batch')
-                            .replaceFirst(
-                                '{code}',
-                                store.batchById(product.parentBatchId)?.code ??
-                                    product.parentBatchId),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.inkFaint,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-        ],
-      ],
     );
   }
 }

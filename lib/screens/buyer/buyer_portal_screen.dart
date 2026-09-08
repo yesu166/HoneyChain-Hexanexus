@@ -6,7 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
 import '../../widgets/brand_header.dart';
 import '../../widgets/status_pill.dart';
-import '../passport_screen.dart';
+import '../honey_passport_screen.dart';
 import 'buyer_allocation_screen.dart';
 
 /// Buyer Portal: For bulk buyers and cooperatives to inspect released,
@@ -45,6 +45,8 @@ class BuyerPortalScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             children: [
               BrandHeader(subtitle: store.tr('buyer.portal.subtitle')),
+              const SizedBox(height: 16),
+              _BuyerIdentityField(),
               const SizedBox(height: 16),
               if (releasedBatches.isEmpty)
                 Container(
@@ -216,7 +218,8 @@ class _BuyerBatchCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Anchored: ${anchors.first.anchorId} (DEMO)',
+                  'Anchored: ${anchors.first.anchorId}'
+                  '${anchors.first.isMock ? ' (demo integrity layer)' : ''}',
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -233,7 +236,7 @@ class _BuyerBatchCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => PassportScreen(batch: batch),
+                      builder: (_) => HoneyPassportScreen(batch: batch),
                     ),
                   ),
                   icon: const Icon(Icons.qr_code, size: 18),
@@ -262,6 +265,117 @@ class _BuyerBatchCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Lets the buyer record the organisation they purchase on behalf of. Persisted
+/// locally and used as the buyer identity for jar allocations instead of a
+/// hardcoded demo id.
+class _BuyerIdentityField extends StatefulWidget {
+  @override
+  State<_BuyerIdentityField> createState() => _BuyerIdentityFieldState();
+}
+
+class _BuyerIdentityFieldState extends State<_BuyerIdentityField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: HoneyChainStore.instance.buyerId == 'BUYER'
+          ? ''
+          : HoneyChainStore.instance.buyerId,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final store = HoneyChainStore.instance;
+    final value = _controller.text.trim();
+    if (value.isEmpty) {
+      setState(() {
+        _controller.clear();
+      });
+      return;
+    }
+    store.setBuyerId(value);
+    setState(() {
+      _controller.text = store.buyerId;
+    });
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(store.tr('buyer.identity.saved'))),
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = HoneyChainStore.instance;
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              store.tr('buyer.identity.label'),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.inkSoft,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.card,
+                borderRadius: AppTheme.radiusCard,
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      decoration: InputDecoration(
+                        hintText: store.tr('buyer.identity.hint'),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      textInputAction: TextInputAction.done,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.ink,
+                      ),
+                      onSubmitted: (_) => _save(),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _save,
+                    icon: const Icon(
+                      Icons.check_circle_outline,
+                      size: 20,
+                      color: AppTheme.orange,
+                    ),
+                    tooltip: store.tr('buyer.identity.saved'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

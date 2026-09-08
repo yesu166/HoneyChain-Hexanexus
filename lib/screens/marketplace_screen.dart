@@ -6,7 +6,7 @@ import '../theme/app_theme.dart';
 import '../widgets/brand_header.dart';
 import '../widgets/section_header.dart';
 import '../widgets/status_pill.dart';
-import 'passport_screen.dart';
+import 'honey_passport_screen.dart';
 
 class MarketplaceScreen extends StatelessWidget {
   const MarketplaceScreen({super.key});
@@ -18,7 +18,7 @@ class MarketplaceScreen extends StatelessWidget {
       listenable: store,
       builder: (context, _) {
         final listings = store.batches
-            .where((batch) => batch.status == BatchStatus.labVerified || batch.status == BatchStatus.listed)
+            .where((batch) => batch.status == BatchStatus.listed)
             .toList();
         return Scaffold(
           appBar: AppBar(title: Text(store.tr('marketplace.appbar'))),
@@ -54,7 +54,6 @@ class _ListingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = HoneyChainStore.instance;
     final listing = store.marketplaceListings.where((item) => item.batchId == batch.id).firstOrNull;
-    final isListed = listing != null;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -66,7 +65,7 @@ class _ListingCard extends StatelessWidget {
                 const Icon(Icons.hexagon_outlined, color: AppTheme.honeyDark, size: 22),
                 const SizedBox(width: 8),
                 Expanded(child: Text(batch.code, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
-                StatusPill(label: isListed ? StatusPill.listed : StatusPill.verified),
+                const StatusPill(label: StatusPill.listed),
               ],
             ),
             const SizedBox(height: 10),
@@ -80,7 +79,7 @@ class _ListingCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PassportScreen(batch: batch))),
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HoneyPassportScreen(batch: batch))),
                     icon: const Icon(Icons.qr_code),
                     label: Text(store.tr('marketplace.view.passport')),
                   ),
@@ -88,14 +87,11 @@ class _ListingCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: isListed
-                        ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => RequestPurchaseScreen(listing: listing)))
-                        : () {
-                            store.listV2Batch(batch);
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(store.tr('marketplace.listed.toast').replaceFirst('{batch}', batch.code))));
-                          },
+                    onPressed: listing == null
+                        ? null
+                        : () => Navigator.push(context, MaterialPageRoute(builder: (_) => RequestPurchaseScreen(listing: listing))),
                     icon: const Icon(Icons.shopping_cart_outlined),
-                    label: Text(isListed ? store.tr('marketplace.request.purchase') : store.tr('marketplace.list.batch')),
+                    label: Text(store.tr('marketplace.request.purchase')),
                   ),
                 ),
               ],
@@ -116,7 +112,7 @@ class RequestPurchaseScreen extends StatefulWidget {
 
 class _RequestPurchaseScreenState extends State<RequestPurchaseScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _buyer = TextEditingController(text: 'Aarav Mehta');
+  final _buyer = TextEditingController(text: HoneyChainStore.instance.buyerId);
   final _quantity = TextEditingController(text: '5');
   final _message = TextEditingController();
 

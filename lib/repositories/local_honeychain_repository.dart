@@ -5,6 +5,7 @@ import '../bee_health/models/bee_health_models.dart';
 
 abstract class HoneychainRepository {
   List<Hive> hivesForBeekeeper(String beekeeperId);
+  void addHive(Hive hive);
   List<HiveReading> readingsForHive(String hiveId);
   List<Harvest> harvestsForBeekeeper(String beekeeperId);
   List<Batch> get batches;
@@ -103,7 +104,16 @@ abstract class HoneychainRepository {
 }
 
 class LocalHoneychainRepository implements HoneychainRepository {
-  LocalHoneychainRepository() {
+  LocalHoneychainRepository({this.seedDemo = true}) {
+    if (seedDemo) _seedStartupData();
+  }
+
+  /// When true (demo / widget tests / Developer mode) the repository starts
+  /// with the deterministic demo genealogy. Production builds keep the local
+  /// store empty until real records arrive (offline-first sync pull).
+  final bool seedDemo;
+
+  void _seedStartupData() {
     _hives.addAll(DemoSeed.hives);
     _harvests.addAll(DemoSeed.harvests);
     _batches.addAll(DemoSeed.batches);
@@ -237,6 +247,9 @@ class LocalHoneychainRepository implements HoneychainRepository {
   @override
   List<Hive> hivesForBeekeeper(String beekeeperId) =>
       _hives.where((hive) => hive.beekeeperId == beekeeperId).toList();
+
+  @override
+  void addHive(Hive hive) => _hives.add(hive);
 
   @override
   List<HiveReading> readingsForHive(String hiveId) =>
@@ -610,24 +623,33 @@ class LocalHoneychainRepository implements HoneychainRepository {
 
   @override
   void reset() {
-    _hives
-      ..clear()
-      ..addAll(DemoSeed.hives);
-    _harvests
-      ..clear()
-      ..addAll(DemoSeed.harvests);
-    _batches
-      ..clear()
-      ..addAll(DemoSeed.batches);
-    _batchHarvests
-      ..clear()
-      ..addAll(DemoSeed.batchLinks);
-    _verifications
-      ..clear()
-      ..addAll(DemoSeed.verifications);
-    _alerts
-      ..clear()
-      ..addAll(DemoSeed.alerts);
+    if (seedDemo) {
+      _hives
+        ..clear()
+        ..addAll(DemoSeed.hives);
+      _harvests
+        ..clear()
+        ..addAll(DemoSeed.harvests);
+      _batches
+        ..clear()
+        ..addAll(DemoSeed.batches);
+      _batchHarvests
+        ..clear()
+        ..addAll(DemoSeed.batchLinks);
+      _verifications
+        ..clear()
+        ..addAll(DemoSeed.verifications);
+      _alerts
+        ..clear()
+        ..addAll(DemoSeed.alerts);
+    } else {
+      _hives.clear();
+      _harvests.clear();
+      _batches.clear();
+      _batchHarvests.clear();
+      _verifications.clear();
+      _alerts.clear();
+    }
     _custody.clear();
     _anchors.clear();
     _events.clear();
@@ -643,6 +665,6 @@ class LocalHoneychainRepository implements HoneychainRepository {
     _productBatches.clear();
     _packagingBatches.clear();
     _jars.clear();
-    _seedDemoProductFlow();
+    if (seedDemo) _seedDemoProductFlow();
   }
 }

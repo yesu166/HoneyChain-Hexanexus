@@ -4,7 +4,7 @@ import '../data/honeychain_store.dart';
 import '../models/domain.dart';
 import '../theme/app_theme.dart';
 import '../widgets/alert_card.dart';
-import '../widgets/sync_status_chips.dart';
+import '../widgets/sync_status_badge.dart';
 import 'hive_details_screen.dart';
 import 'honey_passport_screen.dart';
 
@@ -32,7 +32,7 @@ class AlertsTab extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              const SyncStatusChips(),
+              const SyncStatusBadge(),
               if (alerts.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 48),

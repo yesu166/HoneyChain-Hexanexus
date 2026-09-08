@@ -1,31 +1,27 @@
 import 'package:flutter/material.dart';
 
+import '../bee_health/widgets/bee_health_entry_card.dart';
 import '../data/honeychain_store.dart';
 import '../models/domain.dart';
 import '../theme/app_theme.dart';
 import '../theme/beekeeper_tokens.dart';
 import '../widgets/beekeeper_widgets.dart';
+import '../widgets/sync_status_badge.dart';
 import 'bee_alert_detail_screen.dart';
 import 'record_harvest_screen.dart';
-import 'voice_harvest_screen.dart';
 
 /// The beekeeper portal Home, matching the reference layout: header ->
 /// online/offline -> greeting -> overall hive health -> current attention ->
 /// two primary actions (My Hives / Record Harvest) -> today's weather ->
-/// voice entry. All data flows from the existing HoneyChainStore (never faked
-/// here), and every label is localized via the store.
+/// bee health entry. The "Ask HoneyChain" voice entry lives once on the
+/// bottom navigation bar (not duplicated here). All data flows from the
+/// existing HoneyChainStore (never faked here), and every label is localized
+/// via the store.
 class HomeTab extends StatelessWidget {
   const HomeTab({super.key, this.onGoToHives});
 
   /// Switches the parent shell to the Hives tab (used by the My Hives tile).
   final VoidCallback? onGoToHives;
-
-  /// Opens the existing voice harvest flow from the persistent mic FAB.
-  static void openVoice(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const VoiceHarvestScreen()),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +39,7 @@ class HomeTab extends StatelessWidget {
             children: [
               _Header(),
               const SizedBox(height: 12),
-              const BeekeeperSyncStatus(),
+              const SyncStatusBadge(),
               const SizedBox(height: 4),
               _Greeting(),
               const SizedBox(height: 14),
@@ -82,11 +78,7 @@ class HomeTab extends StatelessWidget {
               const SizedBox(height: 16),
               const BeekeeperAmbientStrip(),
               const SizedBox(height: 16),
-              BeekeeperVoiceButton(
-                title: store.tr('voice.ask'),
-                subtitle: store.tr('home.voice.sub'),
-                onTap: () => HomeTab.openVoice(context),
-              ),
+              const BeeHealthEntryCard(),
               const SizedBox(height: 12),
             ],
           ),

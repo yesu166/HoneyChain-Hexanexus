@@ -1,0 +1,1 @@
+"""FastAPI application assembly for HoneyChain HC-3.0."""

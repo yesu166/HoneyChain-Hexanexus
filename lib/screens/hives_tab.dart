@@ -5,6 +5,8 @@ import '../models/domain.dart';
 import '../theme/app_theme.dart';
 import '../theme/beekeeper_tokens.dart';
 import '../widgets/beekeeper_widgets.dart';
+import '../widgets/sync_status_badge.dart';
+import 'create_hive_screen.dart';
 import 'hive_details_screen.dart';
 
 class HivesTab extends StatefulWidget {
@@ -34,21 +36,37 @@ class _HivesTabState extends State<HivesTab> {
               vertical: BeeTokens.spaceMd,
             ),
             children: [
-              Text(
-                store.tr('my.hives.title'),
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.ink,
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      store.tr('my.hives.title'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.ink,
+                      ),
+                    ),
+                  ),
+                  _AddHiveAction(onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const CreateHiveScreen(),
+                      ),
+                    );
+                  }),
+                ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 store.tr('my.hives.subtitle').replaceFirst('{count}', '${all.length}'),
                 style: const TextStyle(color: AppTheme.inkSoft, fontSize: 14),
               ),
               const SizedBox(height: 12),
-              const BeekeeperSyncStatus(),
+              const SyncStatusBadge(),
               if (needsCare.isNotEmpty) ...[
                 Wrap(
                   spacing: 10,
@@ -93,6 +111,31 @@ class _HivesTabState extends State<HivesTab> {
                         style: const TextStyle(
                           color: AppTheme.inkSoft,
                           fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 48,
+                        child: FilledButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const CreateHiveScreen(),
+                            ),
+                          ),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppTheme.green,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 20),
+                          label: Text(
+                            store.tr('hive.list.add'),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -175,6 +218,45 @@ class _FilterChip extends StatelessWidget {
             fontSize: 13,
             fontWeight: FontWeight.w800,
             color: selected ? Colors.white : AppTheme.inkSoft,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact "Add Hive" pill shown beside the My Hives title so it stays visible
+/// without consuming vertical space ahead of the hive list.
+class _AddHiveAction extends StatelessWidget {
+  const _AddHiveAction({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = HoneyChainStore.instance;
+    return Material(
+      color: AppTheme.green.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.add_rounded, color: AppTheme.greenDark, size: 18),
+              const SizedBox(width: 4),
+              Text(
+                store.tr('hive.list.add'),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.greenDark,
+                ),
+              ),
+            ],
           ),
         ),
       ),

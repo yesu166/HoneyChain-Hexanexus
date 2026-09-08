@@ -6,6 +6,10 @@ import 'connectivity_service.dart';
 class ConnectivityServiceImpl extends ConnectivityService {
   @override
   Future<void> refresh() async {
-    setOnline(web.window.navigator.onLine);
+    setStatus(
+      web.window.navigator.onLine
+          ? ConnectivityStatus.online
+          : ConnectivityStatus.offline,
+    );
   }
 }

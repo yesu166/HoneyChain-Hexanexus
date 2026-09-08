@@ -7,7 +7,7 @@ import '../widgets/batch_card.dart';
 import '../widgets/info_tile.dart';
 import '../widgets/journey_timeline.dart';
 import '../widgets/status_pill.dart';
-import 'passport_screen.dart';
+import 'honey_passport_screen.dart';
 import 'lab_screen.dart';
 import 'marketplace_screen.dart';
 
@@ -80,7 +80,7 @@ class BatchDetailScreen extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PassportScreen(batch: batch))),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HoneyPassportScreen(batch: batch))),
               icon: const Icon(Icons.qr_code),
               label: Text(store.tr('batch.detail.view.qr')),
             ),

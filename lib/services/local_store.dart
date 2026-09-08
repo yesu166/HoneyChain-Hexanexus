@@ -19,6 +19,7 @@ class LocalStore {
   static const _kProfile = 'honey.profile';
   static const _kLanguage = 'honey.language';
   static const _kLoggedIn = 'honey.loggedIn';
+  static const _kBuyerId = 'honey.buyerId';
   static const _kHives = 'honey.hives';
   static const _kHarvests = 'honey.harvests';
   static const _kBatches = 'honey.batches';
@@ -38,6 +39,8 @@ class LocalStore {
   static const _kListings = 'honey.listings';
   static const _kRequests = 'honey.requests';
   static const _kPassports = 'honey.passports';
+  static const _kSyncAttempts = 'honey.syncAttempts';
+  static const _kSyncErrors = 'honey.syncErrors';
 
   SharedPreferences? _prefs;
 
@@ -58,6 +61,13 @@ class LocalStore {
   Future<void> saveLanguage(String code) => _set(_kLanguage, code);
 
   String? loadLanguage() => _get(_kLanguage);
+
+  /// Buyer identity (organization / member name) used when creating jar
+  /// allocations. Stored locally so purchases keep the buyer's identity
+  /// without a hardcoded demo id.
+  Future<void> saveBuyerId(String buyerId) => _set(_kBuyerId, buyerId);
+
+  String? loadBuyerId() => _get(_kBuyerId);
 
   Future<void> saveLoggedIn(bool value) => _set(_kLoggedIn, value.toString());
 
@@ -267,6 +277,31 @@ class LocalStore {
     if (raw == null) return null;
     final list = jsonDecode(raw) as List;
     return [for (final e in list) QRPassport.fromJson(e as Map<String, dynamic>)];
+  }
+
+  /// Durable sync retry bookkeeping: per-record attempt counts and last error.
+  Future<void> saveSyncAttempts(Map<String, int> attempts) =>
+      _set(_kSyncAttempts, jsonEncode(attempts));
+
+  Map<String, int> loadSyncAttempts() {
+    final raw = _get(_kSyncAttempts);
+    if (raw == null) return {};
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return {};
+    return {
+      for (final e in decoded.entries) '${e.key}': (e.value as num).toInt(),
+    };
+  }
+
+  Future<void> saveSyncErrors(Map<String, String> errors) =>
+      _set(_kSyncErrors, jsonEncode(errors));
+
+  Map<String, String> loadSyncErrors() {
+    final raw = _get(_kSyncErrors);
+    if (raw == null) return {};
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return {};
+    return {for (final e in decoded.entries) '${e.key}': '${e.value}'};
   }
 
   String? _get(String key) => _prefs?.getString(key);

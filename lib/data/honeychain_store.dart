@@ -14,7 +14,10 @@ import '../services/disease_detection_service.dart';
 import '../services/honeychain_services.dart';
 import '../services/image_input_service.dart';
 import '../services/local_store.dart';
+import '../services/sync_gateway_factory.dart';
 import '../services/sync_service.dart';
+import '../services/trace_qr_service.dart';
+import '../services/trust_service.dart';
 import '../bee_health/models/bee_health_models.dart';
 import '../bee_health/services/bee_health_knowledge.dart';
 import 'demo_seed.dart';
@@ -27,8 +30,10 @@ import 'mock_data.dart';
 /// status and the selected language.
 class HoneyChainStore extends ChangeNotifier {
   HoneyChainStore._() {
-    _repository = LocalHoneychainRepository();
-    _syncEngine = SyncEngine(MockSyncGateway());
+    // Demo genealogy is only seeded when tests / developer mode request it;
+    // production builds start blank and fill via offline-first sync pull.
+    _repository = LocalHoneychainRepository(seedDemo: HoneyChainStore.testMode);
+    _syncEngine = SyncEngine(createSyncGateway());
   }
 
   static final HoneyChainStore instance = HoneyChainStore._();
@@ -51,6 +56,7 @@ class HoneyChainStore extends ChangeNotifier {
     _repository,
   );
   late final GenealogyService genealogyService = GenealogyService(_repository);
+  late final TrustService trustService = TrustService(_repository);
   late final PassportService passportService = PassportService(_repository);
   late final MarketplaceService marketplaceService = MarketplaceService(
     _repository,
@@ -77,9 +83,19 @@ class HoneyChainStore extends ChangeNotifier {
   bool _loggedIn = false;
   String _language = 'en';
   BeekeeperProfile _profile = DemoSeed.profile;
+  String _buyerId = 'BUYER';
   ConnectivityService? _connectivity;
+  ConnectivityStatus? _forcedStatus;
   HoneyBatch _batch = MockData.demoBatch();
   Batch? _activeV2Batch;
+
+  /// True while a sync pass is in flight (drives the "Syncing…" badge).
+  bool _syncing = false;
+
+  /// Set when the last sync pass left at least one item failed.
+  String? _syncError;
+  Map<String, int> _syncAttempts = {};
+  Map<String, String> _syncErrors = {};
 
   // Organization / FPO portal (v2 demo)
   bool _fpoRole = false;
@@ -100,6 +116,8 @@ class HoneyChainStore extends ChangeNotifier {
       _loggedIn = LocalStore.instance.loadLoggedIn();
       final profile = LocalStore.instance.loadProfile();
       if (profile != null) _profile = profile;
+      final buyerId = LocalStore.instance.loadBuyerId();
+      if (buyerId != null && buyerId.trim().isNotEmpty) _buyerId = buyerId;
       _loadPersisted();
     }
 
@@ -137,6 +155,9 @@ class HoneyChainStore extends ChangeNotifier {
   @visibleForTesting
   void debugSetOnline(bool value) {
     _online = value;
+    _forcedStatus = value
+        ? ConnectivityStatus.online
+        : ConnectivityStatus.offline;
     notifyListeners();
   }
 
@@ -160,6 +181,9 @@ class HoneyChainStore extends ChangeNotifier {
     final listings = LocalStore.instance.loadListings();
     final requests = LocalStore.instance.loadRequests();
     final passports = LocalStore.instance.loadPassports();
+
+    _syncAttempts = LocalStore.instance.loadSyncAttempts();
+    _syncErrors = LocalStore.instance.loadSyncErrors();
 
     if (hives == null &&
         harvests == null &&
@@ -229,8 +253,44 @@ class HoneyChainStore extends ChangeNotifier {
   BeekeeperProfile get profile => _profile;
   bool get loggedIn => _loggedIn;
   bool get isOnline => _online;
+
+  /// Raw connectivity state reported by the reachability service. Defaults to
+  /// [ConnectivityStatus.checking] before the first probe completes.
+  ConnectivityStatus get connectivityStatus {
+    if (_forcedStatus != null) return _forcedStatus!;
+    final status = _connectivity?.status;
+    if (status != null) return status;
+    return testMode ? ConnectivityStatus.online : ConnectivityStatus.checking;
+  }
+
+  /// True while a sync pass is being processed.
+  bool get isSyncing => _syncing;
+
+  /// Whether the last sync pass left items unsynced (shown as "sync error").
+  bool get hasSyncError => _syncError != null;
+
+  String? get syncError => _syncError;
+
+  /// Best-effort attempt count for a pending/failed record id.
+  int syncAttemptsOf(String id) => _syncAttempts[id] ?? 0;
+
+  /// Total retries recorded across all currently unsynced records.
+  int get syncFailureCount =>
+      _syncAttempts.values.fold(0, (sum, attempts) => sum + attempts);
   User get currentBeekeeper => DemoSeed.ravi;
   Batch? get activeV2Batch => _activeV2Batch;
+
+  /// Current buyer identity used for jar allocations. When set by the buyer
+  /// (organization / member name) it is persisted locally; a neutral default
+  /// is used instead of a hardcoded demo id.
+  String get buyerId => _buyerId;
+
+  void setBuyerId(String value) {
+    final clean = value.trim();
+    _buyerId = clean.isEmpty ? 'BUYER' : clean.toUpperCase();
+    LocalStore.instance.saveBuyerId(_buyerId);
+    notifyListeners();
+  }
 
   // ---------------------------------------------------------------------
   // Organization / FPO portal
@@ -406,19 +466,21 @@ class HoneyChainStore extends ChangeNotifier {
 
   int get pendingCount {
     final pendingHarvests = harvests
-        .where((h) => h.syncStatus == SyncStatus.pending)
+        .where((h) => h.syncStatus != SyncStatus.synced)
         .length;
     final pendingBatches = batches
-        .where((b) => b.syncStatus == SyncStatus.pending)
+        .where((b) => b.syncStatus != SyncStatus.synced)
         .length;
     return pendingHarvests + pendingBatches;
   }
 
+  /// Records waiting for upload: [SyncStatus.pending] (new) or
+  /// [SyncStatus.failed] (retry pending). Never includes synced records.
   List<Harvest> get pendingHarvests =>
-      harvests.where((h) => h.syncStatus == SyncStatus.pending).toList();
+      harvests.where((h) => h.syncStatus != SyncStatus.synced).toList();
 
   List<Batch> get pendingBatches =>
-      batches.where((b) => b.syncStatus == SyncStatus.pending).toList();
+      batches.where((b) => b.syncStatus != SyncStatus.synced).toList();
 
   List<HiveReading> readingsForHive(String hiveId) =>
       _repository.readingsForHive(hiveId);
@@ -477,6 +539,38 @@ class HoneyChainStore extends ChangeNotifier {
       if (hive.id == id) return hive;
     }
     return null;
+  }
+
+  /// Adds a new hive to the beekeeper's apiary. The id is derived from the
+  /// current hive count so it stays unique and remains stable across resets
+  /// (never reusing the seeded hive-001..004 ids).
+  Hive addHive({
+    required String name,
+    required String location,
+    required String honeyType,
+    String detail = '',
+  }) {
+    final base = 'hive-new';
+    var n = 1;
+    var id = '$base-$n';
+    final existing = hives.map((h) => h.id).toSet();
+    while (existing.contains(id)) {
+      n += 1;
+      id = '$base-$n';
+    }
+    final hive = Hive(
+      id: id,
+      name: name.trim().isEmpty ? id : name.trim(),
+      beekeeperId: currentBeekeeper.id,
+      organizationId: currentBeekeeper.organizationId,
+      location: location.trim(),
+      honeyType: honeyType.trim().isEmpty ? 'Floral Honey' : honeyType.trim(),
+      detail: detail.trim(),
+    );
+    _repository.addHive(hive);
+    _persistHives();
+    notifyListeners();
+    return hive;
   }
 
   Batch? batchById(String id) {
@@ -1171,30 +1265,309 @@ class HoneyChainStore extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------
+  // Trust model (explicit tiers; see services/trust_service.dart)
+  // ---------------------------------------------------------------------
+
+  /// Trust snapshot for a batch, evaluated from its persisted records.
+  ///
+  /// Split children inherit the parent's verified history; a merged lot is
+  /// only as trustworthy as its weakest child. Both rules are enforced here,
+  /// never in the UI.
+  TrustState trustFor(Batch batch) {
+    final relations = _repository.relationsForBatch(batch.id);
+
+    final splitFrom = relations.where(
+      (r) => r.type == RelationType.split && r.childBatchId == batch.id,
+    );
+    if (splitFrom.isNotEmpty) {
+      final parent = batchById(splitFrom.first.parentBatchId);
+      if (parent != null) return trustService.inheritOnSplit(parent);
+    }
+
+    final aggregatedFrom = relations.where(
+      (r) => r.type == RelationType.aggregate && r.parentBatchId == batch.id,
+    );
+    if (aggregatedFrom.isNotEmpty) {
+      final children = <Batch>[
+        for (final r in aggregatedFrom) ?batchById(r.childBatchId),
+      ];
+      if (children.isNotEmpty) {
+        final base = trustService.evaluate(batch);
+        final childStates = [for (final c in children) trustService.evaluate(c)];
+        final caveats = <String>[
+          ...base.caveats,
+          'Merged from ${children.length} lots; trust is the weakest child.',
+        ];
+        if (childStates.any((s) => s.isPrototypeAnchor)) {
+          caveats.insert(
+            0,
+            'Integrity anchoring is on prototype mock infrastructure - not a '
+            'production blockchain. Shown for demonstration only.',
+          );
+        }
+        return TrustState(
+          tier: trustService.mergeTier(children),
+          claims: base.claims,
+          caveats: caveats,
+          passCount: childStates.fold(0, (sum, s) => sum + s.passCount),
+          failCount: childStates.fold(0, (sum, s) => sum + s.failCount),
+          custodyCount: childStates.fold(0, (sum, s) => sum + s.custodyCount),
+          anchorCount: childStates.fold(0, (sum, s) => sum + s.anchorCount),
+          isPrototypeAnchor: childStates.any((s) => s.isPrototypeAnchor),
+        );
+      }
+    }
+
+    return trustService.evaluate(batch);
+  }
+
+  /// Splits a batch into sub-batches (service-enforced quantity guards).
+  List<Batch> splitBatchInto(Batch parent, List<double> parts) {
+    final children = batchService.splitBatch(parent, parts);
+    _persistBatches();
+    _persistRelations();
+    notifyListeners();
+    return children;
+  }
+
+  /// Merges lots into one new batch; trust = weakest child's tier.
+  Batch mergeBatchesFrom(List<Batch> children) {
+    final merged = batchService.mergeBatches(children);
+    _activeV2Batch = merged.copyWith(syncStatus: SyncStatus.synced);
+    _repository.updateBatch(_activeV2Batch!);
+    _persistBatches();
+    _persistRelations();
+    notifyListeners();
+    return _activeV2Batch!;
+  }
+
+  /// Appends a correction without rewriting the audit trail.
+  Batch correctBatch(
+    Batch batch, {
+    required String description,
+    String? origin,
+    String? honeyType,
+    double? quantityKg,
+  }) {
+    final updated = batchService.recordCorrection(
+      batch,
+      description: description,
+      origin: origin,
+      honeyType: honeyType,
+      quantityKg: quantityKg,
+    );
+    _persistBatches();
+    notifyListeners();
+    return updated;
+  }
+
+  /// Resolves any scanned or typed string to a batch / product / jar.
+  ScanResolution resolveScan(String raw) {
+    final payload = TraceQrService.parse(raw);
+    if (payload != null) {
+      if (payload.isJar) {
+        final jar = _repository.jarById(payload.code);
+        if (jar == null) {
+          return const ScanResolutionUnknown(
+            'This jar code is not in the local registry yet.',
+          );
+        }
+        return ScanResolutionJar(jar);
+      }
+      if (payload.isTrace) {
+        final product = productByCode(payload.code);
+        if (product != null) return ScanResolutionProduct(product);
+        final batch = batchByCode(payload.code);
+        if (batch != null) return ScanResolutionBatch(batch);
+        final viaPassport = batchForPassport(payload.code.toLowerCase());
+        if (viaPassport != null) return ScanResolutionBatch(viaPassport);
+        return const ScanResolutionUnknown(
+          'This product code is not in the local registry yet.',
+        );
+      }
+      return const ScanResolutionUnknown('Unsupported QR type.');
+    }
+
+    // Bare codes typed by hand (products, jars or batch codes).
+    final upper = raw.trim().toUpperCase();
+    if (upper.isNotEmpty) {
+      final product = productByCode(upper);
+      if (product != null) return ScanResolutionProduct(product);
+      final jar = _repository.jarById(upper);
+      if (jar != null) return ScanResolutionJar(jar);
+      final batch = batchByCode(upper);
+      if (batch != null) return ScanResolutionBatch(batch);
+    }
+    return const ScanResolutionUnknown(
+      'No matching product, jar or batch was found.',
+    );
+  }
+
+  /// The recorded journey of a batch, derived strictly from persisted
+  /// audit / custody / lab / processing / anchor / relation records.
+  List<BatchEvent> journeyFor(Batch batch) {
+    final out = <BatchEvent>[];
+    void add(
+      BatchEventType type,
+      String label,
+      String actor,
+      DateTime at,
+      String description, [
+      String? relatedCode,
+    ]) {
+      out.add(BatchEvent(
+        type: type,
+        label: label,
+        actor: actor,
+        at: at,
+        description: description,
+        relatedBatchCode: relatedCode,
+      ));
+    }
+
+    for (final audit in eventsFor(batch)) {
+      final type = switch (audit.type) {
+        'CREATED' => BatchEventType.registered,
+        'COLLECTED' => BatchEventType.collected,
+        'LAB_PASS' => BatchEventType.labPass,
+        'LAB_FAIL' => BatchEventType.labFail,
+        'PROCESSING' => BatchEventType.processing,
+        'ANCHORED' || 'PACKAGING_ANCHORED' => BatchEventType.anchored,
+        'CORRECTION' => BatchEventType.corrected,
+        'SPLIT_FROM' => BatchEventType.splitFrom,
+        'AGGREGATED_FROM' => BatchEventType.aggregatedFrom,
+        _ => BatchEventType.registered,
+      };
+      add(
+        type,
+        audit.type.replaceAll('_', ' ').toLowerCase(),
+        audit.actor,
+        audit.recordedAt,
+        audit.description,
+      );
+    }
+    for (final custody in custodyFor(batch)) {
+      if (out.any((e) => e.at == custody.recordedAt)) continue;
+      add(
+        BatchEventType.collected,
+        'custody',
+        custody.toOrganizationId,
+        custody.recordedAt,
+        custody.note,
+      );
+    }
+    for (final processing in processingFor(batch)) {
+      add(
+        BatchEventType.processing,
+        'processing',
+        processing.unit,
+        processing.date,
+        'Processing recorded at ${processing.unit}.',
+      );
+    }
+    for (final relation in _repository.relationsForBatch(batch.id)) {
+      if (relation.parentBatchId == batch.id) {
+        final child = batchById(relation.childBatchId);
+        add(
+          BatchEventType.aggregatedFrom,
+          'merging',
+          'Organization / FPO',
+          relation.createdAt,
+          'Aggregated ${child?.code ?? relation.childBatchId} into this batch.',
+          child?.code,
+        );
+      } else if (relation.childBatchId == batch.id) {
+        final parent = batchById(relation.parentBatchId);
+        add(
+          BatchEventType.splitFrom,
+          'split',
+          'Organization / FPO',
+          relation.createdAt,
+          'This batch was split from ${parent?.code ?? relation.parentBatchId}.',
+          parent?.code,
+        );
+      }
+    }
+
+    out.sort((a, b) => a.at.compareTo(b.at));
+    return out;
+  }
+
+  // ---------------------------------------------------------------------
   // Sync
   // ---------------------------------------------------------------------
 
+  /// Drains every unsynced record (pending or failed) through the sync engine.
+  ///
+  /// Marks each item [SyncStatus.synced] on success and [SyncStatus.failed]
+  /// (with an incremented attempt count + error) on failure, so the durable
+  /// queue state survives restarts. Safe to call repeatedly: failures retry on
+  /// the next pass with backoff through the per-item attempt counter.
   Future<bool> _syncPendingRecords() async {
     final queueHarvests = harvests
-        .where((h) => h.syncStatus == SyncStatus.pending)
+        .where((h) => h.syncStatus != SyncStatus.synced)
         .toList();
     final queueBatches = batches
-        .where((b) => b.syncStatus == SyncStatus.pending)
+        .where((b) => b.syncStatus != SyncStatus.synced)
         .toList();
     if (queueHarvests.isEmpty && queueBatches.isEmpty) return false;
 
-    await _syncEngine.process(
-      pendingHarvests: queueHarvests,
-      pendingBatches: queueBatches,
-      onHarvestSynced: (h) =>
-          _repository.updateHarvest(h.copyWith(syncStatus: SyncStatus.synced)),
-      onBatchSynced: (b) =>
-          _repository.updateBatch(b.copyWith(syncStatus: SyncStatus.synced)),
-    );
+    _syncing = true;
+    var anyFailed = false;
+    try {
+      await _syncEngine.process(
+        pendingHarvests: queueHarvests,
+        pendingBatches: queueBatches,
+        onHarvestSynced: (h) {
+          _syncAttempts.remove(h.id);
+          _syncErrors.remove(h.id);
+          _repository.updateHarvest(h.copyWith(syncStatus: SyncStatus.synced));
+        },
+        onBatchSynced: (b) {
+          _syncAttempts.remove(b.id);
+          _syncErrors.remove(b.id);
+          _repository.updateBatch(b.copyWith(syncStatus: SyncStatus.synced));
+        },
+        onHarvestFailed: (h) {
+          anyFailed = true;
+          _syncAttempts[h.id] = (_syncAttempts[h.id] ?? 0) + 1;
+          _syncErrors[h.id] = _syncEngine.lastError ?? 'sync.rejected';
+          _repository.updateHarvest(h.copyWith(syncStatus: SyncStatus.failed));
+        },
+        onBatchFailed: (b) {
+          anyFailed = true;
+          _syncAttempts[b.id] = (_syncAttempts[b.id] ?? 0) + 1;
+          _syncErrors[b.id] = _syncEngine.lastError ?? 'sync.rejected';
+          _repository.updateBatch(b.copyWith(syncStatus: SyncStatus.failed));
+        },
+      );
+    } finally {
+      _syncing = false;
+    }
+
+    _syncError = anyFailed ? (_syncErrors.values.isEmpty ? null : _syncErrors.values.last) : null;
+    await _persistSyncState();
     _persistHarvests();
     _persistBatches();
     notifyListeners();
     return true;
+  }
+
+  /// Public entry point for a manual/forced sync (dev controls, resume).
+  Future<bool> syncPendingNow() => _syncPendingRecords();
+
+  /// Drops recorded sync failures and attempt counters (dev controls).
+  void clearSyncErrors() {
+    _syncError = null;
+    _syncErrors = {};
+    _syncAttempts = {};
+    _persistSyncState();
+    notifyListeners();
+  }
+
+  Future<void> _persistSyncState() async {
+    await LocalStore.instance.saveSyncAttempts(_syncAttempts);
+    await LocalStore.instance.saveSyncErrors(_syncErrors);
   }
 
   // ---------------------------------------------------------------------

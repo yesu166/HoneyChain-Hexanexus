@@ -1,0 +1,8 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+pydantic[email]
+email-validator>=2.0
+supabase>=2.4
+PyJWT>=2.8
+python-dotenv>=1.0

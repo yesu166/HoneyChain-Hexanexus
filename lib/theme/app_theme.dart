@@ -35,6 +35,7 @@ class AppTheme {
   static const Color honeyDark = Color(0xFFB97B1B);
   static const Color teal = Color(0xFF00897B);
   static const Color blue = Color(0xFF1565C0);
+  static const Color purple = Color(0xFF5E35B1);
   static const Color grey = Color(0xFF757575);
 
   static const Color border = Color(0x1F000000);

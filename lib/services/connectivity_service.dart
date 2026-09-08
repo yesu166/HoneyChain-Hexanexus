@@ -1,18 +1,31 @@
 import 'package:flutter/foundation.dart';
 
-/// Reports whether the device currently has network connectivity.
+/// Reachability state of the app's backend, combining device network presence
+/// and Supabase reachability.
 ///
-/// Kept as a small abstraction so a real provider (e.g. connectivity_plus or
-/// a backend heartbeat) can be swapped in later without touching the UI.
-abstract class ConnectivityService extends ChangeNotifier {
-  bool _online = true;
+/// * [checking] — a probe is in flight or startup has not completed.
+/// * [online] — device has a network and the Supabase backend answered.
+/// * [offline] — the device has no active network connection.
+/// * [serviceError] — the device has network, but Supabase did not answer
+///   (backend down, blocked, or a TLS/DNS failure). Kept distinct from
+///   [offline] so the UI can explain the two cases differently.
+enum ConnectivityStatus { checking, online, offline, serviceError }
 
-  bool get isOnline => _online;
+/// Reports whether the device currently reaches HoneyChain's backend.
+///
+/// [isOnline] is a thin alias so existing "online/offline" consumers keep
+/// working; UI that needs the exact state uses [status].
+abstract class ConnectivityService extends ChangeNotifier {
+  ConnectivityStatus _status = ConnectivityStatus.checking;
+
+  ConnectivityStatus get status => _status;
+
+  bool get isOnline => _status == ConnectivityStatus.online;
 
   @protected
-  void setOnline(bool value) {
-    if (_online != value) {
-      _online = value;
+  void setStatus(ConnectivityStatus value) {
+    if (_status != value) {
+      _status = value;
       notifyListeners();
     }
   }

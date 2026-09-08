@@ -1,0 +1,12 @@
+{
+  "name": "honeychain-migration-runner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Applies the versioned SQL migrations under supabase/migrations to the HoneyChain Supabase project.",
+  "scripts": {
+    "apply": "node apply_migrations.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  }
+}

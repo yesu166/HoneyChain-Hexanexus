@@ -4,10 +4,10 @@ import '../../data/honeychain_store.dart';
 import '../../models/domain.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
-import '../../widgets/product_qr.dart';
 
-/// All packaged product batches for the active organization, with their
-/// consumer QR codes (which open the Honey Passport when tapped).
+/// Packaged product data for the active organization. The product itself
+/// (honey jar, candle, soap, ...) carries an on-demand jar QR — product codes
+/// are records, not trace handles.
 class OrgProductsScreen extends StatelessWidget {
   const OrgProductsScreen({super.key});
 
@@ -155,12 +155,24 @@ class _ProductCard extends StatelessWidget {
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ProductQrWidget(productCode: product.productCode, size: 108),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: AppTheme.orangeSoft,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.local_florist_outlined,
+              color: AppTheme.orangeDark,
+              size: 22,
+            ),
+          ),
           const SizedBox(height: 10),
           Text(
             product.productCode,
-            textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
@@ -170,18 +182,21 @@ class _ProductCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             '${product.size.label} · ${formatDate(product.createdAt)}',
-            textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 11, color: AppTheme.inkFaint),
           ),
           const SizedBox(height: 2),
           Text(
             parent?.code ?? '',
-            textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: AppTheme.orangeDark,
             ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            store.tr('org.products.qr.on.jar'),
+            style: const TextStyle(fontSize: 11, color: AppTheme.inkFaint),
           ),
         ],
       ),

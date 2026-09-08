@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/demo_seed.dart';
 import '../data/honeychain_store.dart';
 import '../models/domain.dart';
 
@@ -12,12 +11,12 @@ class CreateBatchScreen extends StatefulWidget {
 
 class _CreateBatchScreenState extends State<CreateBatchScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _honey = TextEditingController(text: 'Multifloral Honey');
-  final _quantity = TextEditingController(text: '12');
-  final _location = TextEditingController(text: 'Kotagiri, Tamil Nadu');
+  final _honey = TextEditingController();
+  final _quantity = TextEditingController();
+  final _location = TextEditingController();
   final Set<String> _selectedHives = {};
-  final _beekeeper = TextEditingController(text: 'Ravi Kumar');
-  DateTime _harvestDate = DemoSeed.now;
+  final _beekeeper = TextEditingController();
+  DateTime _harvestDate = DateTime.now();
 
   @override
   void dispose() {

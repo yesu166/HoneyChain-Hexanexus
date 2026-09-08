@@ -35,34 +35,69 @@ class MockSyncGateway implements SyncGateway {
   }
 }
 
-/// Drains the local pending queue whenever connectivity returns.
+/// Drains the local pending queue whenever connectivity allows.
+///
+/// Pushes records in dependency order (harvests before batches), retries each
+/// item up to [maxAttempts] times within a pass, and reports per-item
+/// success/failure through callbacks so the store can persist a durable queue
+/// state.
 class SyncEngine {
   SyncEngine(this.gateway);
 
   final SyncGateway gateway;
   bool _syncing = false;
+  String? _lastError;
 
   bool get isSyncing => _syncing;
+
+  /// Message from the most recent failed push, if any.
+  String? get lastError => _lastError;
 
   Future<void> process({
     required List<Harvest> pendingHarvests,
     required List<Batch> pendingBatches,
     required void Function(Harvest harvest) onHarvestSynced,
+    required void Function(Harvest harvest) onHarvestFailed,
     required void Function(Batch batch) onBatchSynced,
+    required void Function(Batch batch) onBatchFailed,
+    int maxAttempts = 3,
   }) async {
     if (_syncing) return;
     _syncing = true;
+    _lastError = null;
     try {
       for (final harvest in pendingHarvests) {
-        final result = await gateway.pushHarvest(harvest);
-        if (result.success) onHarvestSynced(harvest);
+        if (await _push(next: () => gateway.pushHarvest(harvest), maxAttempts: maxAttempts)) {
+          onHarvestSynced(harvest);
+        } else {
+          onHarvestFailed(harvest);
+        }
       }
       for (final batch in pendingBatches) {
-        final result = await gateway.pushBatch(batch);
-        if (result.success) onBatchSynced(batch);
+        if (await _push(next: () => gateway.pushBatch(batch), maxAttempts: maxAttempts)) {
+          onBatchSynced(batch);
+        } else {
+          onBatchFailed(batch);
+        }
       }
     } finally {
       _syncing = false;
     }
+  }
+
+  Future<bool> _push({
+    required Future<SyncResult> Function() next,
+    required int maxAttempts,
+  }) async {
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        final result = await next();
+        if (result.success) return true;
+        _lastError = 'sync.rejected';
+      } catch (e) {
+        _lastError = '$e';
+      }
+    }
+    return false;
   }
 }

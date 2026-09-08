@@ -109,6 +109,154 @@ class BatchService {
   }
 
   Batch updateStatus(Batch batch, BatchStatus status) { final updated = batch.copyWith(status: status); repository.updateBatch(updated); return updated; }
+
+  /// Physically splits one batch into several sub-batches.
+  ///
+  /// Every child gets its own code, a [RelationType.split] relation to the
+  /// parent and a SPLIT_FROM audit event, so the genealogy stays truthful.
+  /// The parent batch is left untouched (a split creates, never rewrites).
+  ///
+  /// Guards: parts must sum to the parent quantity, otherwise the service
+  /// throws instead of silently producing inconsistent custody.
+  List<Batch> splitBatch(Batch parent, List<double> parts) {
+    if (parts.isEmpty) {
+      throw ArgumentError('At least one part is required to split a batch.');
+    }
+    final total = parts.fold<double>(0, (sum, p) => sum + p);
+    if ((total - parent.quantityKg).abs() > 0.001) {
+      throw ArgumentError(
+        'Split parts must sum to the parent quantity '
+        '(${parent.quantityKg.toStringAsFixed(1)} kg), got $total.',
+      );
+    }
+
+    final children = <Batch>[];
+    for (var i = 0; i < parts.length; i++) {
+      final sequence =
+          (repository.batches.length + 127).toString().padLeft(5, '0');
+      final now = DateTime.now();
+      final child = Batch(
+        id: 'batch-$sequence',
+        code: 'HC-TN-$sequence',
+        organizationId: parent.organizationId,
+        honeyType: parent.honeyType,
+        origin: parent.origin,
+        quantityKg: parts[i],
+        createdAt: now,
+        status: parent.status,
+        syncStatus: SyncStatus.synced,
+        displayStatus: parent.displayStatus,
+      );
+      repository.addBatch(child, const []);
+      repository.addRelation(BatchRelation(
+        id: 'rel-$sequence-${now.microsecondsSinceEpoch}',
+        parentBatchId: parent.id,
+        childBatchId: child.id,
+        type: RelationType.split,
+        createdAt: now,
+      ));
+      repository.addEvent(AuditEvent(
+        id: 'event-$sequence-${now.microsecondsSinceEpoch}-split',
+        batchId: child.id,
+        type: 'SPLIT_FROM',
+        actor: 'Organization / FPO',
+        recordedAt: now,
+        description:
+            'Split from ${parent.code} (${parts[i].toStringAsFixed(1)} kg).',
+      ));
+      children.add(child);
+    }
+    return children;
+  }
+
+  /// Merges several lots into one new consolidated batch.
+  ///
+  /// The merged batch aggregates the children's harvest links and records an
+  /// [RelationType.aggregate] relation per child (genealogy preserved). Trust
+  /// of the merged result equals the weakest child's tier; callers must route
+  /// that decision through [TrustService.mergeTier] and not guess it here.
+  Batch mergeBatches(List<Batch> children) {
+    if (children.isEmpty) {
+      throw ArgumentError('At least one batch is required to merge.');
+    }
+    final first = children.first;
+    final total =
+        children.fold<double>(0, (sum, c) => sum + c.quantityKg);
+    final sequence =
+        (repository.batches.length + 127).toString().padLeft(5, '0');
+    final now = DateTime.now();
+    final homogeneousStatus = children.every(
+          (c) => c.status == first.status,
+        );
+    final merged = Batch(
+      id: 'batch-$sequence',
+      code: 'HC-TN-$sequence',
+      organizationId: first.organizationId,
+      honeyType: first.honeyType,
+      origin: first.origin,
+      quantityKg: total,
+      createdAt: now,
+      status: homogeneousStatus ? first.status : BatchStatus.processing,
+      syncStatus: SyncStatus.synced,
+    );
+
+    final links = <BatchHarvest>[];
+    for (final child in children) {
+      links.addAll(repository.harvestsForBatch(child.id));
+      repository.addRelation(BatchRelation(
+        id: 'rel-$sequence-${child.id}',
+        parentBatchId: merged.id,
+        childBatchId: child.id,
+        type: RelationType.aggregate,
+        createdAt: now,
+      ));
+      repository.addEvent(AuditEvent(
+        id: 'event-$sequence-${child.code}-aggregate',
+        batchId: merged.id,
+        type: 'AGGREGATED_FROM',
+        actor: 'Organization / FPO',
+        recordedAt: now,
+        description:
+            'Aggregated from ${child.code} (${child.quantityKg.toStringAsFixed(1)} kg).',
+      ));
+    }
+    repository.addBatch(merged, links);
+    return merged;
+  }
+
+  /// Records a correction against a batch WITHOUT rewriting its history.
+  ///
+  /// A CORRECTION audit event is always appended. Optional mutable fields
+  /// (origin / honeyType / quantityKg) are updated on the batch itself; every
+  /// earlier record keeps its original value so the audit trail stays intact.
+  Batch recordCorrection(
+    Batch batch, {
+    required String description,
+    String? actor,
+    String? origin,
+    String? honeyType,
+    double? quantityKg,
+  }) {
+    final now = DateTime.now();
+    repository.addEvent(AuditEvent(
+      id: 'event-${batch.id}-correction-${now.microsecondsSinceEpoch}',
+      batchId: batch.id,
+      type: 'CORRECTION',
+      actor: actor ?? 'Organization / FPO',
+      recordedAt: now,
+      description: description,
+    ));
+    if (origin == null && honeyType == null && quantityKg == null) {
+      return batch;
+    }
+    final updated = batch.copyWith(
+      origin: origin,
+      honeyType: honeyType,
+      quantityKg: quantityKg,
+    );
+    repository.updateBatch(updated);
+    return updated;
+  }
 }
 
 class VerificationService {

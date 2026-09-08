@@ -17,10 +17,49 @@ enum BatchStatus {
 
 enum VerificationStatus { pending, pass, fail, needsFurtherTesting }
 
+/// How much of a batch's history has been independently verified.
+///
+/// A beekeeper's own records are [selfDeclared]; custody events, laboratory
+/// testing and integrity anchors raise the tier. The tier is a statement of
+/// *which proof exists*, never a certificate of purity or quality.
+enum TrustTier {
+  selfDeclared,
+  organizationVerified,
+  labVerified,
+  blockchainAnchored,
+}
+
+extension TrustTierX on TrustTier {
+  /// Higher rank = more independent proof. Used to enforce weakest-link
+  /// merges and split inheritance.
+  int get rank => index + 1;
+
+  String get label => switch (this) {
+        TrustTier.selfDeclared => 'Beekeeper reported',
+        TrustTier.organizationVerified => 'Organization verified',
+        TrustTier.labVerified => 'Lab verified',
+        TrustTier.blockchainAnchored => 'Integrity anchored',
+      };
+
+  String get who => switch (this) {
+        TrustTier.selfDeclared => 'Beekeeper',
+        TrustTier.organizationVerified => 'Organization / FPO',
+        TrustTier.labVerified => 'Independent laboratory',
+        TrustTier.blockchainAnchored => 'Integrity layer',
+      };
+}
+
 enum RelationType { aggregate, split }
 
-/// Whether a locally created record has been synchronized to the backend.
-enum SyncStatus { synced, pending }
+/// Whether a locally created record was synchronized to the backend.
+enum SyncStatus { synced, pending, failed }
+
+/// Parses a persisted [SyncStatus] name, falling back to [SyncStatus.synced].
+SyncStatus parseSyncStatus(String? name) => switch (name) {
+      'pending' => SyncStatus.pending,
+      'failed' => SyncStatus.failed,
+      _ => SyncStatus.synced,
+    };
 
 /// Optional display state of a honey batch from the beekeeper's perspective.
 /// Kept as a plain string so it can be extended without enum migration.
@@ -358,9 +397,7 @@ class Harvest {
             DateTime.now(),
         honeyType: json['honeyType'] as String? ?? '',
         quantityKg: (json['quantityKg'] as num? ?? 0).toDouble(),
-        syncStatus: json['syncStatus'] == 'pending'
-            ? SyncStatus.pending
-            : SyncStatus.synced,
+        syncStatus: parseSyncStatus(json['syncStatus'] as String?),
         status: json['status'] == 'collected'
             ? HarvestStatus.collected
             : HarvestStatus.pending,
@@ -400,12 +437,14 @@ class Batch {
     double? quantityKg,
     SyncStatus? syncStatus,
     BatchDisplayStatus? displayStatus,
+    String? origin,
+    String? honeyType,
   }) => Batch(
     id: id,
     code: code,
     organizationId: organizationId,
-    honeyType: honeyType,
-    origin: origin,
+    honeyType: honeyType ?? this.honeyType,
+    origin: origin ?? this.origin,
     quantityKg: quantityKg ?? this.quantityKg,
     createdAt: createdAt,
     status: status ?? this.status,
@@ -438,7 +477,7 @@ class Batch {
           (s) => s.name == json['status'],
           orElse: () => BatchStatus.created,
         ),
-        syncStatus: json['syncStatus'] == 'pending' ? SyncStatus.pending : SyncStatus.synced,
+        syncStatus: parseSyncStatus(json['syncStatus'] as String?),
         displayStatus: json['displayStatus'] == null
             ? null
             : BatchDisplayStatus.values.firstWhere(
@@ -573,6 +612,69 @@ class ProductBatch {
 }
 
 enum PackagingStatus { packaged }
+
+/// Snapshot of what is (and is not) proven about a batch.
+class TrustState {
+  const TrustState({
+    required this.tier,
+    required this.claims,
+    this.caveats = const [],
+    this.passCount = 0,
+    this.failCount = 0,
+    this.custodyCount = 0,
+    this.anchorCount = 0,
+    this.isPrototypeAnchor = false,
+  });
+
+  final TrustTier tier;
+
+  /// Positive statements backed by actual records in the store.
+  final List<String> claims;
+
+  /// Honest limits of the current evidence ("does NOT prove ...").
+  final List<String> caveats;
+
+  final int passCount;
+  final int failCount;
+  final int custodyCount;
+  final int anchorCount;
+
+  /// True when the only anchor present sits on prototype (mock)
+  /// infrastructure, so consumers must be told anchoring is not live.
+  final bool isPrototypeAnchor;
+}
+
+/// Stages of a batch's recorded journey, rendered from persisted audit /
+/// custody / lab / anchor / relation records (never fabricated).
+enum BatchEventType {
+  registered,
+  collected,
+  labPass,
+  labFail,
+  processing,
+  anchored,
+  corrected,
+  splitFrom,
+  aggregatedFrom,
+  packaged,
+}
+
+class BatchEvent {
+  const BatchEvent({
+    required this.type,
+    required this.label,
+    required this.actor,
+    required this.at,
+    required this.description,
+    this.relatedBatchCode,
+  });
+  final BatchEventType type;
+  final String label;
+  final String actor;
+  final DateTime at;
+  final String description;
+  final String? relatedBatchCode;
+}
 
 class EvidenceFile {
   const EvidenceFile({required this.id, required this.name, required this.mimeType, required this.uploadedAt});

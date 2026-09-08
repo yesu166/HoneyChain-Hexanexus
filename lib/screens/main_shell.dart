@@ -62,7 +62,7 @@ class _MainShellState extends State<MainShell> {
             NavigationDestination(
               icon: Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: AppTheme.orangeSoft,
                   borderRadius: BorderRadius.circular(12),
@@ -88,7 +88,7 @@ class _MainShellState extends State<MainShell> {
               ),
               selectedIcon: Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: AppTheme.orange,
                   borderRadius: BorderRadius.circular(12),

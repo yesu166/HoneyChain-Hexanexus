@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
+import 'core/supabase/supabase_client.dart';
 import 'data/honeychain_store.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/who_are_you_screen.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await HoneySupabase.ensureInitialized();
   runApp(const HoneyChainApp());
 }
 

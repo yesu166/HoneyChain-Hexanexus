@@ -1,0 +1,1 @@
+"""HoneyChain backend — core package."""

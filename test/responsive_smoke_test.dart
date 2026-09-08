@@ -32,7 +32,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Home: sync status, alert section and the two primary actions.
-      expect(find.text('Online · Auto-synced'), findsOneWidget);
+      expect(find.text('Online'), findsOneWidget);
       expect(find.text('3 hives need attention'), findsOneWidget);
       expect(find.text("Add today's harvest"), findsOneWidget);
 

@@ -107,7 +107,7 @@ void main() {
 
     // Home dashboard shows the online status, overall health, and the harvest
     // action (attention count driven by the demo hive readings).
-    await see(tester, 'Online · Auto-synced');
+    await see(tester, 'Online');
     await see(tester, '3 hives need attention');
     await see(tester, "Add today's harvest");
   });

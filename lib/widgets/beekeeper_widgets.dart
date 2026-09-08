@@ -978,66 +978,6 @@ class BeekeeperListenButton extends StatelessWidget {
 }
 
 // ----------------------------------------------------------------------------
-// Sync status
-// ----------------------------------------------------------------------------
-
-/// Persistent connectivity + sync status banner. Plain language for the
-/// beekeeper; automatic sync is handled by the store (there is never a manual
-/// "tap to sync" button or technical details).
-class BeekeeperSyncStatus extends StatelessWidget {
-  const BeekeeperSyncStatus({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final store = HoneyChainStore.instance;
-    return ListenableBuilder(
-      listenable: store,
-      builder: (context, _) {
-        final online = store.isOnline;
-        final pending = store.pendingCount;
-        final (icon, color, label) = online
-            ? (Icons.wifi_rounded, BeeTokens.colorHealthy,
-                store.tr('home.online.synced'))
-            : (Icons.wifi_off_rounded, BeeTokens.colorAttention,
-                store.tr('home.offline.synclater'));
-        final subtitle = pending > 0
-            ? '${store.tr('status.sync.pending')} (${store.pendingCount})'
-            : null;
-        return Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(bottom: BeeTokens.spaceMd),
-          padding: const EdgeInsets.symmetric(
-            horizontal: BeeTokens.spaceMd,
-            vertical: BeeTokens.spaceSm,
-          ),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(BeeTokens.radiusMd),
-            border: Border.all(color: color.withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, size: 16, color: color),
-              const SizedBox(width: BeeTokens.spaceSm),
-              Expanded(
-                child: Text(
-                  subtitle != null ? '$label · $subtitle' : label,
-                  style: TextStyle(
-                    fontSize: BeeTokens.typeCaption,
-                    fontWeight: FontWeight.w700,
-                    color: color,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ----------------------------------------------------------------------------
 // Headings
 // ----------------------------------------------------------------------------
 

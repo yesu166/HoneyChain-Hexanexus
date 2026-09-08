@@ -336,7 +336,7 @@ class _BuyerAllocationScreenState extends State<BuyerAllocationScreen> {
       batch: widget.batch,
       allocatedKg: _allocateKg,
       jarSizeGrams: _selectedJarSizeGrams,
-      buyerId: 'BUYER-DEMO-001',
+      buyerId: store.buyerId,
     );
 
     if (!context.mounted) return;

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/honeychain_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/batch_tile.dart';
-import '../widgets/sync_status_chips.dart';
+import '../widgets/sync_status_badge.dart';
 import 'honey_passport_screen.dart';
 
 class HoneyTab extends StatelessWidget {
@@ -35,7 +35,7 @@ class HoneyTab extends StatelessWidget {
                 style: const TextStyle(color: AppTheme.inkSoft, fontSize: 14),
               ),
               const SizedBox(height: 12),
-              const SyncStatusChips(),
+              const SyncStatusBadge(),
               if (batches.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 40),

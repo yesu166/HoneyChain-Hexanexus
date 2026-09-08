@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/honeychain_store.dart';
 import '../models/domain.dart';
 import '../widgets/status_badge.dart';
-import 'passport_screen.dart';
+import 'honey_passport_screen.dart';
 import 'regulator_screen.dart';
 
 class BlockchainScreen extends StatefulWidget {
@@ -109,7 +109,7 @@ class _BlockchainScreenState extends State<BlockchainScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => PassportScreen(batch: batch),
+                            builder: (_) => HoneyPassportScreen(batch: batch),
                           ),
                         );
                       },

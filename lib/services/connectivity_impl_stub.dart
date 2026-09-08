@@ -3,5 +3,6 @@ import 'connectivity_service.dart';
 /// Fallback used on platforms without a dedicated implementation.
 class ConnectivityServiceImpl extends ConnectivityService {
   @override
-  Future<void> refresh() async => setOnline(true);
+  Future<void> refresh() async =>
+      setStatus(ConnectivityStatus.checking);
 }

@@ -17,6 +17,7 @@ migrate_working_dir/
 *.ipr
 *.iws
 .idea/
+android/.kotlin/
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
@@ -50,3 +51,11 @@ app.*.map.json
 # Local tooling artifacts & build outputs (not app source)
 /graphify-out/
 /HoneyChain-Demo-Web.zip
+
+# Secrets / environment (never commit real values)
+.env
+.env.local
+*.env.local
+
+# Local migration runner tooling (never commit node_modules)
+node_modules/
