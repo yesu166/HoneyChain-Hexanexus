@@ -217,13 +217,17 @@ class _BuyerBatchCard extends StatelessWidget {
                   color: AppTheme.greenDark,
                 ),
                 const SizedBox(width: 4),
-                Text(
-                  'Anchored: ${anchors.first.anchorId}'
-                  '${anchors.first.isMock ? ' (demo integrity layer)' : ''}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.greenDark,
+                Expanded(
+                  child: Text(
+                    'Anchored: ${anchors.first.anchorId}'
+                    '${anchors.first.isMock ? ' (demo integrity layer)' : ''}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.greenDark,
+                    ),
                   ),
                 ),
               ],
