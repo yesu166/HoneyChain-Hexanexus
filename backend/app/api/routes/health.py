@@ -29,3 +29,33 @@ async def health(request: Request) -> dict[str, Any]:
         "version": settings.api_version,
         "dependencies": {"database": db_ok},
     }
+
+
+@router.get("/health/live")
+async def health_live() -> dict[str, Any]:
+    """Liveness: the process is up and serving requests."""
+    return {"status": "ok", "service": "honeychain-api", "check": "live"}
+
+
+@router.get("/health/ready")
+async def health_ready(request: Request) -> dict[str, Any]:
+    """Readiness: dependencies are reachable enough to serve traffic.
+
+    Reports each dependency honestly — a dependency that is not configured
+    (e.g. blockchain ledger in dev) is reported as such, not as healthy.
+    """
+    db_ok = _db_status(request.app.state.repository)
+    ledger = (
+        request.app.state.services.get("gateway").ledger_name
+        if request.app.state.services.get("gateway")
+        else "unknown"
+    )
+    return {
+        "status": "ready" if db_ok == "ok" else "not_ready",
+        "service": "honeychain-api",
+        "check": "ready",
+        "dependencies": {
+            "database": db_ok,
+            "blockchain_ledger": ledger,
+        },
+    }

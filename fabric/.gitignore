@@ -1,0 +1,7 @@
+# Generated Fabric MSP material — never commit identities/keys
+crypto-config/
+_artifacts/
+bin/
+cp/
+*.tar.gz
+!README.md

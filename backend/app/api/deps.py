@@ -28,5 +28,5 @@ def get_risk_engine(request: Request) -> Any:
     return request.app.state.risk_engine
 
 
-def build_services_live(repo: Repository) -> dict[str, Any]:
-    return build_services(repo)
+def build_services_live(repo: Repository, gateway: Any = None) -> dict[str, Any]:
+    return build_services(repo, gateway)

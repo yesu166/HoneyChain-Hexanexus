@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/honeychain_store.dart';
 import '../models/disease.dart';
 import '../models/domain.dart';
+import '../models/iot.dart';
 import '../theme/app_theme.dart';
 import '../theme/beekeeper_tokens.dart';
 import '../utils/format.dart';
@@ -10,6 +11,7 @@ import '../widgets/beekeeper_widgets.dart';
 import '../widgets/listen_button.dart';
 import '../widgets/section_label.dart';
 import 'disease_screening_screen.dart';
+import 'iot_simulator_screen.dart';
 import 'record_harvest_screen.dart';
 
 class HiveDetailsScreen extends StatefulWidget {
@@ -29,6 +31,17 @@ class _HiveDetailsScreenState extends State<HiveDetailsScreen> {
   /// Target for the big "Get Advice" action — scrolls back to the guidance
   /// card when the beekeeper is down at the bottom action buttons.
   final GlobalKey _adviceKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final store = HoneyChainStore.instance;
+      if (store.backendConfigured && !store.backendChecked) {
+        store.refreshBackendIoT();
+      }
+    });
+  }
 
   void _scrollToAdvice() {
     final ctx = _adviceKey.currentContext;
@@ -173,6 +186,8 @@ class _HiveDetailsScreenState extends State<HiveDetailsScreen> {
                 },
                 delta: _weightDelta(store, readings),
               ),
+              const SizedBox(height: 14),
+              _BackendIoTTelemetry(store: store, hive: hive),
               const SizedBox(height: 14),
               _DiseaseCheckCard(
                 onTap: () => _startDiseaseCheck(context),
@@ -608,6 +623,158 @@ class _DiseaseCheckCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Backend-driven telemetry card for a hive which has a registered device.
+///
+/// Only shown when a device is actually assigned to this hive AND the backend
+/// is online; local [HiveReading]s continue to drive the rest of the page.
+/// Never fabricated — every value comes from the API response.
+class _BackendIoTTelemetry extends StatelessWidget {
+  const _BackendIoTTelemetry({required this.store, required this.hive});
+
+  final HoneyChainStore store;
+  final Hive hive;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!store.backendOnline || !store.backendConfigured) {
+      return const SizedBox.shrink();
+    }
+    final device = _deviceFor(store, hive.id);
+    if (device == null) return const SizedBox.shrink();
+
+    final events = store.apiTelemetryFor(device.deviceId);
+    final latest = events.isNotEmpty ? events.last : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionLabel('IoT telemetry (live)'),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppTheme.card,
+            borderRadius: AppTheme.radiusCard,
+            border: Border.all(color: AppTheme.teal.withValues(alpha: 0.4)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.memory_rounded, size: 18, color: AppTheme.teal),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      device.deviceName,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.ink,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.teal.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      'SIMULATED DEVICE',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.teal,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const IotSimulatorScreen(),
+                      ),
+                    ),
+                    icon: const Icon(
+                      Icons.tune_rounded,
+                      size: 18,
+                      color: AppTheme.inkFaint,
+                    ),
+                    tooltip: 'Open IoT simulator',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  _metric('Temp', latest?.payload.temperatureC == null
+                      ? '—'
+                      : '${latest!.payload.temperatureC!.round()}°C'),
+                  _metric('Humidity', latest?.payload.humidityPercent == null
+                      ? '—'
+                      : '${latest!.payload.humidityPercent!.round()}%'),
+                  _metric('Weight', latest?.payload.hiveWeightKg == null
+                      ? '—'
+                      : '${latest!.payload.hiveWeightKg!.round()}kg'),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                latest == null
+                    ? 'Device online — no events yet (run the simulator).'
+                    : 'seq #${latest.sequence} · ${latest.timestamp} · '
+                        'rssi ${_rssi(device)} · batt ${_batt(device)}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.inkFaint,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _metric(String label, String value) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: const TextStyle(fontSize: 11, color: AppTheme.inkFaint)),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.ink,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _rssi(IotDevice device) {
+    final signal = device.signalStrength;
+    return signal == null ? '—' : '${signal.round()} dBm';
+  }
+
+  String _batt(IotDevice device) {
+    final battery = device.batteryPercent;
+    return battery == null ? '—' : '${battery.round()}%';
+  }
+}
+
+IotDevice? _deviceFor(HoneyChainStore store, String hiveId) {
+  for (final device in store.apiDevices) {
+    if (device.assignedHiveId == hiveId) return device;
+  }
+  return null;
 }
 
 /// One row of the hive's recent health screening history.

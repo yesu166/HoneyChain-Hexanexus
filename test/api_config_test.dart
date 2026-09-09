@@ -20,11 +20,15 @@ void main() {
     expect(normalized, expected);
   });
 
-  test('isConfigured requires https', () {
-    // The config gate lives in ApiConfig; this guards against an accidental
-    // localhost value slipping past --dart-define.
-    const httpUrl = 'http://localhost:8000';
-    final configured = httpUrl.isNotEmpty && httpUrl.startsWith('https://');
-    expect(configured, isFalse);
+  test('isConfigured requires https outside local dev hosts', () {
+    // Local dev override policy: http://localhost / http://127.0.0.1 is the
+    // ONLY plain-HTTP base the app will talk to; everything else needs https.
+    expect(ApiConfig.isAllowedBaseUrl('http://localhost:8000'), isTrue);
+    expect(ApiConfig.isAllowedBaseUrl('http://127.0.0.1:8000'), isTrue);
+    expect(ApiConfig.isLocalDevUrl('http://localhost:8000'), isTrue);
+    expect(ApiConfig.isAllowedBaseUrl('http://api.example.in'), isFalse);
+    expect(ApiConfig.isAllowedBaseUrl('http://example.com'), isFalse);
+    expect(ApiConfig.isAllowedBaseUrl('https://api.example.in'), isTrue);
+    expect(ApiConfig.isAllowedBaseUrl(''), isFalse);
   });
 }

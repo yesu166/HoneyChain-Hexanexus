@@ -3,14 +3,21 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/api/api_client.dart';
+import '../core/api/api_config.dart';
+import '../core/api/api_exception.dart';
 import '../l10n/app_strings.dart';
 import '../models/disease.dart';
 import '../models/honey_batch.dart';
 import '../models/domain.dart';
+import '../models/iot.dart';
 import '../repositories/local_honeychain_repository.dart';
+import '../services/api_token_store.dart';
+import '../services/backend_iot_service.dart';
 import '../services/connectivity_factory.dart';
 import '../services/connectivity_service.dart';
 import '../services/disease_detection_service.dart';
+import '../services/fastapi_auth_repository.dart';
 import '../services/honeychain_services.dart';
 import '../services/image_input_service.dart';
 import '../services/local_store.dart';
@@ -1808,6 +1815,258 @@ class HoneyChainStore extends ChangeNotifier {
     String two(int v) => v.toString().padLeft(2, '0');
     return '${two(t.day)} ${months[t.month - 1]} ${t.year}, '
         '${two(t.hour)}:${two(t.minute)}';
+  }
+
+  // ---------------------------------------------------------------------
+  // Backend API + IoT simulator (real FastAPI connectivity)
+  // ---------------------------------------------------------------------
+  //
+  // The app talks to `ApiConfig.baseUrl` (https in production, or the
+  // http://localhost:8000 dev override). Every call is guarded so widget tests
+  // (testMode) never touch the network, and failures degrade to an explicit
+  // "backend offline / not signed in" state instead of fake statuses.
+
+  late final ApiClient _apiClient = ApiClient(
+    tokenProvider: () => ApiTokenStore.instance.token,
+  );
+  late final BackendIotService backendIotService = BackendIotService(_apiClient);
+
+  bool _backendChecked = false;
+  bool _backendOnline = false;
+  bool _backendBusy = false;
+  String? _backendError;
+  bool _backendSignedIn = false;
+  String? _backendRole;
+  List<IotDevice> _apiDevices = [];
+  List<SimulatorDeviceStatus> _apiSimulatorStatus = [];
+  List<BackendNotification> _apiNotifications = [];
+  final Map<String, List<IotTelemetry>> _apiTelemetry = {};
+
+  /// True when a backend base URL was compiled in (see [ApiConfig]).
+  bool get backendConfigured => ApiConfig.isConfigured;
+
+  bool get backendChecked => _backendChecked;
+  bool get backendOnline => _backendOnline;
+  bool get backendBusy => _backendBusy;
+  String? get backendError => _backendError;
+
+  /// True when a FastAPI session (JWT) is present.
+  bool get backendSignedIn => _backendSignedIn;
+  String get backendRole => _backendRole ?? '';
+  String get backendDisplayRole => _backendRole ?? 'not signed in';
+
+  List<IotDevice> get apiDevices => List.unmodifiable(_apiDevices);
+  List<SimulatorDeviceStatus> get apiSimulatorStatus =>
+      List.unmodifiable(_apiSimulatorStatus);
+  List<BackendNotification> get apiNotifications =>
+      List.unmodifiable(_apiNotifications);
+  int get apiUnreadNotifications =>
+      _apiNotifications.where((n) => !n.read).length;
+
+  List<IotTelemetry> apiTelemetryFor(String deviceId) =>
+      List.unmodifiable(_apiTelemetry[deviceId] ?? const []);
+
+  /// Probes `/api/v1/health`. Safe to call from non-test code only.
+  Future<void> _probeBackend() async {
+    _backendChecked = true;
+    if (testMode || !ApiConfig.isConfigured) {
+      _backendOnline = false;
+      _backendError = null;
+      return;
+    }
+    try {
+      await _apiClient.getJson('/api/v1/health');
+      _backendOnline = true;
+      _backendError = null;
+    } on ApiException catch (error) {
+      _backendOnline = false;
+      _backendError = backendFailureFriendly(error);
+    } on Exception {
+      _backendOnline = false;
+      _backendError = 'Backend could not be reached';
+    }
+  }
+
+  /// Refreshes everything the IoT/alerts screens need from the backend.
+  ///
+  /// Idempotent and failure-tolerant: a single bad call marks the backend
+  /// offline instead of leaving stale data presented as live.
+  Future<bool> refreshBackendIoT() async {
+    if (testMode || !ApiConfig.isConfigured) {
+      _backendChecked = true;
+      _backendOnline = false;
+      return false;
+    }
+    await _probeBackend();
+    if (!_backendOnline) {
+      notifyListeners();
+      return false;
+    }
+
+    _backendBusy = true;
+    notifyListeners();
+    final token = ApiTokenStore.instance.token;
+    _backendSignedIn = token != null && token.isNotEmpty;
+    try {
+      if (_backendSignedIn) {
+        _apiDevices = await backendIotService.registeredDevices();
+        for (final device in _apiDevices) {
+          try {
+            _apiTelemetry[device.deviceId] =
+                await backendIotService.deviceTelemetry(device.deviceId, limit: 10);
+          } on ApiException {
+            _apiTelemetry[device.deviceId] = [];
+          }
+        }
+        _apiSimulatorStatus = await backendIotService.simulatorStatus();
+        _apiNotifications = await backendIotService.notifications();
+      } else {
+        _apiDevices = [];
+        _apiTelemetry.clear();
+        _apiSimulatorStatus = [];
+        _apiNotifications = [];
+      }
+      _backendError = _backendSignedIn ? null : 'Signed out - sign in to view backend data';
+    } on ApiException catch (error) {
+      _backendOnline = false;
+      _backendError = backendFailureFriendly(error);
+    } on Exception {
+      _backendOnline = false;
+      _backendError = 'Backend request failed';
+    } finally {
+      _backendBusy = false;
+      notifyListeners();
+    }
+    return _backendOnline;
+  }
+
+  /// Logs in to the FastAPI backend with the demo/operator credentials and
+  /// refreshes backend collections. Returns the role on success, null on
+  /// failure ([backendError] carries the reason).
+  Future<String?> backendLogin(String identifier, String password) async {
+    if (testMode || !ApiConfig.isConfigured) return null;
+    try {
+      final repository = FastApiAuthRepository(_apiClient);
+      final identity =
+          await repository.login(identifier: identifier, password: password);
+      _backendSignedIn = true;
+      _backendRole = identity.role;
+      await refreshBackendIoT();
+      return identity.role;
+    } on ApiException catch (error) {
+      _backendError = backendFailureFriendly(error);
+      notifyListeners();
+      return null;
+    } on Exception {
+      _backendError = 'Backend login failed';
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<void> backendSignOut() async {
+    await ApiTokenStore.instance.clear();
+    _backendSignedIn = false;
+    _backendRole = null;
+    _apiDevices = [];
+    _apiNotifications = [];
+    _apiSimulatorStatus = [];
+    _apiTelemetry.clear();
+    notifyListeners();
+  }
+
+  /// Registers a simulator device. Returns the signed secrets (shown once).
+  Future<Map<String, dynamic>?> registerSimulatorDevice({
+    required String deviceName,
+    String assignedHiveId = '',
+  }) async {
+    if (testMode || !_backendOnline || !_backendSignedIn) return null;
+    try {
+      final result = await backendIotService.registerDevice(
+        deviceName: deviceName,
+        assignedHiveId: assignedHiveId,
+      );
+      await refreshBackendIoT();
+      return result;
+    } on ApiException catch (error) {
+      _backendError = backendFailureFriendly(error);
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> simulatorAction(
+    String deviceId,
+    String action, {
+    String? mode,
+    int burstCount = 10,
+    TelemetryPayload? custom,
+  }) async {
+    if (testMode || !_backendOnline || !_backendSignedIn) return null;
+    try {
+      final result = await backendIotService.simulatorControl(
+        deviceId,
+        action,
+        mode: mode,
+        burstCount: burstCount,
+        custom: custom,
+      );
+      await refreshBackendIoT();
+      return result;
+    } on ApiException catch (error) {
+      _backendError = backendFailureFriendly(error);
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> simulatorMode(String deviceId, String mode) =>
+      simulatorAction(deviceId, 'START', mode: mode);
+
+  Future<Map<String, dynamic>?> simulatorFork(String deviceId) async {
+    if (testMode || !_backendOnline || !_backendSignedIn) return null;
+    try {
+      final result = await backendIotService.simulatorFork(deviceId);
+      await refreshBackendIoT();
+      return result;
+    } on ApiException catch (error) {
+      _backendError = backendFailureFriendly(error);
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<void> markBackendNotificationRead(String notificationId) async {
+    if (testMode || !_backendOnline || !_backendSignedIn) return;
+    try {
+      await backendIotService.markNotificationRead(notificationId);
+      _apiNotifications = [
+        for (final n in _apiNotifications)
+          if (n.notificationId == notificationId)
+            BackendNotification(
+              notificationId: n.notificationId,
+              hiveId: n.hiveId,
+              batchId: n.batchId,
+              deviceId: n.deviceId,
+              category: n.category,
+              severity: n.severity,
+              reason: n.reason,
+              recommendedAction: n.recommendedAction,
+              source: n.source,
+              title: n.title,
+              body: n.body,
+              createdAt: n.createdAt,
+              read: true,
+              isSimulated: n.isSimulated,
+            )
+          else
+            n,
+      ];
+      notifyListeners();
+    } on ApiException catch (error) {
+      _backendError = backendFailureFriendly(error);
+      notifyListeners();
+    }
   }
 
   @override

@@ -1,0 +1,185 @@
+"""RBAC permission matrix for HoneyChain.
+
+Roles: beekeeper, fpo, lab, admin, processor, buyer, institution.
+Every action is granted role-by-action. The matrix lives server-side; the API
+layer (require_permission) rejects anything not explicitly granted.
+
+Scope conditions (org_id/user_id matching) are enforced by the services; the
+matrix decides WHAT a role may attempt, not WHOSE data it may touch.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import Depends, HTTPException, status
+
+from ..core.security import CurrentUser, get_current_user
+
+# Define the canonical permission set.
+ACTIONS = {
+    # harvest capture + evidence
+    "harvest.create",
+    "harvest.attach_evidence",
+    "harvest.read",
+    # hives and readings
+    "hive.create",
+    "reading.submit",
+    # batches, custody, lineage
+    "batch.create",
+    "batch.split",
+    "batch.merge",
+    "batch.transfer_custody",
+    "batch.read",
+    "batch.update_status",
+    # lab
+    "lab.test_request",
+    "lab.test_result",
+    "lab.issue_certificate",
+    "lab.revoke_certificate",
+    "lab.read",
+    # passport / verification
+    "passport.read",
+    "passport.verify_public",
+    # IoT devices + telemetry
+    "iot.device.read",
+    "iot.device.create",
+    "iot.telemetry.ingest",
+    "iot.simulator.control",
+    "notification.read",
+    # admin / demo
+    "admin.audit",
+    "demo.tamper",
+    "demo.restore",
+    # sync
+    "sync.push",
+}
+
+# role -> permitted action, plus optional scope rule:
+# ("read_own" | "read_org" | "any") — 'any' means admin/institution override.
+PERMISSION_MATRIX: dict[str, dict[str, set[str]]] = {
+    "beekeeper": {
+        "allowed": {
+            "harvest.create",
+            "harvest.attach_evidence",
+            "harvest.read",
+            "hive.create",
+            "reading.submit",
+            "batch.create",
+            "batch.split",
+            "batch.merge",
+            "batch.transfer_custody",
+            "batch.read",
+            "iot.device.read",
+            "notification.read",
+            "sync.push",
+        },
+        "scope": "read_own",
+    },
+    "fpo": {
+        "allowed": {
+            "harvest.read",
+            "hive.create",
+            "reading.submit",
+            "batch.create",
+            "batch.split",
+            "batch.merge",
+            "batch.transfer_custody",
+            "batch.read",
+            "batch.update_status",
+            "lab.test_request",
+            "lab.read",
+            "passport.read",
+            "iot.device.read",
+            "iot.telemetry.ingest",
+            "notification.read",
+            "sync.push",
+        },
+        "scope": "read_org",
+    },
+    "lab": {
+        "allowed": {
+            "lab.test_request",
+            "lab.test_result",
+            "lab.issue_certificate",
+            "lab.revoke_certificate",
+            "lab.read",
+            "batch.read",
+            "harvest.read",
+            "passport.read",
+        },
+        "scope": "any",
+    },
+    "processor": {
+        "allowed": {
+            "batch.create",
+            "batch.split",
+            "batch.merge",
+            "batch.transfer_custody",
+            "batch.update_status",
+            "batch.read",
+            "harvest.read",
+            "passport.read",
+            "iot.device.read",
+            "notification.read",
+            "sync.push",
+        },
+        "scope": "read_org",
+    },
+    "buyer": {
+        "allowed": {"batch.read", "harvest.read", "passport.read"},
+        "scope": "any",
+    },
+    "institution": {
+        "allowed": {
+            "batch.read",
+            "harvest.read",
+            "passport.read",
+            "admin.audit",
+            "iot.device.read",
+        },
+        "scope": "any",
+    },
+    "admin": {
+        "allowed": set(ACTIONS),
+        "scope": "any",
+    },
+}
+
+
+def has_permission(role: str, action: str) -> bool:
+    return action in PERMISSION_MATRIX.get(role, {}).get("allowed", set())
+
+
+def scope_label(role: str) -> str:
+    return PERMISSION_MATRIX.get(role, {}).get("scope", "none")
+
+
+def require_permission(action: str):
+    """Dependency factory: require the authenticated user to hold [action]."""
+
+    def _check(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+        if not has_permission(user.role, action):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Role '{user.role}' is not permitted to {action}",
+            )
+        return user
+
+    return _check
+
+
+# ---------------------------------------------------------------------------
+# Scope enforcement helper (service layer)
+# ---------------------------------------------------------------------------
+
+def in_scope(user: CurrentUser, *, owner_org_id: str = "", owner_user_id: str = "") -> bool:
+    if user.role in ("admin", "institution"):
+        return True
+    scope = scope_label(user.role)
+    if scope == "any":
+        return True
+    if owner_user_id and owner_user_id == user.user_id:
+        return True
+    if owner_org_id and owner_org_id == user.org_id:
+        return True
+    return False

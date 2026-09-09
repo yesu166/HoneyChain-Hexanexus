@@ -8,9 +8,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .adapters.ai.base import build_risk_engine
-from .adapters.blockchain.base import build_blockchain_adapter
+from .adapters.blockchain.gateway import build_blockchain_gateway
 from .api.deps import build_services_live
-from .api.routes import auth, batches, custody, harvests, health, hives, labs, passport, sync
+from .api.routes import (
+    auth,
+    batches,
+    blockchain,
+    certificates,
+    custody,
+    evidence,
+    harvests,
+    health,
+    hives,
+    iot,
+    labs,
+    lineage,
+    notifications,
+    passport,
+    sync,
+    tamper,
+)
 from .core.config import get_settings
 from .core.logging import configure_logging, get_logger
 from .db.supabase import build_repository
@@ -53,16 +70,17 @@ def _startup() -> None:
     settings = get_settings()
     repo = build_repository()
     bootstrap_identities(repo)
+    gateway = build_blockchain_gateway(settings)
     app.state.repository = repo
-    app.state.services = build_services_live(repo)
-    app.state.blockchain = build_blockchain_adapter(settings.blockchain_adapter)
+    app.state.services = build_services_live(repo, gateway)
+    app.state.blockchain = gateway
     app.state.risk_engine = build_risk_engine(settings.ai_adapter)
     app.state.settings = settings
     log.info(
-        "HoneyChain API started | env=%s | db=%s | blockchain=%s | ai=%s",
+        "HoneyChain API started | env=%s | db=%s | ledger=%s | ai=%s",
         settings.api_env,
         type(repo).__name__,
-        settings.blockchain_adapter,
+        gateway.ledger_name,
         settings.ai_adapter,
     )
 
@@ -87,6 +105,13 @@ for router in (
     custody.router,
     passport.router,
     sync.router,
+    evidence.router,
+    certificates.router,
+    lineage.router,
+    blockchain.router,
+    tamper.router,
+    iot.router,
+    notifications.router,
 ):
     app.include_router(router)
 

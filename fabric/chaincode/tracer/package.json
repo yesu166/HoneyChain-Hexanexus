@@ -1,0 +1,16 @@
+{
+  "name": "tracer",
+  "version": "1.0.0",
+  "description": "HoneyChain evidence-anchoring chaincode",
+  "engines": {
+    "node": ">=12"
+  },
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "fabric-contract-api": "^2.5.0",
+    "fabric-shim": "^2.5.0"
+  }
+}

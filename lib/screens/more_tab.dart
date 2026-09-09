@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../data/honeychain_store.dart';
 import '../theme/app_theme.dart';
-import 'alerts_tab.dart';
+import '../screens/alerts_tab.dart';
+import '../screens/iot_simulator_screen.dart';
 import '../bee_health/screens/bee_health_home_screen.dart';
 import 'developer_screen.dart';
 import 'honey_tab.dart';
@@ -114,6 +115,16 @@ class MoreTab extends StatelessWidget {
                 title: store.tr('more.developer'),
                 subtitle: store.tr('more.developer.sub'),
                 onTap: () => _push(context, const DeveloperScreen()),
+              ),
+              const SizedBox(height: 12),
+              BeekeeperActionCard(
+                icon: Icons.memory_rounded,
+                iconColor: AppTheme.teal,
+                iconTint: AppTheme.tint(AppTheme.teal),
+                title: 'IoT Simulator',
+                subtitle: 'Register devices, run demos, view telemetry '
+                    '(demo/admin, needs a running backend).',
+                onTap: () => _push(context, const IotSimulatorScreen()),
               ),
               const SizedBox(height: 16),
             ],

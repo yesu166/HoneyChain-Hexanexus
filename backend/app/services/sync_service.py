@@ -2,12 +2,17 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..adapters.blockchain.gateway import BlockchainGateway
 from ..db.supabase import Repository
 from .batch_service import BatchService
 from .custody_service import CustodyService
+from .event_ledger import EventLedger
+from .evidence_service import HarvestEvidenceService
 from .harvest_service import HarvestService
 from .hive_service import HiveService
+from .lab_certificate import LabCertificateService
 from .lab_service import LabService
+from .lineage_service import LineageService
 from .passport_service import PassportService
 
 
@@ -91,13 +96,34 @@ class SyncService:
         return items
 
 
-def build_services(repo: Repository) -> dict[str, Any]:
+def build_services(
+    repo: Repository, gateway: BlockchainGateway | None = None
+) -> dict[str, Any]:
+    from ..adapters.blockchain.gateway import build_blockchain_gateway
+
+    if gateway is None:
+        gateway = build_blockchain_gateway()
     hive_service = HiveService(repo)
     harvest_service = HarvestService(repo)
     batch_service = BatchService(repo)
     custody_service = CustodyService(repo)
     lab_service = LabService(repo)
     passport_service = PassportService(repo, batch_service)
+    ledger = EventLedger(repo)
+    evidence_service = HarvestEvidenceService(repo, gateway)
+    lab_certificate_service = LabCertificateService(repo, gateway, ledger)
+    lineage_service = LineageService(repo, ledger)
+
+    from .notification_service import NotificationService
+
+    notifications = NotificationService(repo)
+
+    from .iot_service import DeviceSimulator, IoTDeviceService, TelemetryIngestor
+
+    iot_devices = IoTDeviceService(repo, ledger, notifications)
+    iot_ingestor = TelemetryIngestor(repo, notifications, ledger)
+    iot_simulator = DeviceSimulator(repo, iot_ingestor, ledger)
+
     sync_service = SyncService(
         repo,
         hive_service,
@@ -107,6 +133,7 @@ def build_services(repo: Repository) -> dict[str, Any]:
         passport_service,
     )
     return {
+        "repo": repo,
         "hives": hive_service,
         "harvests": harvest_service,
         "batches": batch_service,
@@ -114,5 +141,16 @@ def build_services(repo: Repository) -> dict[str, Any]:
         "labs": lab_service,
         "passport": passport_service,
         "sync": sync_service,
-        "repo": repo,
+        "evidence": evidence_service,
+        "certificates": lab_certificate_service,
+        "lineage": lineage_service,
+        "ledger": ledger,
+        "gateway": gateway,
+        "notifications": notifications,
+        "iot": {
+            "devices": iot_devices,
+            "ingestor": iot_ingestor,
+            "simulator": iot_simulator,
+            "repo": repo,
+        },
     }

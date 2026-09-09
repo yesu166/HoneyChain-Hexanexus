@@ -34,6 +34,15 @@ class ApiClient {
   Future<Map<String, dynamic>> getJson(String path) =>
       _request('GET', path);
 
+  /// GET that expects a JSON array. The transport wraps arrays in
+  /// `{"data": [...]}`; this unwraps it and never throws on shape mismatch.
+  Future<List<dynamic>> getListJson(String path) async {
+    final body = await _request('GET', path);
+    final data = body['data'];
+    if (data is List) return data;
+    return const <dynamic>[];
+  }
+
   Future<Map<String, dynamic>> postJson(
     String path, {
     Map<String, dynamic>? body,

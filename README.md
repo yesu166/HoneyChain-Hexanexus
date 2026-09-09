@@ -131,6 +131,33 @@ The schema, RLS policies, demo users and the `get_public_passport` function all 
 - `flutter build web` for a web bundle
 - `flutter build apk --release` for an Android APK
 
+## Backend & provenance layer
+
+The FastAPI backend (`backend/`) adds the proof-of-integrity surfaces on top of
+the sync flow. All of it is honest-by-construction:
+
+- **Harvest Evidence Bundle** (`/api/v1/evidence/bundles`) — canonical hash per
+  evidence object → Merkle root → anchored via the BlockchainGateway. Verify
+  recomputes the root from stored payloads, so any payload tamper flips
+  `evidence_intact: false`.
+- **BlockchainGateway + adapters** (`backend/app/adapters/blockchain/`) — one
+  facade, three adapters: `LocalLedgerAdapter` (dev/testing, labeled `local`),
+  `EVMBlockchainAdapter` and `FabricBlockchainAdapter` (real boundaries that
+  return `BLOCKCHAIN_NOT_CONFIGURED` / `FABRIC_NOT_CONFIGURED` / `UNKNOWN` when
+  the network/credentials are absent). Transactions carry an explicit state
+  machine; `CONFIRMED` is never fabricated.
+- **Offline event ledger** — append-only, hash-chained; forks are preserved
+  (losing records are never silently dropped).
+- **Lab certificates** — issue/verify/revoke with `content_hash` anchoring.
+- **RBAC matrix** (`backend/app/core/rbac.py`) — server-side enforcement across
+  roles/actions; tamper endpoints gated behind `DEMO_MODE`.
+- **Health** — `/health/live` + `/health/ready`.
+
+Tests: backend `pytest` **110 passed**; Flutter `flutter test` **64 passed**.
+Supabase migrations 001–006 applied and verified against the live project.
+See `docs/` for the full control center (SERVICE_STATUS, BLOCKCHAIN,
+FEATURE_STATUS, API, TESTING, ...).
+
 ## Android build notes
 
 Latest build reaches the Gradle `assembleRelease` target (the duplicate-Kotlin "Redeclaration"

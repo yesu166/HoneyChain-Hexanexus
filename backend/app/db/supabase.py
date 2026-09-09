@@ -189,6 +189,79 @@ class Repository(ABC):
     @abstractmethod
     def find_by_client_id(self, table: str, client_id: str) -> dict[str, Any] | None: ...
 
+    # ---- evidence bundles ----------------------------------------------------------
+    @abstractmethod
+    def add_evidence_bundle(self, bundle: dict[str, Any]) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def get_evidence_bundle(self, bundle_id: str) -> dict[str, Any] | None: ...
+
+    # ---- ledger events ----------------------------------------------------------------
+    @abstractmethod
+    def add_ledger_event(self, event: dict[str, Any]) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def list_ledger_events(self, chain_id: str) -> list[dict[str, Any]]: ...
+
+    # ---- lab certificates ---------------------------------------------------------------
+    @abstractmethod
+    def add_certificate(self, certificate: dict[str, Any]) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def get_certificate(self, certificate_id: str) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def list_certificates(self, batch_id: str) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def revoke_certificate(
+        self, certificate_id: str, *, revoked_at: str, reason: str
+    ) -> dict[str, Any] | None: ...
+
+    # ---- IoT devices ---------------------------------------------------------
+    @abstractmethod
+    def create_iot_device(self, device: dict[str, Any]) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def get_iot_device(self, device_id: str) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def list_iot_devices(self, organization_id: str = "") -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def update_iot_device(
+        self, device_id: str, updates: dict[str, Any]
+    ) -> dict[str, Any] | None: ...
+
+    # ---- telemetry -------------------------------------------------------------
+    @abstractmethod
+    def add_telemetry_event(self, event: dict[str, Any]) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def get_telemetry_event(self, event_id: str) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def list_telemetry_events(
+        self, device_id: str, limit: int = 20, since: str = ""
+    ) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def telemetry_events_for_hive(
+        self, hive_id: str, limit: int = 50
+    ) -> list[dict[str, Any]]: ...
+
+    # ---- notifications ---------------------------------------------------------
+    @abstractmethod
+    def add_notification(self, notification: dict[str, Any]) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def list_notifications(self, org_id: str = "", hive_id: str = "") -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def mark_notification_read(
+        self, notification_id: str
+    ) -> dict[str, Any] | None: ...
+
 
 class InMemoryRepository(Repository):
     """Local dict-backed repository for development and tests.
@@ -211,6 +284,12 @@ class InMemoryRepository(Repository):
             "custody": [],
             "anchors": [],
             "passports": [],
+            "evidence_bundles": [],
+            "ledger_events": [],
+            "certificates": [],
+            "iot_devices": [],
+            "telemetry_events": [],
+            "notifications": [],
         }
         if seed:
             for key, rows in seed.items():
@@ -468,6 +547,154 @@ class InMemoryRepository(Repository):
             (r for r in rows if r.get(column) == client_id), None
         )
 
+    # -- evidence bundles --
+    def add_evidence_bundle(self, bundle):
+        row = {"id": bundle.get("bundle_id") or new_id(), "bundle_id": bundle.get("bundle_id"), **bundle}
+        self._data["evidence_bundles"].append(row)
+        return row
+
+    def get_evidence_bundle(self, bundle_id):
+        return next(
+            (b for b in self._data["evidence_bundles"] if b.get("bundle_id") == bundle_id),
+            None,
+        )
+
+    # -- ledger events --
+    def add_ledger_event(self, event):
+        row = {"id": new_id(), **event}
+        self._data["ledger_events"].append(row)
+        return row
+
+    def list_ledger_events(self, chain_id):
+        return [
+            e for e in self._data["ledger_events"] if e.get("chain_id") == chain_id
+        ]
+
+    # -- certificates --
+    def add_certificate(self, certificate):
+        row = {"id": new_id(), **certificate}
+        self._data["certificates"].append(row)
+        return row
+
+    def get_certificate(self, certificate_id):
+        return next(
+            (c for c in self._data["certificates"] if c.get("certificate_id") == certificate_id),
+            None,
+        )
+
+    def list_certificates(self, batch_id):
+        return [
+            c for c in self._data["certificates"] if c.get("batch_id") == batch_id
+        ]
+
+    def revoke_certificate(self, certificate_id, *, revoked_at, reason):
+        cert = self.get_certificate(certificate_id)
+        if cert is None:
+            return None
+        cert.update(
+            {"status": "revoked", "revoked_at": revoked_at, "revocation_reason": reason}
+        )
+        return cert
+
+    # -- IoT devices --
+    def create_iot_device(self, device):
+        row = {"id": new_id(), "device_id": device.get("device_id") or new_id(), **device}
+        self._data["iot_devices"].append(row)
+        return row
+
+    def get_iot_device(self, device_id):
+        return next(
+            (d for d in self._data["iot_devices"] if d.get("device_id") == device_id),
+            None,
+        )
+
+    def list_iot_devices(self, organization_id=""):
+        if organization_id:
+            return [
+                d
+                for d in self._data["iot_devices"]
+                if d.get("organization_id") == organization_id
+            ]
+        return list(self._data["iot_devices"])
+
+    def update_iot_device(self, device_id, updates):
+        device = self.get_iot_device(device_id)
+        if device is None:
+            return None
+        device.update(updates)
+        return device
+
+    # -- telemetry --
+    def add_telemetry_event(self, event):
+        row = {"id": new_id(), **event}
+        self._data["telemetry_events"].append(row)
+        return row
+
+    def get_telemetry_event(self, event_id):
+        return next(
+            (t for t in self._data["telemetry_events"] if t.get("event_id") == event_id),
+            None,
+        )
+
+    def list_telemetry_events(self, device_id, limit=20, since=""):
+        rows = [
+            t for t in self._data["telemetry_events"] if t.get("device_id") == device_id
+        ]
+        if since:
+            rows = [t for t in rows if str(t.get("timestamp", "")) >= since]
+        rows.sort(key=lambda r: str(r.get("timestamp", "")), reverse=True)
+        return rows[:limit]
+
+    def telemetry_events_for_hive(self, hive_id, limit=50):
+        rows = [
+            t for t in self._data["telemetry_events"] if t.get("hive_id") == hive_id
+        ]
+        rows.sort(key=lambda r: str(r.get("timestamp", "")), reverse=True)
+        return rows[:limit]
+
+    # -- notifications --
+    def add_notification(self, notification):
+        row = {**notification, "id": new_id()}
+        if not row.get("notification_id"):
+            row["notification_id"] = new_id()
+        self._data["notifications"].append(row)
+        return row
+
+    def list_notifications(self, org_id="", hive_id=""):
+        if org_id:
+            return [
+                n
+                for n in self._data["notifications"]
+                if n.get("organization_id") == org_id
+            ]
+        if hive_id:
+            return [n for n in self._data["notifications"] if n.get("hive_id") == hive_id]
+        return list(self._data["notifications"])
+
+    def mark_notification_read(self, notification_id):
+        note = next(
+            (
+                n
+                for n in self._data["notifications"]
+                if n.get("notification_id") == notification_id
+            ),
+            None,
+        )
+        if note is None:
+            return None
+        note["read"] = True
+        return note
+
+    def get_notification(self, notification_id):
+        return next(
+            (
+                n
+                for n in self._data["notifications"]
+                if n.get("notification_id") == notification_id
+            ),
+            None,
+        )
+
 
 class SupabaseRepository(Repository):
     """PostgreSQL via Supabase's service-role client.
@@ -492,6 +719,12 @@ class SupabaseRepository(Repository):
         "custody": "custody_events",
         "anchors": "blockchain_anchors",
         "passports": "passports",
+        "evidence_bundles": "evidence_bundles",
+        "ledger_events": "ledger_events",
+        "certificates": "certificates",
+        "iot_devices": "iot_devices",
+        "telemetry_events": "telemetry_events",
+        "notifications": "notifications",
     }
 
     def __init__(self, url: str, service_role_key: str) -> None:
@@ -720,6 +953,110 @@ class SupabaseRepository(Repository):
 
     def find_by_client_id(self, table, client_id):
         return self._get_by(table, "client_id", client_id)
+
+    def add_evidence_bundle(self, bundle):
+        return self._table("evidence_bundles").insert(bundle).execute().data[0]
+
+    def get_evidence_bundle(self, bundle_id):
+        return self._get_by("evidence_bundles", "bundle_id", bundle_id)
+
+    def add_ledger_event(self, event):
+        return self._table("ledger_events").insert(event).execute().data[0]
+
+    def list_ledger_events(self, chain_id):
+        return (
+            self._table("ledger_events")
+            .select("*")
+            .eq("chain_id", chain_id)
+            .order("index", desc=False)
+            .execute()
+            .data
+        )
+
+    def add_certificate(self, certificate):
+        return self._table("certificates").insert(certificate).execute().data[0]
+
+    def get_certificate(self, certificate_id):
+        return self._get_by("certificates", "certificate_id", certificate_id)
+
+    def list_certificates(self, batch_id):
+        return (
+            self._table("certificates").select("*").eq("batch_id", batch_id).execute().data
+        )
+
+    def revoke_certificate(self, certificate_id, *, revoked_at, reason):
+        self._table("certificates").update(
+            {"status": "revoked", "revoked_at": revoked_at, "revocation_reason": reason}
+        ).eq("certificate_id", certificate_id).execute()
+        return self.get_certificate(certificate_id)
+
+    # -- IoT devices --
+    def create_iot_device(self, device):
+        if "device_id" not in device or not device["device_id"]:
+            device["device_id"] = new_id()
+        return self._table("iot_devices").insert(device).execute().data[0]
+
+    def get_iot_device(self, device_id):
+        return self._get_by("iot_devices", "device_id", device_id)
+
+    def list_iot_devices(self, organization_id=""):
+        q = self._table("iot_devices").select("*")
+        if organization_id:
+            q = q.eq("organization_id", organization_id)
+        return q.execute().data
+
+    def update_iot_device(self, device_id, updates):
+        self._table("iot_devices").update(updates).eq("device_id", device_id).execute()
+        return self.get_iot_device(device_id)
+
+    # -- telemetry --
+    def add_telemetry_event(self, event):
+        return self._table("telemetry_events").insert(event).execute().data[0]
+
+    def get_telemetry_event(self, event_id):
+        return self._get_by("telemetry_events", "event_id", event_id)
+
+    def list_telemetry_events(self, device_id, limit=20, since=""):
+        q = self._table("telemetry_events").select("*").eq("device_id", device_id)
+        if since:
+            q = q.gte("timestamp", since)
+        return (
+            q.order("timestamp", desc=True).limit(limit).execute().data
+        )
+
+    def telemetry_events_for_hive(self, hive_id, limit=50):
+        return (
+            self._table("telemetry_events")
+            .select("*")
+            .eq("hive_id", hive_id)
+            .order("timestamp", desc=True)
+            .limit(limit)
+            .execute()
+            .data
+        )
+
+    # -- notifications --
+    def add_notification(self, notification):
+        if "notification_id" not in notification or not notification["notification_id"]:
+            notification["notification_id"] = new_id()
+        return self._table("notifications").insert(notification).execute().data[0]
+
+    def list_notifications(self, org_id="", hive_id=""):
+        q = self._table("notifications").select("*")
+        if org_id:
+            q = q.eq("organization_id", org_id)
+        if hive_id:
+            q = q.eq("hive_id", hive_id)
+        return q.order("created_at", desc=True).execute().data
+
+    def mark_notification_read(self, notification_id):
+        self._table("notifications").update({"read": True}).eq(
+            "notification_id", notification_id
+        ).execute()
+        return self.get_notification(notification_id)
+
+    def get_notification(self, notification_id):
+        return self._get_by("notifications", "notification_id", notification_id)
 
     # -- helpers --
     def _get_by(self, table, column, value):

@@ -41,7 +41,7 @@ class FastApiAuthRepository {
         role: '',
       ),
     );
-    final me = await _client.postJson('/api/v1/auth/me');
+    final me = await _client.getJson('/api/v1/auth/me');
     final identity = ApiIdentity(
       token: token,
       id: _asString(me['id']),

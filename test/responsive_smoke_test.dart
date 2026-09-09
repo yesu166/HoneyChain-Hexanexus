@@ -97,7 +97,7 @@ void main() {
 
       // Bee Health large hive picking + inspected state.
       await see(tester, 'Bee Health');
-      await tester.tap(find.text('Bee Health').first);
+      await tapText(tester, 'Bee Health');
       await tester.pumpAndSettle();
       await see(tester, 'Select a hive');
       await see(tester, 'Not inspected');

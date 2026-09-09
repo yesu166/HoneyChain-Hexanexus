@@ -21,6 +21,23 @@ void main() {
     expect(body['status'], 'ok');
   });
 
+  test('getListJson unwraps the data array', () async {
+    final api = clientWith(MockClient((_) async => http.Response(
+        jsonEncode([
+          {'device_id': 'HC-1'},
+          {'device_id': 'HC-2'},
+        ]),
+        200)));
+    final rows = await api.getListJson('/api/v1/iot/devices');
+    expect(rows, hasLength(2));
+  });
+
+  test('getListJson tolerates a shape mismatch', () async {
+    final api = clientWith(MockClient(
+        (_) async => http.Response(jsonEncode({'detail': 'boom'}), 200)));
+    expect(await api.getListJson('/api/v1/iot/devices'), isEmpty);
+  });
+
   test('POST sends bearer token when provider set', () async {
     final api = ApiClient(
       httpClient: MockClient((request) async {

@@ -1,0 +1,20 @@
+# cryptogen input for the local honeychain Fabric network.
+# Generates: 1 orderer org (OrdererMSP) + 1 peer org (Org1MSP).
+
+OrdererOrgs:
+  - Name: Orderer
+    Domain: example.com
+    EnableNodeOUs: false
+    Specs:
+      - Hostname: orderer
+        CommonName: orderer.example.com
+
+PeerOrgs:
+  - Name: Org1
+    Domain: org1.example.com
+    EnableNodeOUs: true
+    Specs:
+      - Hostname: peer0
+        CommonName: peer0.org1.example.com
+    Users:
+      Count: 1

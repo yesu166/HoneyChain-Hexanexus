@@ -99,3 +99,12 @@ def bootstrap_identities(repo: Repository) -> None:
             org_id="LAB-TN-001",
             password_hash=hash_password(DEMO_PASSWORD),
         )
+    if repo.get_user_by_email("admin@honeychain.in") is None:
+        repo.create_user(
+            email="admin@honeychain.in",
+            name="HoneyChain Admin",
+            phone="+919000000009",
+            role="admin",
+            org_id="",
+            password_hash=hash_password(DEMO_PASSWORD),
+        )
