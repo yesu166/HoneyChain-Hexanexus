@@ -82,7 +82,7 @@ create index if not exists idx_notifications_hive on notifications(hive_id, crea
 alter table iot_devices enable row level security;
 drop policy if exists iot_devices_select_org on iot_devices;
 create policy iot_devices_select_org on iot_devices for select using (
-  organization_id = public.auth_user_org_id()
+  organization_id = public.auth_user_org_id()::text
   or public.auth_user_role() in ('admin','institution')
   or assigned_hive_id in (
     select id::text from public.hives
@@ -95,7 +95,7 @@ create policy iot_devices_select_org on iot_devices for select using (
 alter table telemetry_events enable row level security;
 drop policy if exists telemetry_events_select_scoped on telemetry_events;
 create policy telemetry_events_select_scoped on telemetry_events for select using (
-  organization_id = public.auth_user_org_id()
+  organization_id = public.auth_user_org_id()::text
   or public.auth_user_role() in ('admin','institution')
   or hive_id in (
     select id::text from public.hives
@@ -108,7 +108,7 @@ create policy telemetry_events_select_scoped on telemetry_events for select usin
 alter table notifications enable row level security;
 drop policy if exists notifications_select_scoped on notifications;
 create policy notifications_select_scoped on notifications for select using (
-  organization_id = public.auth_user_org_id()
+  organization_id = public.auth_user_org_id()::text
   or public.auth_user_role() in ('admin','institution')
   or hive_id in (
     select id::text from public.hives

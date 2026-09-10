@@ -17,6 +17,13 @@ from app.core.config import get_settings  # noqa: E402
 from app.core.security import create_access_token  # noqa: E402
 from app.main import app  # noqa: E402
 
+# config.py loads backend/.env at import time (real creds live there). Tests are
+# allowed to run against the in-memory repository by default; the empty values
+# here proactively pin that contract even when a developer .env exists. A live
+# Supabase integration test sets these keys itself.
+os.environ["SUPABASE_URL"] = ""
+os.environ["SUPABASE_SERVICE_ROLE_KEY"] = ""
+
 get_settings.cache_clear()
 
 DEMO_EMAIL = "demo@honeychain.in"

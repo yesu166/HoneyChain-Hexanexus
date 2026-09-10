@@ -14,6 +14,19 @@ const { Client } = require('pg');
 const fs = require('fs');
 const path = require('path');
 
+// Load the sibling .env (SUPABASE_DB_URL) so `npm run apply` works out of
+// the box. Real values live in the gitignored .env; .env.example documents
+// the variable name only.
+const envFile = path.resolve(__dirname, '.env');
+if (fs.existsSync(envFile)) {
+  for (const line of fs.readFileSync(envFile, 'utf8').split(/\r?\n/)) {
+    if (line && !line.startsWith('#') && !process.env[line.split('=')[0]]) {
+      const i = line.indexOf('=');
+      if (i > 0) process.env[line.slice(0, i)] = line.slice(i + 1);
+    }
+  }
+}
+
 // Supabase direct endpoints terminate TLS with a CA chain that is not in the
 // default trust store. This is a dev/admin tool: skip CA verification only
 // when SUPABASE_DB_INSECURE=1 is explicitly set, never by default.

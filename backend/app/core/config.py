@@ -6,6 +6,13 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load backend/.env (gitignored, real secrets live there) before reading env.
+_BACKEND_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(_BACKEND_DIR / ".env")
 
 
 def _split_csv(value: str | None) -> list[str]:

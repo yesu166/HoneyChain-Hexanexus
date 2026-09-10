@@ -86,6 +86,19 @@ class LabCertificateService:
                 batch_id=batch_id,
             )
             certificate["anchor"] = anchor_result
+            if anchor_result:
+                self._repo.add_anchor(
+                    {
+                        "batch_id": batch_id,
+                        "data_hash": content_hash,
+                        "tx_hash": anchor_result.get("tx_hash", ""),
+                        "network": anchor_result.get("network", ""),
+                        "chain_status": "anchored"
+                        if anchor_result.get("state") == "CONFIRMED"
+                        else "pending",
+                        "anchored_at": anchor_result.get("created_at"),
+                    }
+                )
 
         self._repo.add_certificate(certificate)
 

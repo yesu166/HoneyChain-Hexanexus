@@ -123,6 +123,18 @@ class HarvestEvidenceService:
                 organization_ref=operator,
             )
             bundle["anchor"] = result
+            if self._repo is not None and entity_type == "batch" and result:
+                anchored = result.get("state") == "CONFIRMED"
+                self._repo.add_anchor(
+                    {
+                        "batch_id": entity_ref,
+                        "data_hash": root,
+                        "tx_hash": result.get("tx_hash", ""),
+                        "network": result.get("network", ""),
+                        "chain_status": "anchored" if anchored else "pending",
+                        "anchored_at": result.get("created_at"),
+                    }
+                )
 
         if self._repo is not None:
             self._repo.add_evidence_bundle(bundle)

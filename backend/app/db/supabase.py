@@ -703,6 +703,12 @@ class SupabaseRepository(Repository):
     tests run) where the SDK is not installed. All writes are upserts keyed by
     the stable `client_id` where the schema provides one, keeping retries
     idempotent.
+
+    The backend's domain rows and the cloud columns differ in a few places
+    (custody actions/actors, batch-harvest links, genealogy relation types,
+    certificate timestamps, beekeeper org keys, datetime serialization). This
+    class translates on the write and read paths only; services keep their
+    existing dict shapes.
     """
 
     TABLE_MAP = {
@@ -712,9 +718,9 @@ class SupabaseRepository(Repository):
         "hives": "hives",
         "readings": "hive_readings",
         "harvests": "harvest_events",
-        "batch_harvests": "batch_harvest_events",
+        "batch_harvests": "batch_harvest_links",
         "batches": "batches",
-        "relations": "batch_relations",
+        "relations": "batch_genealogy",
         "lab_tests": "lab_tests",
         "custody": "custody_events",
         "anchors": "blockchain_anchors",
@@ -726,6 +732,60 @@ class SupabaseRepository(Repository):
         "telemetry_events": "telemetry_events",
         "notifications": "notifications",
     }
+
+    # Allowed write columns per table (drop anything the domain adds that the
+    # cloud schema does not carry).
+    _ORGANIZATION_COLS = ("id", "name", "type", "location", "cluster_id", "client_id")
+    _BEEKEEPER_COLS = (
+        "id", "profile_id", "organization_id", "name", "phone", "location",
+        "madhukranti_id", "is_independent", "client_id",
+    )
+    _HIVE_COLS = (
+        "id", "beekeeper_id", "hive_code", "hive_type", "latitude", "longitude",
+        "install_date", "status", "location", "client_id",
+    )
+    _HARVEST_COLS = (
+        "id", "hive_id", "beekeeper_id", "harvested_at", "quantity_kg",
+        "honey_type", "location", "notes", "collected", "client_id",
+    )
+    _BATCH_COLS = (
+        "id", "batch_code", "status", "honey_type", "quantity_kg", "beekeeper_id",
+        "organization_id", "trust_tier", "origin", "created_at", "client_id",
+    )
+    _LAB_TEST_COLS = ("batch_id", "lab_id", "status", "requested_note", "requested_at")
+    _LEDGER_COLS = (
+        "chain_id", "index", "event_type", "entity_ref", "payload", "prev_hash",
+        "hash", "ts", "device_id", "fork_of",
+    )
+    _CERT_COLS = (
+        "certificate_id", "batch_id", "lab_id", "certificate_type", "issued_at",
+        "valid_until", "content_hash", "issuer_name", "status", "revoked_at",
+        "revocation_reason", "anchor",
+    )
+    _IOT_DEVICE_COLS = (
+        "device_id", "device_name", "device_type", "firmware_version",
+        "device_status", "assigned_hive_id", "assigned_apiary_id",
+        "organization_id", "device_public_key_pem", "device_private_key_pem",
+        "created_at", "sequence", "event_count", "battery_percent",
+        "signal_strength", "mode", "is_simulated", "interval_seconds",
+        "configuration",
+    )
+    _IOT_DEVICE_UPDATE_COLS = (
+        "device_status", "device_name", "firmware_version", "assigned_hive_id",
+        "assigned_apiary_id", "organization_id", "mode", "is_simulated",
+        "interval_seconds", "configuration", "sequence", "event_count",
+        "battery_percent", "signal_strength",
+    )
+    _TELEMETRY_COLS = (
+        "event_id", "device_id", "sequence", "timestamp", "payload",
+        "payload_hash", "previous_event_hash", "signature", "hive_id",
+        "organization_id", "is_simulated", "created_at",
+    )
+    _NOTIFICATION_COLS = (
+        "notification_id", "title", "body", "category", "severity", "reason",
+        "recommended_action", "source", "hive_id", "batch_id", "device_id",
+        "organization_id", "is_simulated", "read", "created_at",
+    )
 
     def __init__(self, url: str, service_role_key: str) -> None:
         self._url = url
@@ -753,23 +813,58 @@ class SupabaseRepository(Repository):
             "password_hash": password_hash,
         }
         data = self._table("users").insert(row).execute().data
-        return data[0]
+        user = data[0]
+        self._provision_beekeeper(user)
+        return user
 
     def get_user_by_email(self, email):
-        data = self._table("users").select("*").eq("email", email).limit(1).execute().data
-        return data[0] if data else None
+        user = self._get_by("users", "email", email)
+        self._provision_beekeeper(user)
+        return user
 
     def get_user_by_phone(self, phone):
-        data = self._table("users").select("*").eq("phone", phone).limit(1).execute().data
-        return data[0] if data else None
+        user = self._get_by("users", "phone", phone)
+        self._provision_beekeeper(user)
+        return user
 
     def get_user(self, user_id):
-        data = self._table("users").select("*").eq("id", user_id).limit(1).execute().data
-        return data[0] if data else None
+        user = self._get_by("users", "id", user_id)
+        self._provision_beekeeper(user)
+        return user
 
-    # -- organizations / beekeepers -- (upsert on client_id / id)
+    def _provision_beekeeper(self, user):
+        """Mirror a beekeeper-rôle user into `beekeepers` so the cloud's FK
+        graph (hives/harvests/batches.beekeeper_id -> beekeepers.id) resolves.
+        The backend's identity is the `users` row; the mirror row reuses its
+        uuid so entity writes stay valid. Independent by nature (the backend
+        authors the org model in its service layer)."""
+        if not user or user.get("role") != "beekeeper":
+            return
+        existing = (
+            self._table("beekeepers").select("id").eq("id", user["id"])
+            .limit(1).execute().data
+        )
+        if existing:
+            return
+        self._table("beekeepers").insert(
+            {
+                "id": user["id"],
+                "profile_id": None,
+                "organization_id": None,
+                "name": user.get("name", ""),
+                "phone": user.get("phone", ""),
+                "location": None,
+                "madhukranti_id": "",
+                "is_independent": True,
+            }
+        ).execute()
+
+    # -- organizations / beekeepers --
     def ensure_organization(self, org):
-        return self._upsert("organizations", org, key="client_id")
+        row = self._clip(org, self._ORGANIZATION_COLS, iso=())
+        if row.get("id") and not self._is_uuid(row["id"]):
+            row.pop("id")
+        return self._upsert("organizations", row, key="client_id")
 
     def get_organization(self, org_id):
         return self._get_by("organizations", "id", org_id)
@@ -778,22 +873,34 @@ class SupabaseRepository(Repository):
         return self._table("organizations").select("*").execute().data
 
     def ensure_beekeeper(self, beekeeper):
-        return self._upsert("beekeepers", beekeeper, key="client_id")
+        row = self._clip(beekeeper, self._BEEKEEPER_COLS, iso=())
+        if "org_id" in beekeeper and "organization_id" not in row:
+            row["organization_id"] = beekeeper.get("org_id")
+        return self._upsert("beekeepers", row, key="client_id")
 
     def get_beekeeper(self, beekeeper_id):
-        return self._get_by("beekeepers", "id", beekeeper_id)
+        return self._beekeeper(self._get_by("beekeepers", "id", beekeeper_id))
 
     def list_beekeepers(self, org_id=None):
         q = self._table("beekeepers").select("*")
         if org_id:
-            q = q.eq("org_id", org_id)
-        return q.execute().data
+            q = q.eq("organization_id", org_id)
+        return [self._beekeeper(r) for r in q.execute().data]
+
+    @staticmethod
+    def _beekeeper(row):
+        if row is None:
+            return None
+        out = dict(row)
+        out.setdefault("org_id", out.get("organization_id") or "")
+        return out
 
     # -- hives --
     def create_hive(self, hive, *, client_id=""):
         if client_id:
             hive["client_id"] = client_id
-        return self._upsert("hives", hive, key="client_id")
+        row = self._clip(hive, self._HIVE_COLS, iso=())
+        return self._upsert("hives", row, key="client_id")
 
     def get_hive(self, hive_id):
         return self._get_by("hives", "id", hive_id)
@@ -805,15 +912,26 @@ class SupabaseRepository(Repository):
         return q.execute().data
 
     def update_hive(self, hive_id, updates):
-        self._table("hives").update(updates).eq("id", hive_id).execute()
+        row = self._clip(updates, self._HIVE_COLS, iso=())
+        if row:
+            self._table("hives").update(row).eq("id", hive_id).execute()
         return self.get_hive(hive_id)
 
     # -- readings --
     def add_reading(self, reading):
-        return self._table("readings").insert(reading).execute().data[0]
+        row = {
+            "hive_id": reading.get("hive_id"),
+            "recorded_at": self._iso(reading.get("recorded_at")),
+            "temperature": reading.get("temperature_c"),
+            "humidity": reading.get("humidity_percent"),
+            "weight_kg": reading.get("weight_kg"),
+            "source": reading.get("source", "manual"),
+        }
+        data = self._table("readings").insert(row).execute().data
+        return self._reading(data[0])
 
     def list_readings(self, hive_id, limit=100):
-        return (
+        rows = (
             self._table("readings")
             .select("*")
             .eq("hive_id", hive_id)
@@ -822,27 +940,59 @@ class SupabaseRepository(Repository):
             .execute()
             .data
         )
+        return [self._reading(r) for r in rows]
+
+    @staticmethod
+    def _reading(row):
+        return {
+            "id": row.get("id"),
+            "hive_id": row.get("hive_id"),
+            "temperature_c": row.get("temperature"),
+            "humidity_percent": row.get("humidity"),
+            "weight_kg": row.get("weight_kg"),
+            "recorded_at": row.get("recorded_at"),
+            "source": row.get("source"),
+        }
 
     # -- harvests --
     def create_harvest(self, harvest, *, client_id=""):
         if client_id:
             harvest["client_id"] = client_id
-        return self._upsert("harvests", harvest, key="client_id")
+        row = self._clip(harvest, self._HARVEST_COLS, iso=("harvested_at",))
+        return self._upsert("harvests", row, key="client_id")
 
     def get_harvest(self, harvest_id):
         return self._get_by("harvests", "id", harvest_id)
 
     def list_harvests(self, beekeeper_id, org_id=""):
-        q = self._table("harvests").select("*")
         if beekeeper_id:
-            q = q.eq("beekeeper_id", beekeeper_id)
-        return q.execute().data
+            return (
+                self._table("harvests")
+                .select("*")
+                .eq("beekeeper_id", beekeeper_id)
+                .order("harvested_at", desc=True)
+                .execute().data
+            )
+        q = self._table("harvests").select("*")
+        if org_id:
+            ids = [
+                r["id"]
+                for r in self._table("beekeepers").select("id")
+                .eq("organization_id", org_id).execute().data
+            ]
+            if not ids:
+                return []
+            q = q.in_("beekeeper_id", ids)
+        return q.order("harvested_at", desc=True).execute().data
 
     # -- batches --
     def create_batch(self, batch, *, client_id=""):
         if client_id:
             batch["client_id"] = client_id
-        return self._upsert("batches", batch, key="client_id")
+        row = self._clip(batch, self._BATCH_COLS, iso=("created_at",))
+        if not row.get("organization_id"):
+            row["organization_id"] = None
+        return self._upsert("batches", row, key="client_id")
 
     def get_batch(self, batch_id):
         return self._get_by("batches", "id", batch_id)
@@ -851,37 +1001,82 @@ class SupabaseRepository(Repository):
         return self._get_by("batches", "batch_code", code)
 
     def list_batches(self, org_id, beekeeper_id=""):
+        if beekeeper_id:
+            return (
+                self._table("batches")
+                .select("*")
+                .eq("beekeeper_id", beekeeper_id)
+                .order("created_at", desc=True)
+                .execute().data
+            )
         q = self._table("batches").select("*")
         if org_id:
             q = q.eq("organization_id", org_id)
-        return q.execute().data
+        return q.order("created_at", desc=True).execute().data
 
     def update_batch(self, batch_id, updates):
-        self._table("batches").update(updates).eq("id", batch_id).execute()
+        row = self._clip(updates, self._BATCH_COLS, iso=("created_at",))
+        if row:
+            self._table("batches").update(row).eq("id", batch_id).execute()
         return self.get_batch(batch_id)
 
     def link_batch_harvest(self, batch_id, harvest_id, quantity_kg):
-        self._table("batch_harvests").insert(
-            {"batch_id": batch_id, "harvest_id": harvest_id, "quantity_kg": quantity_kg}
-        ).execute()
-
-    def list_batch_harvests(self, batch_id):
-        return (
-            self._table("batch_harvests").select("*").eq("batch_id", batch_id).execute().data
-        )
-
-    def list_batch_harvests_by_harvest(self, harvest_id):
-        return (
+        exists = (
             self._table("batch_harvests")
-            .select("*")
-            .eq("harvest_id", harvest_id)
+            .select("batch_id")
+            .eq("batch_id", batch_id)
+            .eq("harvest_event_id", harvest_id)
+            .limit(1)
             .execute()
             .data
         )
+        if exists:
+            return
+        self._table("batch_harvests").insert(
+            {
+                "batch_id": batch_id,
+                "harvest_event_id": harvest_id,
+                "quantity_kg": quantity_kg,
+            }
+        ).execute()
+
+    def list_batch_harvests(self, batch_id):
+        rows = (
+            self._table("batch_harvests")
+            .select("*")
+            .eq("batch_id", batch_id)
+            .execute().data
+        )
+        return [self._harvest_link(r) for r in rows]
+
+    def list_batch_harvests_by_harvest(self, harvest_id):
+        rows = (
+            self._table("batch_harvests")
+            .select("*")
+            .eq("harvest_event_id", harvest_id)
+            .execute().data
+        )
+        return [self._harvest_link(r) for r in rows]
+
+    @staticmethod
+    def _harvest_link(row):
+        return {
+            "batch_id": row.get("batch_id"),
+            "harvest_id": row.get("harvest_event_id"),
+            "quantity_kg": row.get("quantity_kg"),
+        }
 
     # -- genealogy --
     def add_batch_relation(self, relation):
-        self._table("relations").insert(relation).execute()
+        self._table("relations").insert(
+            {
+                "parent_batch_id": relation.get("parent_batch_id"),
+                "child_batch_id": relation.get("child_batch_id"),
+                "relationship_type": relation.get("relation_type")
+                or relation.get("relationship_type"),
+                "quantity_kg": relation.get("quantity_kg"),
+            }
+        ).execute()
 
     def list_batch_relations(self, batch_id, direction="both"):
         rows = []
@@ -890,32 +1085,46 @@ class SupabaseRepository(Repository):
                 self._table("relations")
                 .select("*")
                 .eq("child_batch_id", batch_id)
-                .execute()
-                .data
+                .execute().data
             )
         if direction in ("children", "both"):
             rows.extend(
                 self._table("relations")
                 .select("*")
                 .eq("parent_batch_id", batch_id)
-                .execute()
-                .data
+                .execute().data
             )
+        for row in rows:
+            row["relation_type"] = row.pop("relationship_type", "")
         return rows
 
-    # -- lab / custody / anchors / passports --
+    # -- lab --
     def create_lab_test(self, test):
-        return self._table("lab_tests").insert(test).execute().data[0]
+        row = self._clip(test, self._LAB_TEST_COLS, iso=("requested_at",))
+        data = self._table("lab_tests").insert(row).execute().data
+        return data[0]
 
     def get_lab_test(self, test_id):
         return self._get_by("lab_tests", "id", test_id)
 
     def update_lab_test(self, test_id, updates):
-        self._table("lab_tests").update(updates).eq("id", test_id).execute()
+        row = self._clip(
+            updates,
+            self._LAB_TEST_COLS + ("result", "tested_by", "notes", "tested_at"),
+            iso=("tested_at", "requested_at"),
+        )
+        if row:
+            self._table("lab_tests").update(row).eq("id", test_id).execute()
         return self.get_lab_test(test_id)
 
     def list_lab_tests(self, batch_id):
-        return self._table("lab_tests").select("*").eq("batch_id", batch_id).execute().data
+        return (
+            self._table("lab_tests")
+            .select("*")
+            .eq("batch_id", batch_id)
+            .order("requested_at", desc=False)
+            .execute().data
+        )
 
     def list_lab_queue(self, lab_id):
         return (
@@ -923,30 +1132,98 @@ class SupabaseRepository(Repository):
             .select("*")
             .eq("lab_id", lab_id)
             .eq("status", "requested")
-            .execute()
-            .data
+            .order("requested_at", desc=False)
+            .execute().data
         )
 
+    # -- custody --
     def add_custody_event(self, event):
-        return self._table("custody").insert(event).execute().data[0]
+        notes = event.get("notes") or ""
+        row = {
+            "batch_id": event.get("batch_id"),
+            "actor_id": None,
+            "actor_role": event.get("actor") or "",
+            "event_type": event.get("action"),
+            "timestamp": self._iso(event.get("event_at")),
+            "location": None,
+            "quantity_kg": None,
+            "metadata": {"notes": notes} if notes else {},
+        }
+        data = self._table("custody").insert(row).execute().data
+        return self._custody(data[0])
 
     def list_custody_events(self, batch_id):
-        return (
-            self._table("custody").select("*").eq("batch_id", batch_id).execute().data
+        rows = (
+            self._table("custody")
+            .select("*")
+            .eq("batch_id", batch_id)
+            .order("timestamp", desc=False)
+            .execute().data
         )
+        return [self._custody(r) for r in rows]
 
+    @classmethod
+    def _custody(cls, row):
+        meta = row.get("metadata") or {}
+        return {
+            "id": row.get("id"),
+            "batch_id": row.get("batch_id"),
+            "action": row.get("event_type"),
+            "actor": row.get("actor_role") or row.get("actor_id") or "",
+            "notes": meta.get("notes", "") if isinstance(meta, dict) else "",
+            "event_at": row.get("timestamp"),
+        }
+
+    # -- anchors --
     def add_anchor(self, anchor):
-        return self._table("anchors").insert(anchor).execute().data[0]
+        chain_status = anchor.get("chain_status", "pending")
+        row = {
+            "batch_id": anchor.get("batch_id"),
+            "event_id": anchor.get("event_id"),
+            "data_hash": anchor.get("data_hash", ""),
+            "transaction_hash": anchor.get("tx_hash") or anchor.get("transaction_hash"),
+            "network": anchor.get("network"),
+            "status": "confirmed" if chain_status == "anchored" else "pending",
+            "anchored_at": self._iso(
+                anchor.get("anchored_at") or anchor.get("confirmed_at")
+            ),
+        }
+        data = self._table("anchors").insert(row).execute().data
+        return self._anchor(data[0])
 
     def get_anchor(self, batch_id):
-        return self._get_by("anchors", "batch_id", batch_id)
+        data = (
+            self._table("anchors")
+            .select("*")
+            .eq("batch_id", batch_id)
+            .order("anchored_at", desc=True, nullsfirst=False)
+            .limit(1)
+            .execute().data
+        )
+        if not data:
+            return None
+        return self._anchor(data[0])
 
+    @staticmethod
+    def _anchor(row):
+        status = (row.get("status") or "pending").lower()
+        return {
+            "batch_id": row.get("batch_id"),
+            "data_hash": row.get("data_hash", ""),
+            "tx_hash": row.get("transaction_hash", ""),
+            "network": row.get("network", ""),
+            "chain_status": "anchored" if status == "confirmed" else "pending",
+            "anchored_at": row.get("anchored_at"),
+        }
+
+    # -- passports --
     def save_passport(self, passport):
-        existing = self.get_passport(passport["subject_code"])
-        if existing:
-            self._table("passports").update(passport).eq("subject_code", passport["subject_code"]).execute()
-        else:
-            self._table("passports").insert(passport).execute()
+        row = {
+            "subject_code": passport["subject_code"],
+            "subject_type": passport.get("subject_type", "batch"),
+            "payload": passport.get("payload", {}),
+        }
+        self._table("passports").upsert(row, on_conflict="subject_code").execute()
 
     def get_passport(self, subject_code):
         return self._get_by("passports", "subject_code", subject_code)
@@ -954,34 +1231,50 @@ class SupabaseRepository(Repository):
     def find_by_client_id(self, table, client_id):
         return self._get_by(table, "client_id", client_id)
 
+    # -- evidence bundles --
     def add_evidence_bundle(self, bundle):
-        return self._table("evidence_bundles").insert(bundle).execute().data[0]
+        row = self._clip(bundle, self._evidence_cols, iso=("created_at",))
+        data = self._table("evidence_bundles").insert(row).execute().data
+        return data[0]
 
     def get_evidence_bundle(self, bundle_id):
         return self._get_by("evidence_bundles", "bundle_id", bundle_id)
 
+    # -- ledger --
     def add_ledger_event(self, event):
-        return self._table("ledger_events").insert(event).execute().data[0]
+        row = self._clip(event, self._LEDGER_COLS, iso=("ts",))
+        data = self._table("ledger_events").insert(row).execute().data
+        return data[0]
 
     def list_ledger_events(self, chain_id):
-        return (
+        rows = (
             self._table("ledger_events")
             .select("*")
             .eq("chain_id", chain_id)
             .order("index", desc=False)
-            .execute()
-            .data
+            .execute().data
         )
+        return [{k: r[k] for k in self._LEDGER_COLS if k in r} for r in rows]
 
+    # -- certificates --
     def add_certificate(self, certificate):
-        return self._table("certificates").insert(certificate).execute().data[0]
+        row = self._clip(certificate, self._CERT_COLS, iso=("issued_at",))
+        if not row.get("valid_until"):
+            row["valid_until"] = None
+        if not row.get("revoked_at"):
+            row["revoked_at"] = None
+        data = self._table("certificates").insert(row).execute().data
+        return data[0]
 
     def get_certificate(self, certificate_id):
         return self._get_by("certificates", "certificate_id", certificate_id)
 
     def list_certificates(self, batch_id):
         return (
-            self._table("certificates").select("*").eq("batch_id", batch_id).execute().data
+            self._table("certificates")
+            .select("*")
+            .eq("batch_id", batch_id)
+            .execute().data
         )
 
     def revoke_certificate(self, certificate_id, *, revoked_at, reason):
@@ -992,9 +1285,10 @@ class SupabaseRepository(Repository):
 
     # -- IoT devices --
     def create_iot_device(self, device):
-        if "device_id" not in device or not device["device_id"]:
-            device["device_id"] = new_id()
-        return self._table("iot_devices").insert(device).execute().data[0]
+        row = self._clip(device, self._IOT_DEVICE_COLS, iso=())
+        if not row.get("device_id"):
+            row["device_id"] = new_id()
+        return self._table("iot_devices").insert(row).execute().data[0]
 
     def get_iot_device(self, device_id):
         return self._get_by("iot_devices", "device_id", device_id)
@@ -1006,12 +1300,15 @@ class SupabaseRepository(Repository):
         return q.execute().data
 
     def update_iot_device(self, device_id, updates):
-        self._table("iot_devices").update(updates).eq("device_id", device_id).execute()
+        row = self._clip(updates, self._IOT_DEVICE_UPDATE_COLS, iso=())
+        if row:
+            self._table("iot_devices").update(row).eq("device_id", device_id).execute()
         return self.get_iot_device(device_id)
 
     # -- telemetry --
     def add_telemetry_event(self, event):
-        return self._table("telemetry_events").insert(event).execute().data[0]
+        row = self._clip(event, self._TELEMETRY_COLS, iso=("timestamp",))
+        return self._table("telemetry_events").insert(row).execute().data[0]
 
     def get_telemetry_event(self, event_id):
         return self._get_by("telemetry_events", "event_id", event_id)
@@ -1020,9 +1317,7 @@ class SupabaseRepository(Repository):
         q = self._table("telemetry_events").select("*").eq("device_id", device_id)
         if since:
             q = q.gte("timestamp", since)
-        return (
-            q.order("timestamp", desc=True).limit(limit).execute().data
-        )
+        return q.order("timestamp", desc=True).limit(limit).execute().data
 
     def telemetry_events_for_hive(self, hive_id, limit=50):
         return (
@@ -1031,15 +1326,15 @@ class SupabaseRepository(Repository):
             .eq("hive_id", hive_id)
             .order("timestamp", desc=True)
             .limit(limit)
-            .execute()
-            .data
+            .execute().data
         )
 
     # -- notifications --
     def add_notification(self, notification):
-        if "notification_id" not in notification or not notification["notification_id"]:
-            notification["notification_id"] = new_id()
-        return self._table("notifications").insert(notification).execute().data[0]
+        row = self._clip(notification, self._NOTIFICATION_COLS, iso=("created_at",))
+        if not row.get("notification_id"):
+            row["notification_id"] = new_id()
+        return self._table("notifications").insert(row).execute().data[0]
 
     def list_notifications(self, org_id="", hive_id=""):
         q = self._table("notifications").select("*")
@@ -1059,6 +1354,38 @@ class SupabaseRepository(Repository):
         return self._get_by("notifications", "notification_id", notification_id)
 
     # -- helpers --
+    @property
+    def _evidence_cols(self):
+        return (
+            "bundle_id", "entity_type", "entity_ref", "operator", "device_id",
+            "created_at", "leaf_count", "root_hash", "evidence", "anchor",
+        )
+
+    @staticmethod
+    def _iso(value):
+        from datetime import datetime, timezone
+
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return datetime.fromtimestamp(value, tz=timezone.utc).isoformat()
+        return value
+
+    def _clip(self, raw, columns, *, iso):
+        out = {k: raw[k] for k in columns if k in raw and raw[k] is not None}
+        for k in iso:
+            if k in out:
+                out[k] = self._iso(out[k])
+        if not out:
+            return {}
+        return out
+
+    @staticmethod
+    def _is_uuid(value: str) -> bool:
+        return isinstance(value, str) and len(value) == 36
+
     def _get_by(self, table, column, value):
         data = (
             self._table(table).select("*").eq(column, value).limit(1).execute().data
@@ -1066,6 +1393,13 @@ class SupabaseRepository(Repository):
         return data[0] if data else None
 
     def _upsert(self, table, row, key):
+        if not row:
+            return {}
+        if key not in row or row.get(key) in (None, ""):
+            # No stable dedup key (e.g. a local-only create) and the partial
+            # unique index cannot act as an ON CONFLICT arbiter — plain insert.
+            data = self._table(table).insert(row).execute().data
+            return data[0] if data else row
         data = (
             self._table(table).upsert(row, on_conflict=key).execute().data
         )
