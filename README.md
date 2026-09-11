@@ -1,6 +1,6 @@
 # 🍯 HoneyChain 3.0
 
-**Simple for Beekeepers. Trusted by the World.**
+**Simple for Beekeepers.**
 
 **SIH26021 — Honey Chain:** A blockchain-based honey traceability and smart beekeeping platform designed for fragmented, multi-organization, and intermittently connected honey supply chains.
 
