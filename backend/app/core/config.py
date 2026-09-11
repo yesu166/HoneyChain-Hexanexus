@@ -55,6 +55,7 @@ class Settings:
         self.blockchain_private_key: str = os.getenv("BLOCKCHAIN_PRIVATE_KEY", "")
         self.fabric_channel: str = os.getenv("FABRIC_CHANNEL", "")
         self.fabric_chaincode: str = os.getenv("FABRIC_CHAINCODE", "")
+        self.fabric_gateway_url: str = os.getenv("FABRIC_GATEWAY_URL", "")
         self.ai_adapter: str = os.getenv("AI_ADAPTER", "risk_engine")
 
         # Public passport endpoint rate limit (requests per minute per IP).

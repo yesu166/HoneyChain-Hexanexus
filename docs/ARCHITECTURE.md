@@ -68,11 +68,13 @@ backend/        FastAPI backend (repository abstraction, services, adapters)
   app/adapters     blockchain (gateway + state + local/evm/fabric) + AI (risk engine)
   app/db           SupabaseRepository / InMemoryRepository / DemoSeededRepository
   app/core         config, security, rbac (permission matrix), crypto, logging
-  tests/           pytest (110 green)
+  tests/           pytest (157 green, 3 LIVE_RUNTIME skipped; 3 LIVE_RUNTIME pass against real EC2 Fabric via tunnel)
+fabric-gateway-service/  Node.js Fabric Gateway HTTP service (deployed on EC2, systemd, port 9446, live-connected)
+fabric/          Chaincode source (tracer/), test-network configs
 supabase/       Versioned, idempotent SQL migrations + RLS + seed + apply script
 test/           Flutter tests (64 green)
 ml/             Optional rule-based risk model artifacts + training script
-docs/           This control center
+docs/           This control center + evidence/
 ```
 
 ## Blockchain gateway & adapter taxonomy
@@ -87,8 +89,21 @@ transaction with an explicit state machine
   every response; never presented as a real chain.
 - **EVMBlockchainAdapter** — EVM (e.g. Polygon Amoy) once RPC + wallet +
   contract are configured. Until then it returns `BLOCKCHAIN_NOT_CONFIGURED`.
-- **FabricBlockchainAdapter** — Hyperledger Fabric once a real network exists.
-  Until then it returns `FABRIC_NOT_CONFIGURED` / `FABRIC_UNAVAILABLE`.
+- **FabricBlockchainAdapter** — Hyperledger Fabric via the Node.js Fabric
+  Gateway service (`fabric-gateway-service/`). The adapter makes HTTP calls
+  to the Node.js service which uses the `@hyperledger/fabric-gateway` SDK
+  to connect to the real Fabric peer. **Live-proven (2026-09-10)**: the node
+  service runs on EC2 (`honeychain-fabric-gateway` systemd unit, port 9446),
+  and real anchors were committed and read back through the Python adapter
+  (`mychannel`/`honeychain` v2.0 seq 6). Chaincode function mapping mirrors the
+  deployed contract: `anchorMerkleRoot`, `getAnchor`, `submitEvent`,
+  `createBatch`, etc. Reports:
+  - `FABRIC_CONNECTED` — real query succeeded against live Fabric
+  - `FABRIC_NOT_CONFIGURED` — no gateway URL configured
+  - `FABRIC_UNAVAILABLE` — gateway service unreachable
+  - `FABRIC_AUTH_FAILED` — identity/TLS error
+  - `FABRIC_TIMEOUT` — gateway service timed out
+  - `FABRIC_MISCONFIGURED` — gateway service reports missing env vars
 
 The gateway never fabricates confirmations: `CONFIRMED` requires the adapter
 to confirm. See [BLOCKCHAIN.md](./BLOCKCHAIN.md).

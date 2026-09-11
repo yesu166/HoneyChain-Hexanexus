@@ -54,6 +54,8 @@ class ApiTokenStore {
 
   Future<void> init() async {
     _prefs ??= await SharedPreferences.getInstance();
+    // Re-read every time so restart-restore and tests always mirror the
+    // persisted identity (the store is a long-lived singleton).
     final raw = _prefs!.getString(_kIdentity);
     if (raw != null) {
       try {
@@ -61,6 +63,8 @@ class ApiTokenStore {
       } on FormatException {
         _cached = null;
       }
+    } else {
+      _cached = null;
     }
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/honeychain_store.dart';
 import '../models/domain.dart';
+import '../theme/app_theme.dart';
 import '../widgets/status_badge.dart';
 import 'honey_passport_screen.dart';
 import 'regulator_screen.dart';
@@ -50,6 +51,9 @@ class _BlockchainScreenState extends State<BlockchainScreen> {
           body: ListView(
             padding: const EdgeInsets.all(24),
             children: [
+              if (store.backendModeActive)
+                _LiveFabricCard(store: store),
+              if (store.backendModeActive) const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -144,6 +148,155 @@ class _BlockchainScreenState extends State<BlockchainScreen> {
       },
     );
   }
+}
+
+class _LiveFabricCard extends StatelessWidget {
+  const _LiveFabricCard({required this.store});
+
+  final HoneyChainStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final health = store.blockchainHealth;
+    final status = store.blockchainStatus;
+    final bundle = store.lastAnchoredBundle;
+    final connected = health?.isConnected ?? false;
+    return Card(
+      color: connected ? Colors.green.shade50 : Colors.orange.shade50,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: connected
+              ? Colors.green.shade300
+              : Colors.orange.shade300,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  connected ? Icons.link : Icons.cloud_off_outlined,
+                  color: connected
+                      ? Colors.green.shade700
+                      : Colors.orange.shade800,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    connected
+                        ? 'Live Fabric network (via backend)'
+                        : 'Fabric chain: ${health?.status ?? 'checking'}',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.ink,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: store.serverCollectionsBusy
+                      ? null
+                      : () => store.refreshServerCollections(),
+                  icon: const Icon(Icons.refresh_rounded, size: 20),
+                  tooltip: 'Refresh blockchain status',
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            if (connected && health != null) ...[
+              _fabricRow('Channel · chaincode',
+                  '${health.channel} · ${health.chaincode}'),
+              _fabricRow(
+                'Version · sequence',
+                'v${health.chaincodeVersion ?? '?'} · '
+                    'seq ${health.chaincodeSequence ?? '?'}',
+              ),
+              _fabricRow('Peer · MSP',
+                  '${health.peer.isNotEmpty ? health.peer : '—'} · '
+                      '${health.mspId.isNotEmpty ? health.mspId : '—'}'),
+              if (status != null)
+                _fabricRow(
+                    'Tracked transactions', '${status.transactionCount}'),
+            ],
+            if (bundle != null) ...[
+              const Divider(height: 22),
+              _fabricRow('Last anchored bundle', bundle.bundleId),
+              _fabricRow('State',
+                  '${bundle.anchor['state'] ?? 'unknown'} · ${bundle.network}'),
+              if (bundle.txHash.isNotEmpty)
+                Text(
+                  bundle.txHash,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.inkSoft,
+                  ),
+                ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () async {
+                    final result = await store.verifyLastBundle();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(SnackBar(
+                        content: Text(
+                          result == null
+                              ? 'Verification failed'
+                              : 'Bundle ${result.anchored ? 'ANCHORED' : 'NOT ANCHORED'} · '
+                                  'evidence ${result.evidenceIntact ? 'intact' : 'tampered'}',
+                        ),
+                      ));
+                  },
+                  icon: const Icon(Icons.verified_outlined, size: 18),
+                  label: const Text('Verify bundle on chain'),
+                ),
+              ),
+            ],
+            if (health != null && !connected && health.error != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                health.error!,
+                style: TextStyle(
+                    fontSize: 12, color: Colors.orange.shade800),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _fabricRow(String label, String value) => Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 150,
+              child: Text(label,
+                  style: const TextStyle(color: AppTheme.inkSoft, fontSize: 12.5)),
+            ),
+            Expanded(
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 class _EvidenceCard extends StatelessWidget {

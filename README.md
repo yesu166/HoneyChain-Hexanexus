@@ -407,7 +407,8 @@ Scoping: beekeepers see only their own data; FPO/processor see their org's data;
 
 | Component | Status | Evidence |
 |---|---|---|
-| Flutter app (offline-first) | ✅ VERIFIED | `flutter test` → 64 passed |
+| Flutter app (offline-first) | ✅ VERIFIED | `flutter test` → 112 passed, `flutter analyze` clean |
+| Flutter ↔ backend (beekeeper path) | ✅ INTEGRATED | `honey_api_service` — real login, server hives/harvests, Fabric-anchored evidence, live chain status |
 | FastAPI backend | ✅ VERIFIED | `pytest` → 157 passed, 3 skipped |
 | Supabase schema (migrations 001–008) | ✅ APPLIED | Migrations applied to live project |
 | Backend repository abstraction | ✅ REAL | InMemory + Supabase repositories |
@@ -433,6 +434,8 @@ Scoping: beekeepers see only their own data; FPO/processor see their org's data;
 | Public Fabric access | SSH TUNNEL ONLY | EC2 security group does not open port 9446 |
 | Docker container builds | NOT RUNNING | Docker daemon not running in this environment |
 | Camera/QR on hardware | NOT TESTED | Widget tests only; no device access |
+| Real Android device E2E | NOT TESTED | No device/emulator in this environment |
+| Production release signing | NOT READY | Release APK builds but is debug-signed; keystore not provisioned |
 
 ---
 
@@ -476,7 +479,19 @@ test_live_submit_and_verify   PASSED
 
 ### Flutter — flutter test
 
-**64 passed** — beekeeper portal, recording harvests, hive details/alerts, honey passport drilldown, disease screening (rule-based), IoT simulation warnings, responsive smoke tests.
+**112 passed** — beekeeper portal, recording harvests, hive details/alerts, honey passport drilldown, disease screening (rule-based), IoT simulation warnings, responsive smoke tests, backend API service (auth/hives/harvests/batches/evidence/Fabric status mapping), offline queue + restart durability, no-duplicate sync, backend-mode guards, the API config policy gate (HTTPS / localhost / emulator host), the canonical auth/session state machine, workspace switching (see `docs/AUTH_SESSION_MODEL.md`, `docs/ROLE_UX_MAP.md`), and the online passport verification client (see `docs/QR_HONEY_PASSPORT.md`).
+
+**One session, many workspaces:** a signed-in account can switch between the Beekeeper, Organization / FPO, Buyer and Consumer experiences from the More tab without logging out and without re-entering a persona login. The active workspace is persisted, a backend-backed account is narrowed to the workspaces its role is actually allowed to enter, and `logout` never deletes local domain records or the pending-sync queue.
+
+**Beekeeper ↔ backend integration (`lib/services/honey_api_service.dart`):** when the app is built with `--dart-define=API_BASE_URL=…`, the login screen offers a real backend sign-in (`demo@honeychain.in` / `HoneyChainDemo!1`, role `beekeeper`). Once signed in, My Hives shows the beekeeper's server hives (create hive posts to the backend), recording a harvest pushes it to `/api/v1/harvests` and anchors the evidence bundle onto the live Fabric chain (`POST /api/v1/evidence/bundles` with `anchor: true`), and the Blockchain screen shows the real chain status (`/api/v1/blockchain/health` + `/status`) with on-chain verify. Offline demo/OTP login remains the fallback when no backend URL is compiled in.
+
+**Config policy (fail-fast):** the app never hardcodes a backend or secrets. `API_BASE_URL` is injected at build time; production/staging must be `https://`, and plain `http://` is allowed only for `localhost`, `127.0.0.1` or the Android emulator host alias `10.0.2.2`. A compiled-but-rejected URL aborts startup with an explicit error instead of silently running without a backend.
+
+### Android builds
+
+- **Debug APK** — built and verified on this machine: `releases/honeychain-2.0.2+4-debug.apk`.
+- **Release APK** — `releases/honeychain-2.0.2+4-release.apk` (74.7 MB) builds, but uses the **debug signing key** (signingConfig from the template), so it is NOT Play-Store-ready. A real release keystore must be provisioned before distribution.
+- **Real-device E2E** — NOT TESTED: no Android device/emulator is available in this environment (`flutter devices` lists only Windows/Chrome/Edge).
 
 ### Test Integrity
 
@@ -822,6 +837,11 @@ Complete documentation is in [`docs/`](docs/):
 | [`DEMO.md`](docs/DEMO.md) | Demo walkthrough |
 | [`ROLE_MATRIX.md`](docs/ROLE_MATRIX.md) | RBAC permission matrix |
 | [`ASSUMPTIONS.md`](docs/ASSUMPTIONS.md) | Assumptions and decisions record |
+| [`AUTH_SESSION_MODEL.md`](docs/AUTH_SESSION_MODEL.md) | One-session auth state machine + durable JWT restore |
+| [`ROLE_UX_MAP.md`](docs/ROLE_UX_MAP.md) | Workspace switching without re-login, role→workspace map |
+| [`QR_HONEY_PASSPORT.md`](docs/QR_HONEY_PASSPORT.md) | QR contract + Honey Passport + online verification |
+| [`PROVENANCE_MODEL.md`](docs/PROVENANCE_MODEL.md) | Trust tiers, hashing, anchors (local vs live Fabric) |
+| [`MOBILE_LIVE_FLOW.md`](docs/MOBILE_LIVE_FLOW.md) | End-to-end demo / backend / consumer flows |
 | [`evidence/live-fabric-backend-proof.md`](docs/evidence/live-fabric-backend-proof.md) | Verified Fabric integration evidence |
 
 ---

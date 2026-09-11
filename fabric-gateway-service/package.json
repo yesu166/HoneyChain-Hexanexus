@@ -1,0 +1,19 @@
+{
+  "name": "honeychain-fabric-gateway",
+  "version": "1.0.0",
+  "description": "HTTP gateway to Hyperledger Fabric for HoneyChain 3.0",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.10.0",
+    "@hyperledger/fabric-gateway": "^1.4.0",
+    "express": "^4.18.0",
+    "google-protobuf": "^3.21.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

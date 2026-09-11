@@ -14,7 +14,7 @@ Status key: ✅ done+tested · ⚠️ partial (runs but has known limits) · �
 | BlockchainGateway + tx state machine | ✅ | PENDING/SUBMITTED/CONFIRMED/FAILED/RETRYING/UNKNOWN; tests |
 | Local dev ledger | ✅ | `ledger_name == "local"`, honest confirmations |
 | EVM adapter boundary | 🚧 | not configured → `BLOCKCHAIN_NOT_CONFIGURED`; tests |
-| Fabric adapter boundary | 🚧 | not configured → `FABRIC_NOT_CONFIGURED`; tests |
+| Fabric adapter boundary | ✅ | real EC2 Fabric proven live (see evidence) — committed tx + read-back |
 | Batch lineage + state machine | ✅ | transitions, custody holder, genealogy; tests |
 | Lab certificate issue/verify/revoke | ✅ | content-hash anchor + revocation; tests |
 | Honey Passport (public, PII-free) | ✅ | pre-existing `passport_service`; existing tests |
@@ -41,20 +41,39 @@ Status key: ✅ done+tested · ⚠️ partial (runs but has known limits) · �
 | ML artifacts (`ml/`) | ⚠️ | `model.pkl`/metrics are **demo artifacts**; verified we will not claim trained accuracy |
 | Disease screening from photos | ⚠️ | demo/simulated path only; honest "unable to assess" |
 
+## P3 — Flutter app (beekeeper portal) — 2026-09-11
+
+| Feature | Status | Notes |
+|---|---|---|
+| Offline-first local store + durable sync queue | ✅ | `flutter test` covers queue, retries, restart durability, no-duplicate push |
+| Backend sign-in (`API_BASE_URL` build flag) | ✅ | queue guard-tested; live E2E from device NOT TESTED |
+| Server hives/harvests in My Hives + create hive → backend | ✅ | `honey_api_service` (MockClient tests) |
+| Record harvest → push + Fabric-anchored evidence bundle | ✅ | honest "anchor pending" when backend unreachable |
+| Live chain status card (Blockchain screen) | ✅ | `/health` + `/status` + on-chain verify |
+| Trace QR + Honey Passport (trust tiers, caveats) | ✅ | plain `honeychain://` scheme; **not** crypto-signed |
+| Ask HoneyChain (voice + manual fallback) | ✅ | Web Speech on web, honest heuristics; never fakes audio |
+| Android debug APK / release APK | ✅ / ⚠️ | built; release is **debug-signed** (not store-ready) |
+
 ## Blocked / not done (explicitly)
 
 | Item | Blocker |
 |---|---|
 | Live writes to hosted Supabase | no `SUPABASE_SERVICE_ROLE_KEY` provided |
 | EVM anchoring on a real network | no RPC+wallet+deployed contract |
-| Fabric anchoring on a real network | no Fabric network running |
+| Public (non-tunnel) Fabric access | EC2 security group does not open gateway port 9446; no AWS CLI available to change it |
 | Docker-built images | Docker daemon not running |
-| Real-device camera/QR | no device access in this environment |
+| Real-device camera/QR/voice | no device access in this environment |
 
-## Test inventory (this session — both suites green)
+Hyperledger Fabric anchoring **is** live: the EC2 network (`mychannel`/`honeychain` v2.0)
+was anchored through the full backend stack and verified by read-back this session
+(`docs/evidence/live-fabric-backend-proof.md`).
 
-- Backend `pytest`: **110 passed** (was 54 before this session).
-- Flutter `flutter test`: **64 passed** (unchanged; no regression).
+## Test inventory
+
+- Backend `pytest`: **157 passed, 3 LIVE_RUNTIME skipped** by default; with the
+  EC2 gateway reachable, all 3 LIVE_RUNTIME tests **pass against real Fabric**.
+- Flutter `flutter test`: **64 passed** (no regression).
+- `test_fabric_adapter.py`: 25 UNIT (mocked HTTP) + 3 LIVE_RUNTIME (real ledger).
 
 New coverage added this session:
 `test_crypto`, `test_merkle`, `test_event_ledger`, `test_evidence`,

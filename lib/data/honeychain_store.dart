@@ -18,9 +18,11 @@ import '../services/connectivity_factory.dart';
 import '../services/connectivity_service.dart';
 import '../services/disease_detection_service.dart';
 import '../services/fastapi_auth_repository.dart';
+import '../services/honey_api_service.dart';
 import '../services/honeychain_services.dart';
 import '../services/image_input_service.dart';
 import '../services/local_store.dart';
+import '../services/passport_verification_service.dart';
 import '../services/sync_gateway_factory.dart';
 import '../services/sync_service.dart';
 import '../services/trace_qr_service.dart';
@@ -29,6 +31,7 @@ import '../bee_health/models/bee_health_models.dart';
 import '../bee_health/services/bee_health_knowledge.dart';
 import 'demo_seed.dart';
 import 'mock_data.dart';
+import 'auth.dart';
 
 /// Central application state for the beekeeper-facing HoneyChain app.
 ///
@@ -108,6 +111,9 @@ class HoneyChainStore extends ChangeNotifier {
   bool _fpoRole = false;
   String _activeFpoOrgId = 'ORG-TN-001';
 
+  /// Workspace of the current user session (persisted, see [Workspace]).
+  Workspace _activeWorkspace = Workspace.beekeeper;
+
   // ---------------------------------------------------------------------
   // Startup
   // ---------------------------------------------------------------------
@@ -116,6 +122,7 @@ class HoneyChainStore extends ChangeNotifier {
     if (_started) return;
     _started = true;
     await LocalStore.instance.init();
+    await ApiTokenStore.instance.init();
 
     if (usePersistence) {
       _language = AppLanguages.fromCode(LocalStore.instance.loadLanguage())
@@ -125,6 +132,10 @@ class HoneyChainStore extends ChangeNotifier {
       if (profile != null) _profile = profile;
       final buyerId = LocalStore.instance.loadBuyerId();
       if (buyerId != null && buyerId.trim().isNotEmpty) _buyerId = buyerId;
+      _restoreBackendSession();
+      _activeWorkspace = Workspace.fromCode(
+        LocalStore.instance.loadActiveWorkspace(),
+      );
       _loadPersisted();
     }
 
@@ -166,6 +177,18 @@ class HoneyChainStore extends ChangeNotifier {
         ? ConnectivityStatus.online
         : ConnectivityStatus.offline;
     notifyListeners();
+  }
+
+  /// Test-only: drops the singleton's startup latch and backend-session flags
+  /// so a test can re-run [ensureStarted] against freshly seeded persistence
+  /// (simulating an app restart). Local domain data is left intact.
+  @visibleForTesting
+  void debugResetForTest() {
+    _started = false;
+    _backendSignedIn = false;
+    _backendRole = null;
+    _backendChecked = false;
+    _backendOnline = false;
   }
 
   void _loadPersisted() {
@@ -357,6 +380,78 @@ class HoneyChainStore extends ChangeNotifier {
   void setActiveFpoOrg(String orgId) {
     _activeFpoOrgId = orgId;
     notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------
+  // Session state + workspaces
+  // ---------------------------------------------------------------------
+
+  /// Canonical session state derived from the persisted login, the compiled-in
+  /// backend configuration and live connectivity.
+  AuthState get authState {
+    if (!_loggedIn) return AuthState.signedOut;
+    if (_online && backendConfigured && _backendOnline) {
+      return AuthState.authenticated;
+    }
+    return AuthState.offlineAuthenticated;
+  }
+
+  /// Honest one-line description of the session state (shown in More Tab).
+  String get authStateLabel => switch (authState) {
+        AuthState.signedOut => 'Signed out',
+        AuthState.unknown => 'Starting…',
+        AuthState.authenticated => 'Signed in to the backend',
+        AuthState.offlineAuthenticated =>
+          ApiConfig.isConfigured
+              ? 'Offline — using saved account'
+              : 'No backend configured — using saved account',
+      };
+
+  Workspace get activeWorkspace => _activeWorkspace;
+
+  /// Workspaces this account may enter without logging in again.
+  ///
+  /// A demo (unconfigured) account can enter every persona the seed actually
+  /// models (beekeeper, FPO, buyer, consumer). When the account is backed by
+  /// the FastAPI backend the list is narrowed to the workspaces the account's
+  /// role is allowed to enter — never invented.
+  List<Workspace> get availableWorkspaces {
+    if (_backendSignedIn && _backendRole != null) {
+      final role = _backendRole;
+      final workspaces = <Workspace>[Workspace.beekeeper, Workspace.consumer];
+      if (role == 'fpo' ||
+          role == 'admin' ||
+          role == 'field_officer' ||
+          role == 'organization' ||
+          role == 'processor' ||
+          role == 'lab') {
+        workspaces.add(Workspace.organization);
+      }
+      if (role == 'buyer') {
+        workspaces.add(Workspace.buyer);
+      }
+      return workspaces;
+    }
+    return const [
+      Workspace.beekeeper,
+      Workspace.organization,
+      Workspace.buyer,
+      Workspace.consumer,
+    ];
+  }
+
+  /// Switches the current workspace without ending the session. Only
+  /// workspaces the account can actually enter are accepted.
+  bool switchWorkspace(Workspace workspace) {
+    if (!availableWorkspaces.contains(workspace)) return false;
+    if (workspace == _activeWorkspace) return true;
+    _activeWorkspace = workspace;
+    if (workspace == Workspace.organization) {
+      _fpoRole = true;
+    }
+    LocalStore.instance.saveActiveWorkspace(workspace.code);
+    notifyListeners();
+    return true;
   }
 
   /// True when a harvest is already linked to a batch (so it is not
@@ -1830,6 +1925,8 @@ class HoneyChainStore extends ChangeNotifier {
     tokenProvider: () => ApiTokenStore.instance.token,
   );
   late final BackendIotService backendIotService = BackendIotService(_apiClient);
+  late final PassportVerificationService passportVerificationService =
+      PassportVerificationService(_apiClient);
 
   bool _backendChecked = false;
   bool _backendOnline = false;
@@ -1865,6 +1962,17 @@ class HoneyChainStore extends ChangeNotifier {
 
   List<IotTelemetry> apiTelemetryFor(String deviceId) =>
       List.unmodifiable(_apiTelemetry[deviceId] ?? const []);
+
+  /// Restores a persistent FastAPI session (JWT + role) after a restart so the
+  /// backend sign-in survives the app being killed (identity lives in
+  /// [ApiTokenStore]).
+  void _restoreBackendSession() {
+    final identity = ApiTokenStore.instance.identity;
+    if (identity != null && identity.token.isNotEmpty) {
+      _backendSignedIn = true;
+      _backendRole = identity.role.isEmpty ? null : identity.role;
+    }
+  }
 
   /// Probes `/api/v1/health`. Safe to call from non-test code only.
   Future<void> _probeBackend() async {
@@ -2067,6 +2175,321 @@ class HoneyChainStore extends ChangeNotifier {
       _backendError = backendFailureFriendly(error);
       notifyListeners();
     }
+  }
+
+  // ---------------------------------------------------------------------
+  // Beekeeper production path (server-backed collections)
+  // ---------------------------------------------------------------------
+
+  /// Typed view of the verified FastAPI backend (beekeeper path). Additive to
+  /// the offline-first local store; never replaces it.
+  late final HoneyApiService honeyApi = HoneyApiService(_apiClient);
+
+  List<ServerHive> _serverHives = [];
+  List<ServerHarvest> _serverHarvests = [];
+  List<ServerBatch> _serverBatches = [];
+  ServerBlockchainHealth? _blockchainHealth;
+  ServerBlockchainStatus? _blockchainStatus;
+  ServerEvidenceBundle? _lastAnchoredBundle;
+  List<ServerEvidenceBundle> _serverBundles = [];
+  String? _serverCollectionsError;
+  bool _serverCollectionsBusy = false;
+
+  /// Live backend identity (token store) after a beekeeper login.
+  ApiIdentity? get backendIdentity => ApiTokenStore.instance.identity;
+
+  List<ServerHive> get serverHives => List.unmodifiable(_serverHives);
+  List<ServerHarvest> get serverHarvests =>
+      List.unmodifiable(_serverHarvests);
+  List<ServerBatch> get serverBatches => List.unmodifiable(_serverBatches);
+  ServerBlockchainHealth? get blockchainHealth => _blockchainHealth;
+  ServerBlockchainStatus? get blockchainStatus => _blockchainStatus;
+  ServerEvidenceBundle? get lastAnchoredBundle => _lastAnchoredBundle;
+  List<ServerEvidenceBundle> get serverBundles =>
+      List.unmodifiable(_serverBundles);
+  String? get serverCollectionsError => _serverCollectionsError;
+  bool get serverCollectionsBusy => _serverCollectionsBusy;
+
+  /// True when the shell should surface server data. Signed-in means a `/me`
+  /// round-trip already succeeded, so the backend was reached; per-collection
+  /// failures (e.g. an IoT endpoint scoped to another role) are reported via
+  /// [serverCollectionsError] / [backendError] instead of hiding the UI.
+  bool get backendModeActive => _backendSignedIn && ApiConfig.isConfigured;
+
+  /// Maps a server hive to the local [Hive] shape the beekeeper UI renders.
+  Hive hiveFromServer(ServerHive server) => Hive(
+        id: server.id,
+        name: server.hiveCode.isEmpty ? server.id : server.hiveCode,
+        beekeeperId:
+            server.beekeeperId.isEmpty ? currentBeekeeper.id : server.beekeeperId,
+        organizationId: server.orgId,
+        location: server.location,
+        honeyType: 'Apiary',
+        detail: 'backend · ${server.status}',
+      );
+
+  /// Harvest view of a server harvest row (same shape as local for listing).
+  Harvest harvestFromServer(ServerHarvest server) => Harvest(
+        id: server.id,
+        hiveId: server.hiveId,
+        beekeeperId: server.beekeeperId,
+        harvestedAt: server.harvestedAt,
+        honeyType: server.honeyType,
+        quantityKg: server.quantityKg,
+        syncStatus: SyncStatus.synced,
+        status: server.collected ? HarvestStatus.collected : HarvestStatus.pending,
+      );
+
+  /// Pulls live blockchain health (public endpoint) plus the beekeeper's
+  /// hives/harvests/batches and blockchain status (authed) from the backend.
+  ///
+  /// Failure-tolerant: one bad call records into [serverCollectionsError]
+  /// without blanking already-cached collections.
+  Future<bool> refreshServerCollections() async {
+    if (testMode || !ApiConfig.isConfigured) {
+      _blockchainHealth = null;
+      _blockchainStatus = null;
+      return false;
+    }
+
+    if (_serverCollectionsBusy) return false;
+    _serverCollectionsBusy = true;
+    _serverCollectionsError = null;
+    notifyListeners();
+
+    final errors = <String>[];
+
+    try {
+      _blockchainHealth = await honeyApi.blockchainHealth();
+    } on ApiException catch (error) {
+      errors.add('blockchain health: ${backendFailureFriendly(error)}');
+    } on Exception {
+      errors.add('blockchain health unavailable');
+    }
+
+    if (_backendSignedIn) {
+      await _loadServerHives(errors);
+      await _loadServerHarvests(errors);
+      await _loadServerBatches(errors);
+      if (_blockchainHealth?.isConnected ?? false) {
+        try {
+          _blockchainStatus = await honeyApi.blockchainStatus();
+        } on ApiException catch (error) {
+          errors.add('blockchain status: ${backendFailureFriendly(error)}');
+        } on Exception {
+          errors.add('blockchain status unavailable');
+        }
+      }
+    }
+
+    _serverCollectionsError = errors.isEmpty ? null : errors.join(' · ');
+    _serverCollectionsBusy = false;
+    notifyListeners();
+    return errors.isEmpty && _backendSignedIn;
+  }
+
+  Future<void> _loadServerHives(List<String> errors) async {
+    try {
+      _serverHives = await honeyApi.listHives();
+    } on ApiException catch (error) {
+      errors.add('hives: ${backendFailureFriendly(error)}');
+    } on Exception {
+      errors.add('hives unavailable');
+    }
+  }
+
+  Future<void> _loadServerHarvests(List<String> errors) async {
+    try {
+      _serverHarvests = await honeyApi.listHarvests();
+    } on ApiException catch (error) {
+      errors.add('harvests: ${backendFailureFriendly(error)}');
+    } on Exception {
+      errors.add('harvests unavailable');
+    }
+  }
+
+  Future<void> _loadServerBatches(List<String> errors) async {
+    try {
+      _serverBatches = await honeyApi.listBatches();
+    } on ApiException catch (error) {
+      errors.add('batches: ${backendFailureFriendly(error)}');
+    } on Exception {
+      errors.add('batches unavailable');
+    }
+  }
+
+  /// Logs a beekeeper into the FastAPI backend and connects the app shell
+  /// (same gate as the demo login) so they land in HoneyChain with their real
+  /// server hives/harvests refreshed. Returns the role, or null on failure
+  /// ([backendError] carries the reason).
+  Future<String?> beekeeperLogin({
+    required String identifier,
+    required String password,
+  }) async {
+    final role = await backendLogin(identifier, password);
+    if (role == null) return null;
+    if (role == 'beekeeper') {
+      _profile = _profile.copyWith(
+        name: (backendIdentity?.name.isNotEmpty ?? false)
+            ? backendIdentity!.name
+            : _profile.name,
+        phone: (backendIdentity?.email.isNotEmpty ?? false)
+            ? backendIdentity!.email
+            : _profile.phone,
+      );
+      LocalStore.instance.saveProfile(_profile);
+      _loggedIn = true;
+      LocalStore.instance.saveLoggedIn(true);
+      await refreshServerCollections();
+    }
+    notifyListeners();
+    return role;
+  }
+
+  /// local record + push: keeps the offline-first local harvest AND, when
+  /// signed into the backend, creates the harvest live (returns the server
+  /// row with the real server id, so evidence can anchor against it).
+  Future<ServerHarvest?> pushHarvestToBackend(Harvest harvest) async {
+    if (testMode || !ApiConfig.isConfigured || !_backendSignedIn) return null;
+    try {
+      final server = await honeyApi.createHarvest(
+        hiveId: harvest.hiveId,
+        quantityKg: harvest.quantityKg,
+        harvestedAt: harvest.harvestedAt,
+        honeyType: harvest.honeyType,
+        beekeeperId: backendIdentity?.id ?? '',
+      );
+      _repository.updateHarvest(harvest.copyWith(syncStatus: SyncStatus.synced));
+      _serverHarvests = [
+        for (final h in _serverHarvests)
+          if (h.id != server.id) h,
+        server,
+      ];
+      notifyListeners();
+      return server;
+    } on ApiException catch (error) {
+      _serverCollectionsError = backendFailureFriendly(error);
+      notifyListeners();
+      return null;
+    } on Exception {
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Resolves a code against the public backend passport endpoint. When no
+  /// backend is compiled in the result is [VerifyOutcome.unresolved] — the
+  /// app never synthesises a verification.
+  Future<PassportVerificationResult> verifyPassport(String code) async {
+    if (testMode || !ApiConfig.isConfigured) {
+      return PassportVerificationResult.unresolved();
+    }
+    return verifyPassportOnline(passportVerificationService, code);
+  }
+
+  /// Creates a hive in the backend too (offline local copy is still kept).
+  Future<ServerHive?> addHiveToBackend({
+    required String name,
+    String? location,
+  }) async {
+    if (testMode || !ApiConfig.isConfigured || !_backendSignedIn) return null;
+    try {
+      final server = await honeyApi.createHive(
+        hiveCode: name,
+        beekeeperId: backendIdentity?.id ?? '',
+        location: location,
+      );
+      _serverHives = [
+        for (final h in _serverHives)
+          if (h.id != server.id) h,
+        server,
+      ];
+      notifyListeners();
+      return server;
+    } on ApiException catch (error) {
+      _serverCollectionsError = backendFailureFriendly(error);
+      notifyListeners();
+      return null;
+    } on Exception {
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Anchors harvest evidence onto the live Fabric chain through the backend
+  /// (`POST /api/v1/evidence/bundles` with `anchor: true`). [serverHarvestId]
+  /// is the server harvest id after a successful push.
+  Future<ServerEvidenceBundle?> anchorHarvestEvidence({
+    required Harvest harvest,
+    String? serverHarvestId,
+    double? latitude,
+    double? longitude,
+  }) async {
+    if (testMode || !ApiConfig.isConfigured || !_backendSignedIn) return null;
+    try {
+      final name = (backendIdentity?.name.isNotEmpty ?? false)
+          ? backendIdentity!.name
+          : (backendIdentity?.email ?? currentBeekeeper.name);
+      final bundle = await honeyApi.createHarvestEvidenceBundle(
+        entityRef: serverHarvestId ?? harvest.id,
+        operator: name,
+        deviceId: 'HC-APP-${backendIdentity?.id ?? 'mobile'}',
+        quantityKg: harvest.quantityKg,
+        honeyType: harvest.honeyType,
+        harvestedAt: harvest.harvestedAt,
+        latitude: latitude,
+        longitude: longitude,
+      );
+      _lastAnchoredBundle = bundle;
+      _serverBundles = [bundle, ..._serverBundles];
+      notifyListeners();
+      return bundle;
+    } on ApiException catch (error) {
+      _serverCollectionsError = backendFailureFriendly(error);
+      notifyListeners();
+      return null;
+    } on Exception {
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Re-verifies the last anchored bundle against the backend (Merkle
+  /// membership + ledger state).
+  Future<ServerEvidenceVerify?> verifyLastBundle() async {
+    final bundle = _lastAnchoredBundle;
+    if (bundle == null || testMode || !ApiConfig.isConfigured) return null;
+    try {
+      final result = await honeyApi.verifyBundle(bundle.bundleId);
+      notifyListeners();
+      return result;
+    } on ApiException catch (error) {
+      _serverCollectionsError = backendFailureFriendly(error);
+      notifyListeners();
+      return null;
+    } on Exception {
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Signs out of the backend and clears server-backed collections while
+  /// returning the app to the demo screen.
+  void beekeeperSignOut() {
+    _serverHives = [];
+    _serverHarvests = [];
+    _serverBatches = [];
+    _serverBundles = [];
+    _lastAnchoredBundle = null;
+    _blockchainHealth = null;
+    _blockchainStatus = null;
+    _serverCollectionsError = null;
+    if (ApiConfig.isConfigured) {
+      unawaited(honeyApi.signOut());
+    }
+    _loggedIn = false;
+    LocalStore.instance.saveLoggedIn(false);
+    notifyListeners();
   }
 
   @override

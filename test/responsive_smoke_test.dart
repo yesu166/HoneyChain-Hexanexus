@@ -63,40 +63,38 @@ void main() {
 
       await goToTab(tester, 'More');
       for (final item in ['My Honey', 'Bee Health', 'Alerts', 'Profile', 'Language', 'Settings']) {
-        expect(find.text(item), findsWidgets);
+        await see(tester, item);
       }
 
       // My Honey batches screen renders.
-      await tester.tap(find.text('My Honey').first);
+      await tapText(tester, 'My Honey');
       await tester.pumpAndSettle();
       await see(tester, 'My Honey');
       await tester.pageBack();
       await tester.pumpAndSettle();
 
       // Alerts list renders.
-      await tester.tap(find.text('Alerts').first);
+      await tapText(tester, 'Alerts');
       await tester.pumpAndSettle();
       await see(tester, 'Alerts');
       await tester.pageBack();
       await tester.pumpAndSettle();
 
       // Developer -> IoT Simulation is tucked away here, never on Home.
-      await see(tester, 'Developer');
-      await tester.tap(find.text('Developer').first);
+      await tapText(tester, 'Developer');
       await tester.pumpAndSettle();
       await see(tester, 'IoT Simulation');
       await tester.pageBack();
       await tester.pumpAndSettle();
 
       // Settings: General section + language row.
-      await tester.tap(find.text('Settings').first);
+      await tapText(tester, 'Settings');
       await tester.pumpAndSettle();
       await see(tester, 'Language');
       await tester.pageBack();
       await tester.pumpAndSettle();
 
       // Bee Health large hive picking + inspected state.
-      await see(tester, 'Bee Health');
       await tapText(tester, 'Bee Health');
       await tester.pumpAndSettle();
       await see(tester, 'Select a hive');
@@ -108,7 +106,7 @@ void main() {
 
       // Profile: purity row gone, Edit + Logout present.
       await see(tester, 'Profile');
-      await tester.tap(find.text('Profile').first);
+      await tapText(tester, 'Profile');
       await tester.pumpAndSettle();
       await see(tester, 'Ravi Kumar');
       await see(tester, 'Edit Profile Details');

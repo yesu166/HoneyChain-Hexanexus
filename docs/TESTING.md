@@ -2,9 +2,12 @@
 
 Two suites, both green this session.
 
-## Backend — pytest (110 passed)
+## Backend — pytest (157 passed, 3 LIVE_RUNTIME skipped by default)
 
 Run: `cd backend && ..\.venv_backend\Scripts\python.exe -m pytest -q`
+
+The 3 `LIVE_RUNTIME` tests (`FABRIC_GATEWAY_URL` set) additionally run against the
+real EC2 Hyperledger Fabric and pass. See [TEST_RESULTS.md](./TEST_RESULTS.md).
 
 | File | Covers |
 |---|---|
@@ -24,6 +27,7 @@ Run: `cd backend && ..\.venv_backend\Scripts\python.exe -m pytest -q`
 | `test_gateway.py` | local vs EVM/Fabric boundary honesty |
 | `test_rbac_matrix.py` | matrix + scope helpers |
 | `test_new_routes.py` | API surface for new endpoints |
+| `test_fabric_adapter.py` | Fabric adapter (mocked HTTP) + contract mapping + LIVE_RUNTIME |
 
 ## Flutter — 64 passed
 
@@ -52,5 +56,9 @@ responsive smoke tests.
 
 - Camera hardware captures (needs device).
 - QR scanning on-device (needs device).
-- Real EVM/Fabric network (needs credentials/network).
+- Real EVM network submission (needs a funded RPC wallet + deployed contract).
 - Multi-instance rate limiting (needs Redis).
+
+Real **Hyperledger Fabric** submission is no longer a gap: it is automated by the
+`LIVE_RUNTIME` tests and has been proven against the live EC2 network
+(`docs/evidence/live-fabric-backend-proof.md`).

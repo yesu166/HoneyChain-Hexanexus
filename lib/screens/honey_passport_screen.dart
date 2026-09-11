@@ -3,6 +3,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../data/honeychain_store.dart';
 import '../models/domain.dart';
+import '../services/passport_verification_service.dart';
 import '../services/trace_qr_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
@@ -90,6 +91,8 @@ class HoneyPassportScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             children: [
               _TrustCertCard(batch: batch, trust: trust, verified: verified),
+              const SizedBox(height: 22),
+              _OnlineVerificationPanel(subjectCode: batch.code),
               const SizedBox(height: 22),
               SectionLabel(store.tr('passport.quality')),
               _QualityPanel(trust: trust),
@@ -536,11 +539,301 @@ class _PassportQr extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 10),
-        Center(
-          child: Text(
-            payload,
-            style: const TextStyle(fontSize: 12, color: AppTheme.inkFaint),
+],
+      );
+  }
+}
+
+/// Online verification against the FastAPI passport endpoint.
+///
+/// Only ever shows a green "verified" state when the server actually returned
+/// a passport for this code with a real anchor. When no backend is compiled
+/// in the panel says so instead of inventing a result.
+class _OnlineVerificationPanel extends StatefulWidget {
+  const _OnlineVerificationPanel({required this.subjectCode});
+
+  final String subjectCode;
+
+  @override
+  State<_OnlineVerificationPanel> createState() => _OnlineVerificationPanelState();
+}
+
+class _OnlineVerificationPanelState extends State<_OnlineVerificationPanel> {
+  PassportVerificationResult? _result;
+
+  @override
+  void initState() {
+    super.initState();
+    _verify();
+  }
+
+  Future<void> _verify() async {
+    final result =
+        await HoneyChainStore.instance.verifyPassport(widget.subjectCode);
+    if (!mounted) return;
+    setState(() => _result = result);
+  }
+
+  Future<void> _retry() async {
+    setState(() => _result = null);
+    await _verify();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = HoneyChainStore.instance;
+    final result = _result;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: AppTheme.radiusCard,
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: _buildContent(store, result),
+    );
+  }
+
+  Widget _buildContent(HoneyChainStore store, PassportVerificationResult? result) {
+    if (result == null) {
+      return const Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Verifying against the registry…',
+              style: TextStyle(fontSize: 13, color: AppTheme.inkSoft),
+            ),
+          ),
+        ],
+      );
+    }
+
+    switch (result.outcome) {
+      case VerifyOutcome.unresolved:
+        return _MessagePanel(
+          icon: Icons.cloud_off_outlined,
+          color: AppTheme.inkSoft,
+          title: 'Online verification not available in this build',
+          detail:
+              'This APK was built without API_BASE_URL, so the app cannot ask '
+              'the backend registry. Everything above is validated against the '
+              'local records only — nothing has been fabricated.',
+        );
+      case VerifyOutcome.verified:
+        final proof = result.proof!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.verified_rounded, color: AppTheme.green, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Backend registry: ${proof.trustTier}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.greenDark,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _AnchorBlock(proof: proof),
+            const SizedBox(height: 10),
+            const Text(
+              'Tamper-evidence from the blockchain anchor, not a purity or '
+              'health certificate.',
+              style: TextStyle(fontSize: 11, color: AppTheme.inkFaint),
+            ),
+          ],
+        );
+      case VerifyOutcome.notFound:
+        return _MessagePanel(
+          icon: Icons.search_off_outlined,
+          color: AppTheme.orangeDark,
+          title: 'No passport on the backend for this code',
+          detail: result.message,
+        );
+      case VerifyOutcome.rateLimited:
+        return _MessagePanel(
+          icon: Icons.speed_outlined,
+          color: AppTheme.orangeDark,
+          title: 'Verification rate-limited',
+          detail: result.message,
+        );
+      case VerifyOutcome.unreachable:
+        return _MessagePanel(
+          icon: Icons.cloud_off_outlined,
+          color: AppTheme.red,
+          title: 'Backend verification unavailable',
+          detail: result.message,
+          actionLabel: 'Retry',
+          onAction: _retry,
+        );
+      case VerifyOutcome.error:
+        return _MessagePanel(
+          icon: Icons.error_outline,
+          color: AppTheme.red,
+          title: 'Verification failed',
+          detail: result.message,
+          actionLabel: 'Retry',
+          onAction: _retry,
+        );
+    }
+  }
+}
+
+class _AnchorBlock extends StatelessWidget {
+  const _AnchorBlock({required this.proof});
+
+  final PassportProof proof;
+
+  @override
+  Widget build(BuildContext context) {
+    final anchor = proof.anchor;
+    return switch (anchor.status) {
+      PassportAnchorStatus.anchored => _AnchorRow(
+          color: AppTheme.green,
+          icon: Icons.link_rounded,
+          label: 'Blockchain anchored',
+          value: 'tx ${_short(anchor.txHash)}',
+        ),
+      PassportAnchorStatus.pending => _AnchorRow(
+          color: AppTheme.orangeDark,
+          icon: Icons.hourglass_top_rounded,
+          label: 'Anchor pending',
+          value: 'The batch is queued for anchoring.',
+        ),
+      PassportAnchorStatus.none => _AnchorRow(
+          color: AppTheme.inkSoft,
+          icon: Icons.hub_outlined,
+          label: 'Not anchored',
+          value: 'No blockchain anchor is on record for this batch yet.',
+        ),
+    };
+  }
+
+  static String _short(String tx) =>
+      tx.length > 14 ? '${tx.substring(0, 6)}…${tx.substring(tx.length - 6)}' : tx;
+}
+
+class _AnchorRow extends StatelessWidget {
+  const _AnchorRow({
+    required this.color,
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final Color color;
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(fontSize: 11, color: AppTheme.inkSoft),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MessagePanel extends StatelessWidget {
+  const _MessagePanel({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.detail,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String detail;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                detail,
+                style: const TextStyle(fontSize: 12, color: AppTheme.inkSoft, height: 1.35),
+              ),
+              if (actionLabel != null) ...[
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: onAction,
+                  style: TextButton.styleFrom(
+                    foregroundColor: color,
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                  ),
+                  child: Text(actionLabel!),
+                ),
+              ],
+            ],
           ),
         ),
       ],

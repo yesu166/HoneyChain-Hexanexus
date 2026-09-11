@@ -45,17 +45,39 @@ async def health_ready(request: Request) -> dict[str, Any]:
     (e.g. blockchain ledger in dev) is reported as such, not as healthy.
     """
     db_ok = _db_status(request.app.state.repository)
-    ledger = (
-        request.app.state.services.get("gateway").ledger_name
-        if request.app.state.services.get("gateway")
-        else "unknown"
-    )
+    gateway = request.app.state.services.get("gateway")
+    adapter = gateway._adapter if gateway else None
+
+    ledger_info: dict[str, Any] = {
+        "name": gateway.ledger_name if gateway else "unknown",
+        "status": "local",
+    }
+
+    # For Fabric: do a real query to determine connection status
+    if adapter and hasattr(adapter, "health_check"):
+        fabric_health = adapter.health_check()
+        ledger_info = {
+            "name": "fabric",
+            "status": fabric_health.get("status", "unknown"),
+            "channel": fabric_health.get("channel", ""),
+            "chaincode": fabric_health.get("chaincode", ""),
+            "chaincode_version": fabric_health.get("chaincode_version"),
+            "peer": fabric_health.get("peer", ""),
+            "last_verified_at": fabric_health.get("last_verified_at"),
+            "error": fabric_health.get("error"),
+        }
+
+    overall = "ready" if db_ok == "ok" else "not_ready"
+    if adapter and hasattr(adapter, "health_check"):
+        fabric_ok = fabric_health.get("status") == "connected"
+        overall = "ready" if db_ok == "ok" and fabric_ok else "not_ready"
+
     return {
-        "status": "ready" if db_ok == "ok" else "not_ready",
+        "status": overall,
         "service": "honeychain-api",
         "check": "ready",
         "dependencies": {
             "database": db_ok,
-            "blockchain_ledger": ledger,
+            "blockchain_ledger": ledger_info,
         },
     }

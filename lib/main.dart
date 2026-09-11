@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/api/api_config.dart';
 import 'core/supabase/supabase_client.dart';
 import 'data/honeychain_store.dart';
 import 'screens/login_screen.dart';
@@ -9,6 +10,10 @@ import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final configIssue = ApiConfig.startUpIssue;
+  if (configIssue != null) {
+    throw StateError(configIssue);
+  }
   await HoneySupabase.ensureInitialized();
   runApp(const HoneyChainApp());
 }

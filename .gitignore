@@ -56,6 +56,17 @@ app.*.map.json
 .env
 .env.local
 *.env.local
+*.pem
+*.key
+*.jks
+*.keystore
 
 # Local migration runner tooling (never commit node_modules)
 node_modules/
+
+# Local virtualenvs (never commit)
+.venv/
+.venv_backend/
+
+# Build artifacts (never commit APKs)
+releases/*.apk

@@ -415,17 +415,32 @@ class _RecordHarvestScreenState extends State<RecordHarvestScreen> {
     if (_qty < minQuantityKg) return;
     setState(() => _saving = true);
     await Future<void>.delayed(const Duration(milliseconds: 300));
-    store.recordHarvest(
+    final harvest = store.recordHarvest(
       hive: hive,
       quantityKg: _qty,
       date: _date,
       floralSource: _source.text.trim(),
     );
+    var anchored = false;
+    if (store.backendModeActive) {
+      final server = await store.pushHarvestToBackend(harvest);
+      final bundle = await store.anchorHarvestEvidence(
+        harvest: harvest,
+        serverHarvestId: server?.id,
+      );
+      anchored = bundle?.isAnchored ?? false;
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(store.tr('record.harvest.saved')),
-        backgroundColor: AppTheme.green,
+        content: Text(
+          store.backendModeActive
+              ? (anchored
+                  ? 'Saved & anchored on the blockchain (Fabric)'
+                  : 'Saved — blockchain anchor pending')
+              : store.tr('record.harvest.saved'),
+        ),
+        backgroundColor: anchored ? AppTheme.green : AppTheme.orange,
         behavior: SnackBarBehavior.floating,
       ),
     );

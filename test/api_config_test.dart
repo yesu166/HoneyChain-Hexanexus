@@ -21,8 +21,9 @@ void main() {
   });
 
   test('isConfigured requires https outside local dev hosts', () {
-    // Local dev override policy: http://localhost / http://127.0.0.1 is the
-    // ONLY plain-HTTP base the app will talk to; everything else needs https.
+    // Local dev override policy: http://localhost / http://127.0.0.1 / the
+    // Android emulator host alias 10.0.2.2 is the ONLY plain-HTTP base the
+    // app will talk to; everything else needs https.
     expect(ApiConfig.isAllowedBaseUrl('http://localhost:8000'), isTrue);
     expect(ApiConfig.isAllowedBaseUrl('http://127.0.0.1:8000'), isTrue);
     expect(ApiConfig.isLocalDevUrl('http://localhost:8000'), isTrue);
@@ -30,5 +31,21 @@ void main() {
     expect(ApiConfig.isAllowedBaseUrl('http://example.com'), isFalse);
     expect(ApiConfig.isAllowedBaseUrl('https://api.example.in'), isTrue);
     expect(ApiConfig.isAllowedBaseUrl(''), isFalse);
+  });
+
+  test('Android emulator host alias 10.0.2.2 is accepted as local dev', () {
+    expect(ApiConfig.isLocalDevUrl('http://10.0.2.2'), isTrue);
+    expect(ApiConfig.isAllowedBaseUrl('http://10.0.2.2:8000'), isTrue);
+    // 10.0.2.20 is NOT the emulator alias and must not slip through.
+    expect(ApiConfig.isAllowedBaseUrl('http://10.0.2.20:8000'), isFalse);
+  });
+
+  test('startUpIssue fails fast only for a compiled but rejected URL', () {
+    // startUpIssue is built on the compile-time constant, so it can only be
+    // exercised via the pure policy functions here.
+    expect(ApiConfig.isAllowedBaseUrl(''), isFalse);
+    expect(ApiConfig.isAllowedBaseUrl('http://evil.in'), isFalse);
+    expect(ApiConfig.isAllowedBaseUrl('http://localhost:8000'), isTrue);
+    expect(ApiConfig.isAllowedBaseUrl('https://api.honeychain.in'), isTrue);
   });
 }

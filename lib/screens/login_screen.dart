@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/api/api_config.dart';
 import '../data/honeychain_store.dart';
 import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
@@ -17,14 +18,24 @@ class _LoginScreenState extends State<LoginScreen> {
   final _phone = TextEditingController();
   final _otp = List.generate(4, (_) => TextEditingController());
   final _otpFocus = List.generate(4, (_) => FocusNode());
+  final _identifier = TextEditingController();
+  final _password = TextEditingController();
+  final _passwordFocus = FocusNode();
 
   bool _validPhone = false;
   bool _validOtp = false;
   bool _busy = false;
+  bool _busyBackend = false;
+  String? _backendError;
+
+  bool get _backendEnabled =>
+      ApiConfig.isConfigured && !HoneyChainStore.testMode;
 
   @override
   void initState() {
     super.initState();
+    _identifier.text = 'demo@honeychain.in';
+    _password.text = 'HoneyChainDemo!1';
     _phone.addListener(() {
       final valid =
           _phone.text.length == 10 && RegExp(r'^[0-9]+$').hasMatch(_phone.text);
@@ -50,6 +61,9 @@ class _LoginScreenState extends State<LoginScreen> {
       _otp[i].dispose();
       _otpFocus[i].dispose();
     }
+    _identifier.dispose();
+    _password.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
@@ -63,6 +77,26 @@ class _LoginScreenState extends State<LoginScreen> {
     );
     if (!mounted) return;
     setState(() => _busy = false);
+  }
+
+  Future<void> _verifyBackend() async {
+    final store = HoneyChainStore.instance;
+    setState(() {
+      _busyBackend = true;
+      _backendError = null;
+    });
+    final role = await store.beekeeperLogin(
+      identifier: _identifier.text.trim(),
+      password: _password.text,
+    );
+    if (!mounted) return;
+    setState(() {
+      _busyBackend = false;
+      if (role == null) {
+        _backendError =
+            store.backendError ?? store.serverCollectionsError ?? 'Sign-in failed';
+      }
+    });
   }
 
   @override
@@ -109,7 +143,38 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 30),
             SectionLabel(store.tr('select.language')),
             _LanguageSelector(),
-            const SizedBox(height: 26),
+            if (_backendEnabled) ...[
+              const SizedBox(height: 26),
+              SectionLabel('Sign in with live backend'),
+              _BackendSignInForm(
+                identifier: _identifier,
+                password: _password,
+                passwordFocus: _passwordFocus,
+                busy: _busyBackend,
+                error: _backendError,
+                onSignIn: _verifyBackend,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  const Expanded(child: Divider()),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Text(
+                      'or demo login',
+                      style: const TextStyle(
+                        color: AppTheme.inkFaint,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const Expanded(child: Divider()),
+                ],
+              ),
+              const SizedBox(height: 6),
+            ],
+            const SizedBox(height: 20),
             SectionLabel(store.tr('phone.label')),
             TextField(
               controller: _phone,
@@ -306,6 +371,170 @@ class _LangCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Email/phone + password sign-in against the live FastAPI backend. Shown only
+/// when a backend URL is compiled in (see [ApiConfig]); the demo OTP flow stays
+/// the fallback for offline/untargeted builds.
+class _BackendSignInForm extends StatelessWidget {
+  const _BackendSignInForm({
+    required this.identifier,
+    required this.password,
+    required this.passwordFocus,
+    required this.busy,
+    required this.error,
+    required this.onSignIn,
+  });
+
+  final TextEditingController identifier;
+  final TextEditingController password;
+  final FocusNode passwordFocus;
+  final bool busy;
+  final String? error;
+  final VoidCallback onSignIn;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        TextField(
+          controller: identifier,
+          keyboardType: TextInputType.emailAddress,
+          autocorrect: false,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.ink,
+          ),
+          decoration: InputDecoration(
+            hintText: 'demo@honeychain.in',
+            prefixIcon: const Icon(Icons.mail_outline,
+                color: AppTheme.inkFaint, size: 20),
+            filled: true,
+            fillColor: AppTheme.card,
+            hintStyle: const TextStyle(
+              color: AppTheme.inkFaint,
+              fontWeight: FontWeight.w500,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: AppTheme.radiusField,
+              borderSide: const BorderSide(color: AppTheme.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: AppTheme.radiusField,
+              borderSide: const BorderSide(color: AppTheme.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: AppTheme.radiusField,
+              borderSide: const BorderSide(
+                color: AppTheme.orange,
+                width: 1.6,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: password,
+          focusNode: passwordFocus,
+          obscureText: true,
+          autocorrect: false,
+          enableSuggestions: false,
+          onSubmitted: (_) => busy ? null : onSignIn(),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.ink,
+          ),
+          decoration: InputDecoration(
+            hintText: 'HoneyChainDemo!1',
+            prefixIcon: const Icon(Icons.lock_outline,
+                color: AppTheme.inkFaint, size: 20),
+            filled: true,
+            fillColor: AppTheme.card,
+            hintStyle: const TextStyle(
+              color: AppTheme.inkFaint,
+              fontWeight: FontWeight.w500,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: AppTheme.radiusField,
+              borderSide: const BorderSide(color: AppTheme.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: AppTheme.radiusField,
+              borderSide: const BorderSide(color: AppTheme.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: AppTheme.radiusField,
+              borderSide: const BorderSide(
+                color: AppTheme.orange,
+                width: 1.6,
+              ),
+            ),
+          ),
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.error_outline,
+                  color: Colors.redAccent, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  error!,
+                  style: const TextStyle(
+                    color: Colors.redAccent,
+                    fontSize: 12.5,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 50,
+          child: FilledButton.icon(
+            onPressed: busy ? null : onSignIn,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.orange,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            icon: busy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.cloud_done_outlined, size: 20),
+            label: Text(
+              busy ? 'Signing in…' : 'Sign in',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

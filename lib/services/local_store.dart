@@ -19,6 +19,7 @@ class LocalStore {
   static const _kProfile = 'honey.profile';
   static const _kLanguage = 'honey.language';
   static const _kLoggedIn = 'honey.loggedIn';
+  static const _kActiveWorkspace = 'honey.activeWorkspace';
   static const _kBuyerId = 'honey.buyerId';
   static const _kHives = 'honey.hives';
   static const _kHarvests = 'honey.harvests';
@@ -72,6 +73,10 @@ class LocalStore {
   Future<void> saveLoggedIn(bool value) => _set(_kLoggedIn, value.toString());
 
   bool loadLoggedIn() => _get(_kLoggedIn) == 'true';
+
+  Future<void> saveActiveWorkspace(String code) => _set(_kActiveWorkspace, code);
+
+  String? loadActiveWorkspace() => _get(_kActiveWorkspace);
 
   Future<void> saveHives(List<Hive> hives) =>
       _set(_kHives, jsonEncode([for (final h in hives) h.toJson()]));

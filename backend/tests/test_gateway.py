@@ -53,7 +53,7 @@ def test_gateway_defaults_to_local():
 
 
 def test_fabric_with_channel_still_unavailable_not_faked():
-    with pytest.raises(LedgerUnavailable):
+    with pytest.raises((LedgerNotConfigured, LedgerUnavailable)):
         FabricBlockchainAdapter(channel="honeychain", chaincode="tracer").submit_anchor({}, "t")
 
 

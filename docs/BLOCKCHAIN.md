@@ -71,12 +71,45 @@ payloads and comparing to the anchored root.
 
 ### Hyperledger Fabric
 
-1. Stand up the network (see instructions in the wrap-up question at the end
-   of this session: "Should I deploy/start the Fabric network now?").
-2. Provide a connection profile (e.g. `fabric/connection-profile.json`), MSP
-   identity, channel = `honeychain`, chaincode = `tracer`.
-3. Implement `FabricBlockchainAdapter.submit_anchor` against the Fabric
-   Gateway SDK. Until then the adapter raises `FABRIC_NOT_CONFIGURED`.
+**LIVE NETWORK (verified baseline):**
+- EC2: i-06063debd27c12e51 (ap-south-1, 13.127.118.165)
+- Fabric v2.5.16, channel: mychannel, chaincode: honeychain v2.0 sequence 6
+- Org1 + Org2 approved, endorsement: escc, validation: vscc
+
+**Integration (deployed and PROVEN live, 2026-09-10):**
+1. The `FabricBlockchainAdapter` (`backend/app/adapters/blockchain/gateway.py`)
+   makes HTTP calls to a Node.js Fabric Gateway service.
+2. The Node.js service (`fabric-gateway-service/`) uses the official
+   `@hyperledger/fabric-gateway` SDK (gRPC + TLS, Org1 Admin MSP) and runs on
+   EC2 as a systemd service (`honeychain-fabric-gateway`) on port **9446**.
+3. Real committed transactions were written via this full chain and read back
+   (evidence: `docs/evidence/live-fabric-backend-proof.md`), including one
+   committed through the Python adapter with tx id
+   `52c7801a3e1d05a89e8cb03e76ad38176e359a57fb49745ee0b6b04a62bd0fe4`.
+4. Configuration via environment variables:
+   - `BLOCKCHAIN_ADAPTER=fabric`
+   - `FABRIC_CHANNEL=mychannel`
+   - `FABRIC_CHAINCODE=honeychain`
+   - `FABRIC_GATEWAY_URL=http://localhost:9446` (Node.js service)
+
+**Chaincode contract (REAL, verified from the chaincode container):**
+- Reads: `getEvent`, `getEventsByType`, `getBatch`, `getAllBatches`, `getAnchor`,
+  `verifyMerkleRoot`, `getLineage`, `getCertificate`, `getCertificatesForBatch`,
+  `getHistory`, `scanRange`
+- Writes: `submitEvent`, `createBatch`, `transitionBatch`, `recordLineage`,
+  `anchorMerkleRoot`, `registerCertificate`, `revokeCertificate`
+
+The Python adapter maps `submit_anchor`→`anchorMerkleRoot`, `verify_anchor`→`getAnchor`,
+`submit_event`→`submitEvent`. (This supersedes the older `tracer.js` interface in
+`fabric/chaincode/tracer/`, which is NOT what is deployed.)
+
+**Network reachability caveat:** EC2 security group does not open port 9446 inbound;
+access is currently via an SSH tunnel. Opening the port (or running FastAPI on EC2) is
+required for 24/7 production.
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full integration path.
+See [docs/evidence/live-fabric-backend-proof.md](./evidence/live-fabric-backend-proof.md)
+for verified baseline and live evidence.
 
 ## Truth rules that are enforced by code
 

@@ -17,12 +17,12 @@ Legend:
 | Thing | State | Evidence | What that means |
 |---|---|---|---|
 | Flutter app (offline-first) | **LIVE** | `flutter test` → 64 passed | Demo app + local store works |
-| FastAPI backend | **LIVE** | `pytest` → 110 passed | All business logic + API surfaces tested |
+| FastAPI backend | **LIVE** | `pytest` → 157 passed, 3 LIVE_RUNTIME skipped | All business logic + API surfaces tested |
 | Supabase PostgreSQL | **LIVE database connection + migrations applied** | `npm run apply` → 001–006 all OK vs `db.hhxwhopaazqjdlreqhkf.supabase.co` | Real schema deployed, incl. evidence/ledger/cert table (migration 006) |
 | Supabase auth (JWT) | **NOT_CONNECTED for backend writes** | no `SUPABASE_SERVICE_ROLE_KEY` provided | Backend runs on `DemoSeededRepository` (in-memory) by design |
 | Blockchain adapter (local) | **SIMULATED/LOCAL** | gateway `ledger_name == "local"` | In-process dev ledger; honest `CONFIRMED` only on local commits |
 | EVM adapter | **BLOCKCHAIN_NOT_CONFIGURED** | no RPC w/ credentials | Boundary code only; live submission requires wallet + contract |
-| Hyperledger Fabric | **FABRIC_NOT_CONFIGURED** | `FabricBlockchainAdapter` raises honest status | Boundary code only; no Fabric network running |
+| Hyperledger Fabric | **LIVE (via SSH tunnel)** | 3 LIVE_RUNTIME pytest passed + real committed tx + block height 41→42 | Real EC2 network (`mychannel`/`honeychain` v2.0); gateway systemd service on EC2 port 9446; see `docs/evidence/` |
 | Hive Intelligence (risk engine) | **LIVE (rule-based)** | existing `risk_engine_adapter` | Explicitly NOT a trained model; ML artifacts are demo artifacts |
 | Docker daemon | **NOT RUNNING** | `docker info` fails | Cannot build/publish containers from this shell |
 | `supabase` CLI | **NOT INSTALLED** | — | Use `node supabase/scripts/apply_migrations.js` instead |

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../data/auth.dart';
 import '../data/honeychain_store.dart';
 import '../theme/app_theme.dart';
 import '../screens/alerts_tab.dart';
 import '../screens/iot_simulator_screen.dart';
 import '../bee_health/screens/bee_health_home_screen.dart';
+import 'buyer/buyer_portal_screen.dart';
+import 'consumer_screen.dart';
 import 'developer_screen.dart';
 import 'honey_tab.dart';
+import 'org/org_portal_screen.dart';
 import 'profile_tab.dart';
 import 'settings_screen.dart';
 import '../theme/beekeeper_tokens.dart';
@@ -16,8 +20,9 @@ import '../widgets/beekeeper_widgets.dart';
 /// beekeeper feature reachable (My Honey/Batches, Bee Health, Alerts, Guides,
 /// Profile, Language, Settings, Developer) without crowding the Home dashboard.
 ///
-/// Deliberately NOT listed here: the Organization / FPO portal, which belongs
-/// to the FPO/login role flow, not the beekeeper's menu.
+/// Also the workspace switcher: switching to the Organization / FPO portal,
+/// Buyer or Consumer opens that experience directly — no separate persona
+/// login, because it is the same session.
 class MoreTab extends StatelessWidget {
   const MoreTab({super.key});
 
@@ -51,6 +56,8 @@ class MoreTab extends StatelessWidget {
                 style: const TextStyle(color: AppTheme.inkSoft, fontSize: 14),
                 overflow: TextOverflow.ellipsis,
               ),
+              const SizedBox(height: 20),
+              _WorkspaceSwitcher(),
               const SizedBox(height: 20),
               BeekeeperActionCard(
                 icon: Icons.pending_actions_rounded,
@@ -151,6 +158,117 @@ class MoreTab extends StatelessWidget {
         ),
       ),
       body: body,
+    );
+  }
+
+  /// Opens the selected workspace's portal in place of a persona login. Same
+  /// session, no re-authentication: switching only changes the screen.
+  static void _openWorkspace(BuildContext context, Workspace workspace) {
+    if (workspace == Workspace.beekeeper) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => switch (workspace) {
+          Workspace.organization => const OrgPortalScreen(),
+          Workspace.buyer => const BuyerPortalScreen(),
+          Workspace.consumer => const ConsumerScreen(),
+          Workspace.beekeeper => const SizedBox.shrink(),
+        },
+      ),
+    );
+  }
+}
+
+/// One-tap workspace switching. Shows every workspace the current account can
+/// actually enter; switching never ends the session and never re-prompts for a
+/// persona login.
+class _WorkspaceSwitcher extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final store = HoneyChainStore.instance;
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        final available = store.availableWorkspaces;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Workspace',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.inkSoft,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    store.authStateLabel,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.inkFaint,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final workspace in available)
+                  ChoiceChip(
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          workspace.icon,
+                          size: 16,
+                          color: workspace == store.activeWorkspace
+                              ? AppTheme.ink
+                              : AppTheme.inkSoft,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(workspace.title),
+                      ],
+                    ),
+                    selected: workspace == store.activeWorkspace,
+                    showCheckmark: false,
+                    selectedColor: AppTheme.orangeSoft,
+                    backgroundColor: AppTheme.card,
+                    side: BorderSide(
+                      color: workspace == store.activeWorkspace
+                          ? AppTheme.orange
+                          : AppTheme.border,
+                    ),
+                    labelStyle: TextStyle(
+                      fontSize: 12,
+                      fontWeight:
+                          workspace == store.activeWorkspace
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                      color: workspace == store.activeWorkspace
+                          ? AppTheme.ink
+                          : AppTheme.inkSoft,
+                    ),
+                    onSelected: (_) {
+                      final switched = store.switchWorkspace(workspace);
+                      if (!switched || workspace == store.activeWorkspace) {
+                        return;
+                      }
+                      MoreTab._openWorkspace(context, workspace);
+                    },
+                  ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 }

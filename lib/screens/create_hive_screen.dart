@@ -32,7 +32,9 @@ class _CreateHiveScreenState extends State<CreateHiveScreen> {
     super.dispose();
   }
 
-  void _save() {
+  bool _saving = false;
+
+  Future<void> _save() async {
     final name = _name.text.trim();
     final location = _location.text.trim();
     setState(() {
@@ -40,6 +42,8 @@ class _CreateHiveScreenState extends State<CreateHiveScreen> {
       _locationError = location.isEmpty ? 'location' : null;
     });
     if (name.isEmpty || location.isEmpty) return;
+    if (_saving) return;
+    setState(() => _saving = true);
 
     final store = HoneyChainStore.instance;
     store.addHive(
@@ -48,9 +52,17 @@ class _CreateHiveScreenState extends State<CreateHiveScreen> {
       honeyType: _honeyType.text,
       detail: _detail.text,
     );
+    final server = store.backendModeActive
+        ? await store.addHiveToBackend(name: name, location: location)
+        : null;
+    if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(store.tr('create.hive.saved'))));
+      ..showSnackBar(SnackBar(
+        content: Text(server != null
+            ? 'Hive saved to backend (${server.hiveCode})'
+            : store.tr('create.hive.saved')),
+      ));
     Navigator.of(context).pop();
   }
 
