@@ -183,7 +183,19 @@ class NotificationService:
             "unread_count": unread,
         }
 
-    def mark_read(self, notification_id: str) -> dict[str, Any] | None:
+    def mark_read(self, notification_id: str, *, user: Any = None) -> dict[str, Any] | None:
+        row = self._repo.get_notification(notification_id)
+        if row is None:
+            return None
+        if user is not None:
+            if user.role in ("admin", "institution"):
+                pass
+            elif user.role == "beekeeper":
+                hive_ids = {h["id"] for h in self._repo.list_hives(user.user_id)}
+                if row.get("hive_id") not in hive_ids:
+                    raise PermissionError("notification is not in your scope")
+            elif row.get("organization_id") and row.get("organization_id") != user.org_id:
+                raise PermissionError("notification is not in your scope")
         return self._repo.mark_notification_read(notification_id)
 
 

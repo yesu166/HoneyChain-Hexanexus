@@ -21,8 +21,11 @@ def create_bundle(
     if payload.entity_type == "batch":
         batch = services["batches"].get_for_user(payload.entity_ref, user=user)
         if batch is None:
-            # Offline-first: evidence may arrive before the batch row syncs.
-            pass  # scope is re-checked when the batch is created/linked.
+            # Anchoring to a batch the user cannot prove ownership of would
+            # let anyone commit a Merkle root over a foreign (or fabricated)
+            # batch id on a shared ledger. Require the batch row to exist in
+            # the caller's scope before a bundle may reference it.
+            raise HTTPException(status_code=403, detail="batch not in your scope")
     try:
         bundle = services["evidence"].create_bundle(
             entity_type=payload.entity_type,
@@ -41,10 +44,17 @@ def create_bundle(
 
 
 @router.get("/evidence/bundles/{bundle_id}", response_model=evidence_schemas.EvidenceRead)
-def get_bundle(bundle_id: str, request: Request) -> dict:
-    bundle = request.app.state.services["evidence"].get_bundle(bundle_id)
+def get_bundle(bundle_id: str, request: Request, user=Depends(get_current_user)) -> dict:
+    services = request.app.state.services
+    bundle = services["evidence"].get_bundle(bundle_id)
     if bundle is None:
         raise HTTPException(status_code=404, detail="bundle not found")
+    if bundle.get("entity_type") == "batch":
+        batch = services["batches"].get_for_user(
+            bundle.get("entity_ref", ""), user=user
+        )
+        if batch is None:
+            raise HTTPException(status_code=403, detail="batch not in your scope")
     return bundle
 
 

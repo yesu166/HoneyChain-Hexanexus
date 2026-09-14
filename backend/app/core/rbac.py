@@ -1,6 +1,7 @@
 """RBAC permission matrix for HoneyChain.
 
-Roles: beekeeper, fpo, lab, admin, processor, buyer, institution.
+Roles: beekeeper, fpo, lab, admin, processor, buyer, institution,
+platform_oversight.
 Every action is granted role-by-action. The matrix lives server-side; the API
 layer (require_permission) rejects anything not explicitly granted.
 
@@ -46,12 +47,49 @@ ACTIONS = {
     "iot.telemetry.ingest",
     "iot.simulator.control",
     "notification.read",
+    # org dashboards / platform stats
+    "org.dashboard",
+    "platform.stats",
+    # platform organization oversight
+    "organization.create",
+    "organization.update",
+    "organization.activate",
+    "organization.suspend",
+    "organization.deactivate",
+    "organization.onboard_admin",
+    "organization.revoke_admin",
+    "organization.view_all",
+    # platform membership oversight
+    "membership.assign",
+    "membership.revoke",
+    "membership.view",
+    "member.suspend",
+    "member.reinstate",
     # admin / demo
     "admin.audit",
     "demo.tamper",
     "demo.restore",
     # sync
     "sync.push",
+}
+
+# Platform-oversight actions: organization + membership lifecycle. These are
+# deliberately NOT part of the admin role — an administrator manages domain
+# data, while organization/membership governance is reserved for the platform.
+PLATFORM_ORGANIZATION_ACTIONS = {
+    "organization.create",
+    "organization.update",
+    "organization.activate",
+    "organization.suspend",
+    "organization.deactivate",
+    "organization.onboard_admin",
+    "organization.revoke_admin",
+    "organization.view_all",
+    "membership.assign",
+    "membership.revoke",
+    "membership.view",
+    "member.suspend",
+    "member.reinstate",
 }
 
 # role -> permitted action, plus optional scope rule:
@@ -93,6 +131,7 @@ PERMISSION_MATRIX: dict[str, dict[str, set[str]]] = {
             "iot.telemetry.ingest",
             "notification.read",
             "sync.push",
+            "org.dashboard",
         },
         "scope": "read_org",
     },
@@ -122,6 +161,7 @@ PERMISSION_MATRIX: dict[str, dict[str, set[str]]] = {
             "iot.device.read",
             "notification.read",
             "sync.push",
+            "org.dashboard",
         },
         "scope": "read_org",
     },
@@ -136,11 +176,22 @@ PERMISSION_MATRIX: dict[str, dict[str, set[str]]] = {
             "passport.read",
             "admin.audit",
             "iot.device.read",
+            "org.dashboard",
+            "platform.stats",
+        },
+        "scope": "any",
+    },
+    "platform_oversight": {
+        "allowed": PLATFORM_ORGANIZATION_ACTIONS
+        | {
+            "platform.stats",
+            "admin.audit",
+            "org.dashboard",
         },
         "scope": "any",
     },
     "admin": {
-        "allowed": set(ACTIONS),
+        "allowed": set(ACTIONS) - PLATFORM_ORGANIZATION_ACTIONS,
         "scope": "any",
     },
 }
@@ -173,7 +224,7 @@ def require_permission(action: str):
 # ---------------------------------------------------------------------------
 
 def in_scope(user: CurrentUser, *, owner_org_id: str = "", owner_user_id: str = "") -> bool:
-    if user.role in ("admin", "institution"):
+    if user.role in ("admin", "institution", "platform_oversight"):
         return True
     scope = scope_label(user.role)
     if scope == "any":

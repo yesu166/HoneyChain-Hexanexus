@@ -64,23 +64,23 @@ class _MainShellState extends State<MainShell> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppTheme.orangeSoft,
+                  color: const Color(0x1FE8A33D),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: AppTheme.orange.withValues(alpha: 0.4),
+                    color: AppTheme.honeyGold.withValues(alpha: 0.4),
                   ),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.mic_rounded, color: AppTheme.orangeDark, size: 20),
+                    Icon(Icons.mic_rounded, color: AppTheme.honeyDark, size: 20),
                     SizedBox(width: 6),
                     Text(
                       'Ask',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
-                        color: AppTheme.orangeDark,
+                        color: AppTheme.honeyDark,
                       ),
                     ),
                   ],
@@ -90,20 +90,20 @@ class _MainShellState extends State<MainShell> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppTheme.orange,
+                  color: AppTheme.honeyGold,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.mic_rounded, color: Colors.white, size: 20),
+                    Icon(Icons.mic_rounded, color: AppTheme.ink, size: 20),
                     SizedBox(width: 6),
                     Text(
                       'Ask',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                        color: AppTheme.ink,
                       ),
                     ),
                   ],

@@ -10,11 +10,12 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .config import get_settings
@@ -113,6 +114,7 @@ class CurrentUser:
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    request: Request = None,
 ) -> CurrentUser:
     if credentials is None:
         raise HTTPException(
@@ -126,10 +128,37 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token subject",
         )
+    # Resolve the caller's identity from the repository (the system of record).
+    # The JWT subject is trusted as a pointer to a user; its role/org claims are
+    # only a fallback for pre-provisioned tokens (e.g. the local test client) and
+    # are never authoritative when the user exists in the database.
+    role = str(payload.get("role", ""))
+    org_id = str(payload.get("org_id", ""))
+    # Only subjects that look like real record ids can be looked up in the
+    # repository (users.id is uuid in Supabase). Non-uuid subjects are
+    # pre-provisioned/claim-role tokens (e.g. a signed service token) whose
+    # role/org claims must be used as-is; querying a uuid column with them
+    # would be a 22P02 error rather than a clean fallback.
+    valid_uuid = True
+    try:
+        uuid.UUID(str(subject))
+    except (ValueError, AttributeError, TypeError):
+        valid_uuid = False
+    repo = getattr(request.app.state, "repository", None) if request is not None else None
+    if repo is not None and valid_uuid:
+        row = repo.get_user(str(subject))
+        if row is not None:
+            role = str(row.get("role") or role)
+            org_id = str(row.get("org_id") or org_id)
+            if str(row.get("status") or "ACTIVE") == "SUSPENDED":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="account is suspended",
+                )
     return CurrentUser(
         user_id=str(subject),
-        role=str(payload.get("role", "")),
-        org_id=str(payload.get("org_id", "")),
+        role=role,
+        org_id=org_id,
     )
 
 

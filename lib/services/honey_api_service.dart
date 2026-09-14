@@ -279,6 +279,83 @@ class ServerBlockchainStatus {
       );
 }
 
+/// One entry of the org dashboard's "recent activity" feed.
+class ServerOrgActivity {
+  const ServerOrgActivity({
+    required this.type,
+    required this.label,
+    required this.timestamp,
+    required this.entityRef,
+  });
+
+  final String type;
+  final String label;
+  final String timestamp;
+  final String entityRef;
+
+  factory ServerOrgActivity.fromJson(Map<String, dynamic> json) =>
+      ServerOrgActivity(
+        type: _str(json['type']),
+        label: _str(json['label']),
+        timestamp: _str(json['timestamp']),
+        entityRef: _str(json['entity_ref']),
+      );
+}
+
+/// Org-scoped aggregate dashboard from `GET /api/v1/org/{org_id}/dashboard`.
+/// Every number is derived server-side from real repository state.
+class ServerOrgDashboard {
+  const ServerOrgDashboard({
+    required this.orgId,
+    required this.orgName,
+    required this.activeBeekeepers,
+    required this.hives,
+    required this.clusters,
+    required this.honeyHarvestedKg,
+    required this.collections,
+    required this.batches,
+    required this.verifiedBatches,
+    required this.pendingActions,
+    required this.recentActivity,
+    required this.source,
+  });
+
+  final String orgId;
+  final String orgName;
+  final int activeBeekeepers;
+  final int hives;
+  final int clusters;
+  final double honeyHarvestedKg;
+  final int collections;
+  final int batches;
+  final int verifiedBatches;
+  final int pendingActions;
+  final List<ServerOrgActivity> recentActivity;
+  final String source;
+
+  factory ServerOrgDashboard.fromJson(Map<String, dynamic> json) =>
+      ServerOrgDashboard(
+        orgId: _str(json['org_id']),
+        orgName: _str(json['org_name']),
+        activeBeekeepers: _int(json['active_beekeepers']) ?? 0,
+        hives: _int(json['hives']) ?? 0,
+        clusters: _int(json['clusters']) ?? 0,
+        honeyHarvestedKg: _num(json['honey_harvested_kg']),
+        collections: _int(json['collections']) ?? 0,
+        batches: _int(json['batches']) ?? 0,
+        verifiedBatches: _int(json['verified_batches']) ?? 0,
+        pendingActions: _int(json['pending_actions']) ?? 0,
+        recentActivity: (json['recent_activity'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(ServerOrgActivity.fromJson)
+            .toList(),
+        source: _str(json['source']),
+      );
+
+  /// True when this payload came from the live backend (never fabricated).
+  bool get isBackendSourced => source.toLowerCase() == 'backend';
+}
+
 /// Beekeeper-path operations against the verified FastAPI backend.
 ///
 /// Backend layer is protected infrastructure — this service only READS/WRITES
@@ -446,6 +523,12 @@ class HoneyApiService {
   Future<ServerBlockchainStatus> blockchainStatus() async {
     final body = await _client.getJson('/api/v1/blockchain/status');
     return ServerBlockchainStatus.fromJson(body);
+  }
+
+  // -------------------------------------------------------------- org stats
+  Future<ServerOrgDashboard> organizationDashboard(String orgId) async {
+    final body = await _client.getJson('/api/v1/org/$orgId/dashboard');
+    return ServerOrgDashboard.fromJson(body);
   }
 
   // -------------------------------------------------------------- custody

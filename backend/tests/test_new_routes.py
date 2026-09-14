@@ -43,8 +43,8 @@ def test_evidence_proof_endpoint(client, demo_token):
         "/api/v1/evidence/bundles",
         headers=auth(demo_token),
         json={
-            "entity_type": "batch",
-            "entity_ref": "BATCH-API-1",
+            "entity_type": "harvest",
+            "entity_ref": "HARV-API-1",
             "evidence": [
                 {"kind": "photo", "content_hash": "p1"},
                 {"kind": "photo", "content_hash": "p2"},
@@ -68,6 +68,52 @@ def test_evidence_proof_endpoint(client, demo_token):
         },
     )
     assert verify.json()["proof_valid"] is True
+
+
+def test_batch_evidence_requires_batch_in_scope(client, fpo_token, demo_token):
+    created = client.post(
+        "/api/v1/batches",
+        headers=auth(fpo_token),
+        json={"batch_code": "B-API-2", "quantity_kg": 12.5},
+    )
+    assert created.status_code == 201, created.text
+    batch_id = created.json()["id"]
+
+    ok = client.post(
+        "/api/v1/evidence/bundles",
+        headers=auth(fpo_token),
+        json={
+            "entity_type": "batch",
+            "entity_ref": batch_id,
+            "evidence": [{"kind": "photo", "content_hash": "p1"}],
+            "anchor": True,
+        },
+    )
+    assert ok.status_code == 200, ok.text
+
+    not_owned = client.post(
+        "/api/v1/evidence/bundles",
+        headers=auth(demo_token),
+        json={
+            "entity_type": "batch",
+            "entity_ref": batch_id,
+            "evidence": [{"kind": "photo", "content_hash": "p1"}],
+            "anchor": True,
+        },
+    )
+    assert not_owned.status_code == 403
+
+    unknown = client.post(
+        "/api/v1/evidence/bundles",
+        headers=auth(fpo_token),
+        json={
+            "entity_type": "batch",
+            "entity_ref": "NO-SUCH-BATCH",
+            "evidence": [{"kind": "photo", "content_hash": "p1"}],
+            "anchor": True,
+        },
+    )
+    assert unknown.status_code == 403
 
 
 def test_lab_certificate_lifecycle_via_api(client, lab_token, fpo_token, admin_token):

@@ -18,7 +18,7 @@ def merge_batches(
     user=Depends(require_roles(*BATCH_MANAGERS)),
 ) -> dict:
     result = request.app.state.services["batches"].merge(
-        payload.batch_ids, payload.new_batch_code
+        payload.batch_ids, payload.new_batch_code, user=user
     )
     if "error" in result:
         raise HTTPException(status_code=409, detail=result["error"])
@@ -36,7 +36,9 @@ def create_batch(
     request: Request,
     user=Depends(require_roles(*BATCH_MANAGERS)),
 ) -> dict:
-    return request.app.state.services["batches"].create(data=payload.model_dump())
+    return request.app.state.services["batches"].create(
+        data=payload.model_dump(), user=user
+    )
 
 
 @router.get("/{batch_id}", response_model=batch_schemas.BatchRead)
@@ -85,7 +87,7 @@ def split_batch(
     user=Depends(require_roles(*BATCH_MANAGERS)),
 ) -> dict:
     result = request.app.state.services["batches"].split(
-        batch_id, payload.child_quantities_kg, payload.origin_hint
+        batch_id, payload.child_quantities_kg, payload.origin_hint, user=user
     )
     if "error" in result:
         raise HTTPException(status_code=409, detail=result["error"])

@@ -57,8 +57,12 @@ class LedgerAdapter(ABC):
         """Persist a cryptographic commitment; return {'tx_hash','network',...}."""
 
     @abstractmethod
-    def verify_anchor(self, ref: str) -> bool:
-        """True only when [ref] can be proven anchored on the ledger."""
+    def verify_anchor(self, ref: str, expected_root: str = "") -> bool:
+        """True only when [ref] can be proven anchored on the ledger.
+
+        When [expected_root] is given, prove that [expected_root] is the
+        current commitment for [ref] on the ledger (batch-scoped verify),
+        instead of merely that [ref] has an anchor on the ledger."""
 
     @abstractmethod
     def get_transaction_status(self, tx_hash: str) -> dict[str, Any]:
@@ -113,7 +117,7 @@ class LocalLedgerAdapter(LedgerAdapter):
             "state": TxState.CONFIRMED,
         }
 
-    def verify_anchor(self, ref):
+    def verify_anchor(self, ref, expected_root=""):
         """True if [ref] is a confirmed tx_hash OR data_hash on the local
         ledger — so callers can verify by evidence root hash or by receipt."""
         if not ref:
@@ -188,7 +192,7 @@ class EVMBlockchainAdapter(LedgerAdapter):
             "web3/geth provider wiring and a funded wallet. See docs/BLOCKCHAIN.md."
         )
 
-    def verify_anchor(self, ref):
+    def verify_anchor(self, ref, expected_root=""):
         self._require()
         raise LedgerUnavailable(
             "EVM adapter boundary implemented; live verification requires "
@@ -397,6 +401,58 @@ class FabricBlockchainAdapter(LedgerAdapter):
                 "error": str(exc),
             }
 
+    def _evaluate(self, fn: str, args: list[str]) -> dict[str, Any]:
+        """Evaluate (query) a read function and parse the chaincode result."""
+        resp = self._http_request(
+            "POST", "/evaluate", {"function": fn, "args": args}, timeout=30
+        )
+        self._classify_gateway_response(resp)
+        result = resp.get("result", {})
+        if isinstance(result, str):
+            try:
+                result = _json.loads(result)
+            except Exception:
+                pass
+        return result if isinstance(result, dict) else {"result": result}
+
+    def _ensure_batch_on_ledger(
+        self, batch_id: str, *, organization_ref: str = ""
+    ) -> None:
+        """Ensure BATCH:{batch_id} exists on the Fabric ledger before anchoring.
+
+        A real getBatch probe decides: only when the chaincode reports NOT_FOUND
+        does the adapter issue createBatch — it never guesses or fabricates
+        ledger state. Skipped for ids that cannot be app batch ids (the app's
+        batch ids are uuid-shaped, e.g. from Supabase row ids)."""
+        if not (batch_id and len(batch_id) == 36 and batch_id.count("-") == 4):
+            return
+        try:
+            self._evaluate(CHAINCODE_FUNCTIONS["GET_BATCH"], [batch_id])
+            return
+        except LedgerUnavailable as exc:
+            if "NOT_FOUND" not in str(exc):
+                raise
+        from datetime import datetime, timezone
+
+        actor = organization_ref or "honeychain-backend"
+        org = organization_ref or "honeychain"
+        batch_json = _json.dumps({
+            "batchId": batch_id,
+            "batchType": "honey_batch",
+            "sourceHiveIds": [],
+            "parentBatchIds": [],
+            "actorId": actor,
+            "organizationId": org,
+            "serverTimestamp": datetime.now(timezone.utc).isoformat(),
+            "metadata": {},
+        })
+        body = {
+            "function": CHAINCODE_FUNCTIONS["CREATE_BATCH"],
+            "args": [batch_json],
+        }
+        resp = self._http_request("POST", "/submit", body, timeout=60)
+        self._classify_gateway_response(resp)
+
     def submit_anchor(self, payload, tx_ref):
         if not self.configured:
             raise LedgerNotConfigured(
@@ -410,6 +466,10 @@ class FabricBlockchainAdapter(LedgerAdapter):
             data_hash = _hp(payload)
 
         batch_id = payload.get("batch_id", tx_ref[:40])
+        if batch_id:
+            self._ensure_batch_on_ledger(
+                batch_id, organization_ref=payload.get("organization_ref", "")
+            )
         anchor_json = _json.dumps({
             "batchId": batch_id,
             "merkleRoot": data_hash,
@@ -430,22 +490,47 @@ class FabricBlockchainAdapter(LedgerAdapter):
         self._classify_gateway_response(resp)
 
         result = resp.get("result", {})
-        blockchain_tx_id = ""
-        if isinstance(result, dict):
-            blockchain_tx_id = result.get("blockchainTxId", "")
-        elif isinstance(result, str):
-            blockchain_tx_id = result
+        if isinstance(result, str):
+            try:
+                result = _json.loads(result)
+            except Exception:
+                result = {"raw": result}
+
+        # Commit is real (the Fabric Gateway SDK waits for it). The transaction
+        # id is the chaincode's own blockchainTxId — never fabricated.
+        blockchain_tx_id = result.get("blockchainTxId", "") if isinstance(result, dict) else ""
 
         return {
-            "tx_hash": blockchain_tx_id or f"FABRIC-ANCHOR-{data_hash[:16]}",
+            "tx_hash": blockchain_tx_id,
             "network": f"fabric:{self._channel}",
             "state": TxState.CONFIRMED,
             "fabric_result": result,
         }
 
-    def verify_anchor(self, ref):
+    def verify_anchor(self, ref, expected_root=""):
         if not self.configured:
             raise LedgerNotConfigured("FABRIC_NOT_CONFIGURED")
+
+        if expected_root:
+            # verifyMerkleRoot(batchId, expectedRoot) — a live on-ledger proof
+            # that this exact root is the batch's current commitment.
+            resp = self._http_request(
+                "POST",
+                "/evaluate",
+                {
+                    "function": CHAINCODE_FUNCTIONS["VERIFY_MERKLE_ROOT"],
+                    "args": [ref, expected_root],
+                },
+                timeout=30,
+            )
+            self._classify_gateway_response(resp)
+            result = resp.get("result", {})
+            if isinstance(result, str):
+                try:
+                    result = _json.loads(result)
+                except Exception:
+                    return False
+            return result.get("verified", False) is True
 
         body = {
             "function": CHAINCODE_FUNCTIONS["GET_ANCHOR"],
@@ -464,20 +549,69 @@ class FabricBlockchainAdapter(LedgerAdapter):
 
         return result.get("anchored", False) is True
 
+    # Domain event type -> chaincode EVENT_TYPES whitelist (lib/events.js).
+    _CHAINCODE_EVENT_TYPES = {
+        "batch_state_transition": "BATCH_TRANSFORMED",
+        "custody_transfer": "CUSTODY_TRANSFERRED",
+        "certificate_anchor": "LAB_CERTIFICATE_ANCHORED",
+        "harvest_declared": "HARVEST_DECLARED",
+        "harvest_field_verified": "HARVEST_FIELD_VERIFIED",
+        "harvest_evidence_anchored": "HARVEST_EVIDENCE_ANCHORED",
+        "lab_sample_registered": "LAB_SAMPLE_REGISTERED",
+        "batch_created": "BATCH_CREATED",
+        "batch_split": "BATCH_SPLIT",
+        "batch_merged": "BATCH_MERGED",
+        "packaging_recorded": "PACKAGING_RECORDED",
+        "dispatch_recorded": "DISPATCH_RECORDED",
+        "retail_received": "RETAIL_RECEIVED",
+        "passport_issued": "PASSPORT_ISSUED",
+        "passport_revoked": "PASSPORT_REVOKED",
+        "provenance_anchored": "PROVENANCE_ANCHORED",
+        "provenance_verified": "PROVENANCE_VERIFIED",
+        "evidence_mismatch_detected": "EVIDENCE_MISMATCH_DETECTED",
+        "dispute_opened": "DISPUTE_OPENED",
+        "dispute_resolved": "DISPUTE_RESOLVED",
+    }
+
     def submit_event(self, event, tx_ref):
         if not self.configured:
             raise LedgerNotConfigured("FABRIC_NOT_CONFIGURED")
 
+        domain_type = event.get("type", event.get("eventType", ""))
+        if domain_type == "lineage_event":
+            operation = str(event.get("operation", "")).upper()
+            event_type = (
+                "BATCH_SPLIT" if operation == "SPLIT"
+                else "BATCH_MERGED" if operation in ("MERGE", "AGGREGATE")
+                else "PROVENANCE_ANCHORED"
+            )
+        else:
+            event_type = self._CHAINCODE_EVENT_TYPES.get(domain_type, "")
+        if not event_type:
+            raise LedgerUnavailable(
+                "FABRIC_TRANSACTION_FAILED: "
+                f"no chaincode event type for domain event '{domain_type}'"
+            )
+
+        from datetime import datetime, timezone
+
+        from ...core.crypto import hash_payload as _hp
+
         event_payload = {
             "eventId": event.get("event_id", tx_ref[:40]),
-            "eventType": event.get("type", event.get("eventType", "UNKNOWN")),
-            "entityType": event.get("entity_type", "unknown"),
+            "eventType": event_type,
+            "entityType": event.get("entity_type", "batch"),
             "entityId": event.get("entity_id", event.get("batch_id", "")),
             "actorId": event.get("actor_id", "honeychain-backend"),
             "organizationId": event.get("organization_ref", "honeychain"),
-            "serverTimestamp": tx_ref,
+            "serverTimestamp": datetime.now(timezone.utc).isoformat(),
+            "payloadHash": _hp(event),
             "metadata": event,
         }
+        if not event_payload["entityId"]:
+            raise LedgerUnavailable(
+                f"FABRIC_TRANSACTION_FAILED: event '{domain_type}' has no entity id"
+            )
         event_json = _json.dumps(event_payload)
 
         body = {
@@ -489,14 +623,16 @@ class FabricBlockchainAdapter(LedgerAdapter):
         self._classify_gateway_response(resp)
 
         result = resp.get("result", {})
-        blockchain_tx_id = ""
-        if isinstance(result, dict):
-            blockchain_tx_id = result.get("blockchainTxId", "")
-        elif isinstance(result, str):
-            blockchain_tx_id = result
+        if isinstance(result, str):
+            try:
+                result = _json.loads(result)
+            except Exception:
+                result = {"raw": result}
+
+        blockchain_tx_id = result.get("blockchainTxId", "") if isinstance(result, dict) else ""
 
         return {
-            "tx_hash": blockchain_tx_id or f"FABRIC-EVT-{tx_ref[:16]}",
+            "tx_hash": blockchain_tx_id,
             "network": f"fabric:{self._channel}",
             "state": TxState.CONFIRMED,
             "fabric_result": result,
@@ -621,9 +757,9 @@ class BlockchainGateway:
             }
         )
 
-    def verify_anchor(self, ref: str) -> bool:
+    def verify_anchor(self, ref: str, expected_root: str = "") -> bool:
         try:
-            return self._adapter.verify_anchor(ref)
+            return self._adapter.verify_anchor(ref, expected_root)
         except (LedgerNotConfigured, LedgerUnavailable):
             return False
 

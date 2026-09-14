@@ -53,6 +53,8 @@ class _OrgPortalScreenState extends State<OrgPortalScreen> {
                 onSwitchOrg: () => _pickOrg(context),
               ),
               const SizedBox(height: 16),
+              const _LiveMetricsCard(),
+              const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
@@ -327,6 +329,294 @@ class _StatTile extends StatelessWidget {
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
+              color: AppTheme.inkFaint,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+class _LiveMetricsCard extends StatelessWidget {
+  const _LiveMetricsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final store = HoneyChainStore.instance;
+    final dashboard = store.orgDashboard;
+    final live = dashboard != null && dashboard.isBackendSourced;
+
+    if (!live) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.cardWarm,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.stacked_line_chart_rounded,
+                color: AppTheme.honeyDark, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                store.orgDashboardError ?? store.tr('org.dashboard.live.empty'),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.inkSoft,
+                ),
+              ),
+            ),
+            if (store.backendModeActive)
+              IconButton(
+                onPressed: store.orgDashboardBusy
+                    ? null
+                    : () => store.refreshOrgDashboard(),
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                tooltip: 'Refresh live metrics',
+              ),
+          ],
+        ),
+      );
+    }
+
+    final d = dashboard;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border),
+        boxShadow: const [AppTheme.shadowCard],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.stacked_line_chart_rounded,
+                  color: AppTheme.honeyDark, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  store.tr('org.dashboard.live'),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.ink,
+                  ),
+                ),
+              ),
+              StatusPill(
+                label: store.tr('org.dashboard.live.badge'),
+                color: AppTheme.honey,
+              ),
+              const SizedBox(width: 4),
+              if (store.orgDashboardBusy)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                IconButton(
+                  onPressed: () => store.refreshOrgDashboard(),
+                  icon: const Icon(Icons.refresh_rounded, size: 20),
+                  tooltip: 'Refresh live metrics',
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            store.tr('org.dashboard.live.sub'),
+            style: const TextStyle(fontSize: 12, color: AppTheme.inkFaint),
+          ),
+          const SizedBox(height: 12),
+          _metricRow(context, store, [
+            _Metric(
+              value: '${d.activeBeekeepers}',
+              label: store.tr('org.dashboard.metric.beekeepers'),
+              icon: Icons.groups_outlined,
+              color: AppTheme.orange,
+            ),
+            _Metric(
+              value: '${d.hives}',
+              label: store.tr('org.dashboard.metric.hives'),
+              icon: Icons.hive_outlined,
+              color: AppTheme.honeyDark,
+            ),
+            _Metric(
+              value: '${d.clusters}',
+              label: store.tr('org.dashboard.metric.clusters'),
+              icon: Icons.timeline_rounded,
+              color: AppTheme.teal,
+            ),
+            _Metric(
+              value: '${d.collections}',
+              label: store.tr('org.dashboard.metric.collections'),
+              icon: Icons.inventory_2_outlined,
+              color: AppTheme.blue,
+            ),
+          ]),
+          const SizedBox(height: 8),
+          _metricRow(context, store, [
+            _Metric(
+              value: formatKg(d.honeyHarvestedKg),
+              label: store.tr('org.dashboard.metric.harvest'),
+              icon: Icons.eco_outlined,
+              color: AppTheme.green,
+            ),
+            _Metric(
+              value: '${d.batches}',
+              label: store.tr('org.dashboard.metric.batches'),
+              icon: Icons.inventory_rounded,
+              color: AppTheme.orangeDark,
+            ),
+            _Metric(
+              value: '${d.verifiedBatches}',
+              label: store.tr('org.dashboard.metric.verified'),
+              icon: Icons.verified_outlined,
+              color: AppTheme.greenDark,
+            ),
+            _Metric(
+              value: '${d.pendingActions}',
+              label: store.tr('org.dashboard.metric.pending'),
+              icon: Icons.pending_actions_rounded,
+              color: AppTheme.red,
+            ),
+          ]),
+          const SizedBox(height: 14),
+          Text(
+            store.tr('org.dashboard.recent'),
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+              color: AppTheme.inkSoft,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (d.recentActivity.isEmpty)
+            Text(
+              store.tr('org.dashboard.recent.empty'),
+              style: const TextStyle(fontSize: 12.5, color: AppTheme.inkFaint),
+            )
+          else
+            for (final item in d.recentActivity.take(5))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 7),
+                child: Row(
+                  children: [
+                    Icon(
+                      item.type == 'harvest'
+                          ? Icons.eco_outlined
+                          : item.type == 'custody'
+                              ? Icons.local_shipping_outlined
+                              : Icons.inventory_rounded,
+                      size: 15,
+                      color: AppTheme.inkFaint,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        item.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.ink,
+                        ),
+                      ),
+                    ),
+                    if (item.timestamp.isNotEmpty)
+                      Text(
+                        _shortTs(item.timestamp),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.inkFaint,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricRow(BuildContext context, HoneyChainStore store,
+      List<_Metric> metrics) {
+    return Row(
+      children: [
+        for (final m in metrics) ...[
+          Expanded(child: _MetricCell(metric: m)),
+          if (m != metrics.last) const SizedBox(width: 8),
+        ],
+      ],
+    );
+  }
+
+  String _shortTs(String ts) {
+    final parsed = DateTime.tryParse(ts);
+    if (parsed == null) return ts.length > 12 ? ts : ts;
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${two(parsed.day)}/${two(parsed.month)} ${two(parsed.hour)}:${two(parsed.minute)}';
+  }
+}
+
+class _Metric {
+  const _Metric({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  final String value;
+  final String label;
+  final IconData icon;
+  final Color color;
+}
+
+class _MetricCell extends StatelessWidget {
+  const _MetricCell({required this.metric});
+
+  final _Metric metric;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.cardWarm,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        children: [
+          Icon(metric.icon, color: metric.color, size: 18),
+          const SizedBox(height: 4),
+          Text(
+            metric.value,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.ink,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            metric.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
               color: AppTheme.inkFaint,
             ),
           ),

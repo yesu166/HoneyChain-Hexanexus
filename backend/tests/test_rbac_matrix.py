@@ -4,6 +4,7 @@ import pytest
 
 from app.core.rbac import (
     ACTIONS,
+    PLATFORM_ORGANIZATION_ACTIONS,
     PERMISSION_MATRIX,
     has_permission,
     in_scope,
@@ -12,9 +13,29 @@ from app.core.rbac import (
 from app.core.security import CurrentUser
 
 
-def test_admin_has_every_action():
-    for action in ACTIONS:
+def test_admin_has_every_domain_action():
+    for action in ACTIONS - PLATFORM_ORGANIZATION_ACTIONS:
         assert has_permission("admin", action)
+
+
+def test_admin_excluded_from_platform_org_oversight():
+    for action in PLATFORM_ORGANIZATION_ACTIONS:
+        assert not has_permission("admin", action)
+
+
+def test_platform_oversight_has_org_oversight_only():
+    for action in PLATFORM_ORGANIZATION_ACTIONS:
+        assert has_permission("platform_oversight", action)
+    assert has_permission("platform_oversight", "platform.stats")
+    assert not has_permission("platform_oversight", "batch.create")
+    assert not has_permission("platform_oversight", "harvest.create")
+    assert not has_permission("platform_oversight", "demo.tamper")
+
+
+def test_non_oversight_roles_denied_org_oversight():
+    for role in ("beekeeper", "fpo", "lab", "processor", "buyer", "institution"):
+        for action in PLATFORM_ORGANIZATION_ACTIONS:
+            assert not has_permission(role, action)
 
 
 def test_buyer_read_only():

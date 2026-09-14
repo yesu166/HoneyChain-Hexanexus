@@ -26,7 +26,10 @@ def mark_read(
     user=Depends(require_permission("notification.read")),
 ) -> dict:
     service = request.app.state.services["notifications"]
-    row = service.mark_read(notification_id)
+    try:
+        row = service.mark_read(notification_id, user=user)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     if row is None:
         raise HTTPException(status_code=404, detail="notification not found")
     return row

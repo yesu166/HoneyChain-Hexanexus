@@ -24,7 +24,9 @@ from .api.routes import (
     labs,
     lineage,
     notifications,
+    org,
     passport,
+    platform_orgs,
     sync,
     tamper,
 )
@@ -112,6 +114,8 @@ for router in (
     tamper.router,
     iot.router,
     notifications.router,
+    org.router,
+    platform_orgs.router,
 ):
     app.include_router(router)
 

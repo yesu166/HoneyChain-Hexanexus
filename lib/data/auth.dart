@@ -25,8 +25,12 @@ enum AuthState {
 enum Workspace {
   beekeeper,
   organization,
+  lab,
+  processor,
   buyer,
-  consumer;
+  institution,
+  consumer,
+  platform;
 
   String get code => name;
 
@@ -39,23 +43,35 @@ enum Workspace {
 
   String get title => switch (this) {
         Workspace.beekeeper => 'Beekeeper',
-        Workspace.organization => 'Organization / FPO',
+        Workspace.organization => 'FPO',
+        Workspace.lab => 'Laboratory',
+        Workspace.processor => 'Processor',
         Workspace.buyer => 'Buyer',
+        Workspace.institution => 'Institution',
         Workspace.consumer => 'Consumer',
+        Workspace.platform => 'Platform Oversight',
       };
 
   String get subtitle => switch (this) {
-        Workspace.beekeeper => 'Production, harvests and traceability',
-        Workspace.organization => 'Collections, batches, products',
+        Workspace.beekeeper => 'Hives, harvests and traceability',
+        Workspace.organization => 'Collections, batches and products',
+        Workspace.lab => 'Lab verification and certificates',
+        Workspace.processor => 'Processing and packaging',
         Workspace.buyer => 'Jars and product purchases',
+        Workspace.institution => 'Programme oversight',
         Workspace.consumer => 'Scan, verify and read the Honey Passport',
+        Workspace.platform => 'Organization lifecycle and membership governance',
       };
 
   IconData get icon => switch (this) {
         Workspace.beekeeper => Icons.hive_outlined,
         Workspace.organization => Icons.storefront_outlined,
+        Workspace.lab => Icons.science_outlined,
+        Workspace.processor => Icons.factory_outlined,
         Workspace.buyer => Icons.shopping_bag_outlined,
+        Workspace.institution => Icons.account_balance_outlined,
         Workspace.consumer => Icons.qr_code_scanner_rounded,
+        Workspace.platform => Icons.admin_panel_settings_outlined,
       };
 
   /// Backend role an identity must have for this workspace (when the account
@@ -64,7 +80,24 @@ enum Workspace {
   String? get backendRole => switch (this) {
         Workspace.beekeeper => 'beekeeper',
         Workspace.organization => 'fpo',
+        Workspace.lab => 'lab',
+        Workspace.processor => 'processor',
         Workspace.buyer => 'buyer',
+        Workspace.institution => null,
         Workspace.consumer => null,
+        Workspace.platform => 'platform_oversight',
+      };
+
+  /// Seeded demo login for this workspace (used only by the demo drawer, never
+  /// invented — the account must actually exist in the backend).
+  String? get demoLogin => switch (this) {
+        Workspace.beekeeper => 'demo@honeychain.in',
+        Workspace.organization => 'org@honeychain.in',
+        Workspace.lab => 'lab@honeychain.in',
+        Workspace.buyer => null,
+        Workspace.processor => null,
+        Workspace.institution => null,
+        Workspace.consumer => null,
+        Workspace.platform => null,
       };
 }

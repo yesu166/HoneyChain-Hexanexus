@@ -49,6 +49,7 @@ class FastApiAuthRepository {
       name: _asString(me['name']),
       role: _asString(me['role']),
       organizationId: _asString(me['org_id']),
+      producerId: _asString(me['producer_id']),
     );
     await ApiTokenStore.instance.save(identity);
     return identity;

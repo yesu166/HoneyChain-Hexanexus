@@ -20,8 +20,16 @@ def batch_transition(
 ) -> dict:
     from ...services.lineage_service import StateTransitionError
 
+    services = request.app.state.services
+    batch = request.app.state.repository.get_batch(payload.batch_id)
+    if batch is not None:
+        # The batch exists but belongs to another org/beekeeper -> deny, even
+        # though the caller holds the permission. Missing batches fall through
+        # to the lineage service so its "not found" 400 semantics are kept.
+        if services["batches"].get_for_user(payload.batch_id, user=user) is None:
+            raise HTTPException(status_code=403, detail="batch not in your scope")
     try:
-        return request.app.state.services["lineage"].transition(
+        return services["lineage"].transition(
             batch_id=payload.batch_id,
             to_state=payload.to_state,
             actor_ref=payload.actor_ref or user.user_id,

@@ -62,8 +62,8 @@ class HomeTab extends StatelessWidget {
                   Expanded(
                     child: BeekeeperPrimaryAction(
                       icon: Icons.add_circle_outline_rounded,
-                      iconColor: AppTheme.orangeDark,
-                      iconTint: AppTheme.orangeSoft,
+                      iconColor: AppTheme.honeyDark,
+                      iconTint: const Color(0x1FE8A33D),
                       title: store.tr('home.record.harvest'),
                       subtitle: store.tr('home.record.harvest.sub'),
                       onTap: () => Navigator.of(context).push(
@@ -117,7 +117,11 @@ class _Header extends StatelessWidget {
                 ),
               ),
               Text(
-                store.profile.organizationName,
+                [
+                  if (store.profile.organizationName.isNotEmpty)
+                    store.profile.organizationName,
+                  if (store.producerId.isNotEmpty) store.producerId,
+                ].join(' · '),
                 style: const TextStyle(
                   fontSize: 12,
                   color: AppTheme.inkSoft,

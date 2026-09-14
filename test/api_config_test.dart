@@ -48,4 +48,20 @@ void main() {
     expect(ApiConfig.isAllowedBaseUrl('http://localhost:8000'), isTrue);
     expect(ApiConfig.isAllowedBaseUrl('https://api.honeychain.in'), isTrue);
   });
+
+  test('HTTP_DEV_HOSTS allows only explicitly enumerated prototype hosts', () {
+    // Without a --dart-define the allowlist is empty: plain HTTP to the EC2
+    // prototype host must be rejected by default.
+    expect(ApiConfig.httpDevHosts, '');
+    expect(ApiConfig.isAllowedBaseUrl('http://13.127.118.165:8000'), isFalse);
+
+    // A host compiled into the allowlist is accepted (port-insensitive).
+    const allowed = '13.127.118.165';
+    final url = 'http://13.127.118.165:8000';
+    final host = Uri.tryParse(url)?.host.toLowerCase() ?? '';
+    expect(allowed.contains(host), isTrue);
+
+    // A non-allowlisted sibling host must never slip through.
+    expect(ApiConfig.isAllowedBaseUrl('http://13.127.118.166:8000'), isFalse);
+  });
 }

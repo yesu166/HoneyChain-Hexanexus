@@ -14,6 +14,9 @@ def lab_queue(
 ) -> list:
     if user.role not in ("lab", "admin", "institution"):
         raise HTTPException(status_code=403, detail="Lab role required")
+    # A lab may only service its own org's queue/pending tests.
+    if user.role == "lab" and user.org_id and lab_id != user.org_id:
+        raise HTTPException(status_code=403, detail="lab not in your scope")
     return request.app.state.services["labs"].queue(lab_id, user=user)
 
 
@@ -35,7 +38,15 @@ def submit_result(
     request: Request,
     user=Depends(require_roles("lab")),
 ) -> dict:
-    updated = request.app.state.services["labs"].submit_result(
+    services = request.app.state.services
+    test = request.app.state.repository.get_lab_test(test_id)
+    if test is None:
+        raise HTTPException(status_code=404, detail="Lab test not found")
+    # Only the lab that owns the test may record its result.
+    owner = test.get("lab_id") or ""
+    if user.org_id and owner and owner != user.org_id:
+        raise HTTPException(status_code=403, detail="lab test is not in your scope")
+    updated = services["labs"].submit_result(
         test_id,
         result=payload.result,
         tested_by=payload.tested_by or user.user_id,

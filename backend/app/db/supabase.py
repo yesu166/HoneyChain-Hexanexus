@@ -9,8 +9,10 @@ All repository methods exchange plain dicts; schemas/services convert.
 """
 from __future__ import annotations
 
+import secrets
 import uuid
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from typing import Any
 
 from ..core.config import get_settings
@@ -57,6 +59,61 @@ class Repository(ABC):
 
     @abstractmethod
     def list_organizations(self) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def create_organization(self, org: dict[str, Any]) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def update_organization_status(self, org_key: str, status: str) -> dict[str, Any] | None: ...
+
+    # ---- organization onboarding invites -----------------------------------
+    @abstractmethod
+    def create_organization_invite(
+        self,
+        *,
+        organization_key: str,
+        email: str,
+        role: str = "fpo",
+        invited_by: str = "",
+    ) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def get_organization_invite(self, token: str) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def mark_organization_invite_used(self, token: str, user_id: str) -> None: ...
+
+    @abstractmethod
+    def revoke_organization_invite(self, invite_id: str) -> dict[str, Any] | None: ...
+
+    # ---- membership / account governance -----------------------------------
+    @abstractmethod
+    def set_user_org(self, user_id: str, org_id: str) -> None: ...
+
+    @abstractmethod
+    def set_user_status(self, user_id: str, status: str) -> None: ...
+
+    @abstractmethod
+    def set_beekeeper_org(self, beekeeper_id: str, organization_id: str | None) -> None: ...
+
+    @abstractmethod
+    def list_users(self, *, role: str | None = None, org_id: str | None = None) -> list[dict[str, Any]]: ...
+
+    # ---- governance audit ----------------------------------------------------
+    @abstractmethod
+    def append_audit_event(
+        self,
+        *,
+        action: str,
+        actor_user_id: str,
+        actor_role: str,
+        target_type: str,
+        target_key: str,
+        detail: dict[str, Any] | None = None,
+    ) -> None: ...
+
+    @abstractmethod
+    def list_audit_events(self, limit: int = 100) -> list[dict[str, Any]]: ...
 
     # ---- beekeepers -------------------------------------------------------
     @abstractmethod
@@ -255,6 +312,9 @@ class Repository(ABC):
     def add_notification(self, notification: dict[str, Any]) -> dict[str, Any]: ...
 
     @abstractmethod
+    def get_notification(self, notification_id: str) -> dict[str, Any] | None: ...
+
+    @abstractmethod
     def list_notifications(self, org_id: str = "", hive_id: str = "") -> list[dict[str, Any]]: ...
 
     @abstractmethod
@@ -273,6 +333,8 @@ class InMemoryRepository(Repository):
         data: dict[str, list[dict[str, Any]]] = {
             "users": [],
             "organizations": [],
+            "organization_invites": [],
+            "audit_events": [],
             "beekeepers": [],
             "hives": [],
             "readings": [],
@@ -306,6 +368,7 @@ class InMemoryRepository(Repository):
             "role": role,
             "org_id": org_id,
             "password_hash": password_hash,
+            "status": "ACTIVE",
         }
         self._data["users"].append(user)
         return user
@@ -320,6 +383,17 @@ class InMemoryRepository(Repository):
         return next((u for u in self._data["users"] if u["id"] == user_id), None)
 
     # -- organizations --
+    def _next_organization_key(self) -> str:
+        used: set[int] = set()
+        for org in self._data["organizations"]:
+            key = org.get("organization_key") or org.get("id") or ""
+            if key.startswith("ORG-") and key[4:].isdigit():
+                used.add(int(key[4:]))
+        n = 1
+        while n in used:
+            n += 1
+        return f"ORG-{n:06d}"
+
     def ensure_organization(self, org):
         existing = next(
             (o for o in self._data["organizations"] if o["id"] == org.get("id")), None
@@ -328,14 +402,132 @@ class InMemoryRepository(Repository):
             existing.update({k: v for k, v in org.items() if v is not None})
             return existing
         row = {"id": org.get("id") or new_id(), **org}
+        if not row.get("organization_key"):
+            row["organization_key"] = (
+                row["id"] if row["id"].startswith("ORG-") else self._next_organization_key()
+            )
         self._data["organizations"].append(row)
         return row
 
     def get_organization(self, org_id):
-        return next((o for o in self._data["organizations"] if o["id"] == org_id), None)
+        match = next(
+            (o for o in self._data["organizations"] if o["id"] == org_id), None
+        )
+        if match is None:
+            match = next(
+                (o for o in self._data["organizations"] if o.get("organization_key") == org_id),
+                None,
+            )
+        return match
 
     def list_organizations(self):
         return list(self._data["organizations"])
+
+    def create_organization(self, org):
+        org = dict(org)
+        rid = org.get("id")
+        if rid:
+            existing = self.get_organization(rid)
+            if existing is not None:
+                existing.update({k: v for k, v in org.items() if v is not None})
+                return existing
+        if not org.get("organization_key"):
+            org["organization_key"] = self._next_organization_key()
+        if not org.get("id"):
+            org["id"] = new_id()
+        self._data["organizations"].append(org)
+        return dict(org)
+
+    def update_organization_status(self, org_key, status):
+        org = self.get_organization(org_key)
+        if org is None:
+            return None
+        org["status"] = status
+        return dict(org)
+
+    # -- organization invites --
+    def create_organization_invite(self, *, organization_key, email, role="fpo", invited_by=""):
+        invite = {
+            "id": new_id(),
+            "organization_key": organization_key,
+            "email": email,
+            "role": role,
+            "token": secrets.token_urlsafe(24),
+            "status": "PENDING",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "invited_by": invited_by or None,
+            "invitee_user_id": None,
+            "used_at": None,
+        }
+        self._data["organization_invites"].append(invite)
+        return dict(invite)
+
+    def get_organization_invite(self, token):
+        return next(
+            (i for i in self._data["organization_invites"] if i["token"] == token),
+            None,
+        )
+
+    def mark_organization_invite_used(self, token, user_id):
+        invite = self.get_organization_invite(token)
+        if invite is None:
+            return
+        invite["status"] = "USED"
+        invite["invitee_user_id"] = user_id
+        invite["used_at"] = datetime.now(timezone.utc).isoformat()
+
+    def revoke_organization_invite(self, invite_id):
+        invite = next(
+            (i for i in self._data["organization_invites"] if i["id"] == invite_id),
+            None,
+        )
+        if invite is None:
+            return None
+        invite["status"] = "REVOKED"
+        return dict(invite)
+
+    # -- membership / account governance --
+    def set_user_org(self, user_id, org_id):
+        user = self.get_user(user_id)
+        if user is not None:
+            user["org_id"] = org_id
+
+    def set_user_status(self, user_id, status):
+        user = self.get_user(user_id)
+        if user is not None:
+            user["status"] = status
+
+    def set_beekeeper_org(self, beekeeper_id, organization_id):
+        beekeeper = self.get_beekeeper(beekeeper_id)
+        if beekeeper is not None:
+            beekeeper["organization_id"] = organization_id
+
+    def list_users(self, *, role=None, org_id=None):
+        rows = self._data["users"]
+        if role:
+            rows = [u for u in rows if u.get("role") == role]
+        if org_id:
+            rows = [u for u in rows if u.get("org_id") == org_id]
+        return [dict(u) for u in rows]
+
+    # -- governance audit --
+    def append_audit_event(self, *, action, actor_user_id, actor_role, target_type, target_key, detail=None):
+        self._data["audit_events"].append(
+            {
+                "id": new_id(),
+                "actor_user_id": actor_user_id,
+                "actor_role": actor_role,
+                "action": action,
+                "target_type": target_type,
+                "target_key": target_key,
+                "detail": detail or {},
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+
+    def list_audit_events(self, limit=100):
+        rows = self._data["audit_events"][-limit:]
+        return [dict(r) for r in rows]
 
     # -- beekeepers --
     def ensure_beekeeper(self, beekeeper):
@@ -356,7 +548,11 @@ class InMemoryRepository(Repository):
 
     def list_beekeepers(self, org_id=None):
         if org_id:
-            return [b for b in self._data["beekeepers"] if b.get("org_id") == org_id]
+            return [
+                b
+                for b in self._data["beekeepers"]
+                if b.get("organization_id") == org_id or b.get("org_id") == org_id
+            ]
         return list(self._data["beekeepers"])
 
     # -- hives --
@@ -714,6 +910,8 @@ class SupabaseRepository(Repository):
     TABLE_MAP = {
         "users": "users",
         "organizations": "organizations",
+        "organization_invites": "organization_invites",
+        "platform_audit": "platform_audit",
         "beekeepers": "beekeepers",
         "hives": "hives",
         "readings": "hive_readings",
@@ -735,10 +933,19 @@ class SupabaseRepository(Repository):
 
     # Allowed write columns per table (drop anything the domain adds that the
     # cloud schema does not carry).
-    _ORGANIZATION_COLS = ("id", "name", "type", "location", "cluster_id", "client_id")
+    _ORGANIZATION_COLS = (
+        "id", "name", "type", "location", "cluster_id", "client_id",
+        "organization_key", "status", "country", "state", "district",
+        "address", "postal_code", "contact_email", "contact_phone",
+        "registration_no",
+    )
+    _ORGANIZATION_INVITE_COLS = (
+        "id", "organization_key", "email", "role", "token", "status",
+        "created_at", "used_at", "invited_by", "invitee_user_id",
+    )
     _BEEKEEPER_COLS = (
         "id", "profile_id", "organization_id", "name", "phone", "location",
-        "madhukranti_id", "is_independent", "client_id",
+        "madhukranti_id", "is_independent", "producer_id", "client_id",
     )
     _HIVE_COLS = (
         "id", "beekeeper_id", "hive_code", "hive_type", "latitude", "longitude",
@@ -856,27 +1063,160 @@ class SupabaseRepository(Repository):
                 "location": None,
                 "madhukranti_id": "",
                 "is_independent": True,
+                "producer_id": user.get("producer_id") or "",
             }
         ).execute()
 
     # -- organizations / beekeepers --
+    def _next_organization_key(self) -> str:
+        data = self._client.rpc("next_organization_key").execute().data
+        if isinstance(data, str):
+            return data
+        if not data:
+            return ""
+        first = data[0]
+        if isinstance(first, dict):
+            return str(
+                first.get("next_organization_key")
+                or first.get("value")
+                or next(
+                    (v for k, v in first.items() if not k.startswith("@")),
+                    "",
+                )
+            )
+        return str(first)
+
     def ensure_organization(self, org):
         row = self._clip(org, self._ORGANIZATION_COLS, iso=())
         if row.get("id") and not self._is_uuid(row["id"]):
             row.pop("id")
         return self._upsert("organizations", row, key="client_id")
 
+    @staticmethod
+    def _normalize_row(row):
+        if not row:
+            return row
+        return {k: ("" if v is None else v) for k, v in row.items()}
+
     def get_organization(self, org_id):
-        return self._get_by("organizations", "id", org_id)
+        if org_id is None or str(org_id) == "":
+            return None
+        key = str(org_id)
+        if self._is_uuid(key):
+            row = self._get_by("organizations", "id", key)
+            if row is None:
+                row = self._get_by("organizations", "organization_key", key)
+            return self._normalize_row(row)
+        return self._normalize_row(self._get_by("organizations", "organization_key", key))
 
     def list_organizations(self):
-        return self._table("organizations").select("*").execute().data
+        return [self._normalize_row(r) for r in self._table("organizations").select("*").execute().data]
+
+    def create_organization(self, org):
+        row = self._clip(org, self._ORGANIZATION_COLS, iso=())
+        if row.get("id") and not self._is_uuid(row["id"]):
+            row.pop("id")
+        if not row.get("organization_key"):
+            row["organization_key"] = self._next_organization_key()
+        return self._upsert("organizations", row, key="client_id")
+
+    def update_organization_status(self, org_key, status):
+        target = "id" if self._is_uuid(org_key) else "organization_key"
+        data = (
+            self._table("organizations")
+            .update({"status": status})
+            .eq(target, org_key)
+            .execute()
+            .data
+        )
+        if data:
+            return data[0]
+        return self.get_organization(org_key)
+
+    # -- organization invites --
+    def create_organization_invite(self, *, organization_key, email, role="fpo", invited_by=""):
+        row = {
+            "organization_key": organization_key,
+            "email": email,
+            "role": role,
+            "token": secrets.token_urlsafe(24),
+            "status": "PENDING",
+        }
+        if invited_by and self._is_uuid(str(invited_by)):
+            row["invited_by"] = invited_by
+        data = self._table("organization_invites").insert(row).execute().data
+        return data[0] if data else row
+
+    def get_organization_invite(self, token):
+        return self._get_by("organization_invites", "token", token)
+
+    def mark_organization_invite_used(self, token, user_id):
+        self._table("organization_invites").update(
+            {
+                "status": "USED",
+                "invitee_user_id": user_id,
+                "used_at": self._iso(datetime.now(timezone.utc)),
+            }
+        ).eq("token", token).execute()
+
+    def revoke_organization_invite(self, invite_id):
+        self._table("organization_invites").update(
+            {"status": "REVOKED"}
+        ).eq("id", invite_id).execute()
+        return self._get_by("organization_invites", "id", invite_id)
+
+    # -- membership / account governance --
+    def set_user_org(self, user_id, org_id):
+        self._table("users").update({"org_id": org_id}).eq("id", user_id).execute()
+
+    def set_user_status(self, user_id, status):
+        self._table("users").update({"status": status}).eq("id", user_id).execute()
+
+    def set_beekeeper_org(self, beekeeper_id, organization_id):
+        self._table("beekeepers").update(
+            {"organization_id": organization_id}
+        ).eq("id", beekeeper_id).execute()
+
+    def list_users(self, *, role=None, org_id=None):
+        q = self._table("users").select("*")
+        if role:
+            q = q.eq("role", role)
+        if org_id:
+            q = q.eq("org_id", org_id)
+        return q.execute().data
+
+    # -- governance audit --
+    def append_audit_event(self, *, action, actor_user_id, actor_role, target_type, target_key, detail=None):
+        self._table("platform_audit").insert(
+            {
+                "actor_user_id": actor_user_id,
+                "actor_role": actor_role,
+                "action": action,
+                "target_type": target_type,
+                "target_key": target_key,
+                "detail": detail or {},
+            }
+        ).execute()
+
+    def list_audit_events(self, limit=100):
+        return (
+            self._table("platform_audit")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+            .data
+        )
 
     def ensure_beekeeper(self, beekeeper):
         row = self._clip(beekeeper, self._BEEKEEPER_COLS, iso=())
         if "org_id" in beekeeper and "organization_id" not in row:
-            row["organization_id"] = beekeeper.get("org_id")
-        return self._upsert("beekeepers", row, key="client_id")
+            org_id = beekeeper.get("org_id")
+            if org_id and self._is_uuid(str(org_id)):
+                row["organization_id"] = org_id
+        if not row.get("organization_id"):
+            row["organization_id"] = None
+        return self._upsert("beekeepers", row, key="id")
 
     def get_beekeeper(self, beekeeper_id):
         return self._beekeeper(self._get_by("beekeepers", "id", beekeeper_id))
@@ -891,7 +1231,7 @@ class SupabaseRepository(Repository):
     def _beekeeper(row):
         if row is None:
             return None
-        out = dict(row)
+        out = {k: ("" if v is None else v) for k, v in row.items()}
         out.setdefault("org_id", out.get("organization_id") or "")
         return out
 
@@ -1419,12 +1759,18 @@ class DemoSeededRepository(InMemoryRepository):
             name="Ravi Kumar",
             phone="+919000000000",
             role="beekeeper",
-            org_id="ORG-TN-001",
+            org_id="ORG-000001",
             password_hash=hash_password("HoneyChainDemo!1"),
         )
         self._seed_beekeeper = beekeeper
         org = self.ensure_organization(
-            {"id": "ORG-TN-001", "name": "Nilgiris Honey FPO", "type": "FPO"}
+            {
+                "id": "ORG-000001",
+                "organization_key": "ORG-000001",
+                "name": "HoneyChain Demo FPO",
+                "type": "FPO",
+                "status": "ACTIVE",
+            }
         )
         self._seed_org = org
         return None

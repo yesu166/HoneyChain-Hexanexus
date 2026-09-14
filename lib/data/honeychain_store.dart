@@ -19,6 +19,7 @@ import '../services/connectivity_service.dart';
 import '../services/disease_detection_service.dart';
 import '../services/fastapi_auth_repository.dart';
 import '../services/honey_api_service.dart';
+import '../services/platform_api_service.dart';
 import '../services/honeychain_services.dart';
 import '../services/image_input_service.dart';
 import '../services/local_store.dart';
@@ -412,9 +413,9 @@ class HoneyChainStore extends ChangeNotifier {
   /// Workspaces this account may enter without logging in again.
   ///
   /// A demo (unconfigured) account can enter every persona the seed actually
-  /// models (beekeeper, FPO, buyer, consumer). When the account is backed by
-  /// the FastAPI backend the list is narrowed to the workspaces the account's
-  /// role is allowed to enter — never invented.
+  /// models (beekeeper, FPO, lab, processor, buyer, institution, consumer).
+  /// When the account is backed by the FastAPI backend the list is narrowed to
+  /// the workspaces the account's role is allowed to enter — never invented.
   List<Workspace> get availableWorkspaces {
     if (_backendSignedIn && _backendRole != null) {
       final role = _backendRole;
@@ -422,20 +423,33 @@ class HoneyChainStore extends ChangeNotifier {
       if (role == 'fpo' ||
           role == 'admin' ||
           role == 'field_officer' ||
-          role == 'organization' ||
-          role == 'processor' ||
-          role == 'lab') {
+          role == 'organization') {
         workspaces.add(Workspace.organization);
+      }
+      if (role == 'lab' || role == 'admin') {
+        workspaces.add(Workspace.lab);
+      }
+      if (role == 'processor' || role == 'admin') {
+        workspaces.add(Workspace.processor);
       }
       if (role == 'buyer') {
         workspaces.add(Workspace.buyer);
+      }
+      if (role == 'institution' || role == 'govt' || role == 'registrar') {
+        workspaces.add(Workspace.institution);
+      }
+      if (role == 'platform_oversight') {
+        workspaces.add(Workspace.platform);
       }
       return workspaces;
     }
     return const [
       Workspace.beekeeper,
       Workspace.organization,
+      Workspace.lab,
+      Workspace.processor,
       Workspace.buyer,
+      Workspace.institution,
       Workspace.consumer,
     ];
   }
@@ -446,7 +460,7 @@ class HoneyChainStore extends ChangeNotifier {
     if (!availableWorkspaces.contains(workspace)) return false;
     if (workspace == _activeWorkspace) return true;
     _activeWorkspace = workspace;
-    if (workspace == Workspace.organization) {
+    if (workspace == Workspace.organization || workspace == Workspace.lab) {
       _fpoRole = true;
     }
     LocalStore.instance.saveActiveWorkspace(workspace.code);
@@ -1853,6 +1867,10 @@ class HoneyChainStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Legacy anchor action (kept for older demo consumers). Honest by
+  /// construction: it never fabricates a hash — [blockchainHash] stays empty
+  /// until a REAL transaction hash is returned by the backend, and the status
+  /// is reported as a local demo commitment only.
   void anchorBlockchain() {
     if (_batch.integrityAnchored) return;
     _addEvent(
@@ -1860,13 +1878,14 @@ class HoneyChainStore extends ChangeNotifier {
         type: 'ANCHOR',
         actor: 'HoneyChain Integrity Layer',
         timestamp: _now(),
-        status: 'Anchored',
-        description: 'Verification evidence anchored to mock blockchain.',
+        status: 'Committed',
+        description: 'Verification evidence committed to the on-device '
+            'integrity log (demo). No blockchain hash is fabricated.',
       ),
     );
     _batch = _batch.copyWith(
-      blockchainStatus: 'anchored',
-      blockchainHash: _mockHash(),
+      blockchainStatus: 'committed',
+      blockchainHash: '',
     );
     notifyListeners();
   }
@@ -1879,16 +1898,6 @@ class HoneyChainStore extends ChangeNotifier {
     final random = Random();
     final number = 10000 + random.nextInt(90000);
     return 'HC-${DateTime.now().year}-$number';
-  }
-
-  String _mockHash() {
-    const chars = '0123456789abcdef';
-    final random = Random();
-    final full = List.generate(
-      64,
-      (_) => chars[random.nextInt(chars.length)],
-    ).join();
-    return '0x${full.substring(0, 4)}...${full.substring(60)}';
   }
 
   String _now() {
@@ -2185,6 +2194,11 @@ class HoneyChainStore extends ChangeNotifier {
   /// the offline-first local store; never replaces it.
   late final HoneyApiService honeyApi = HoneyApiService(_apiClient);
 
+  /// Typed view of the platform-oversight endpoints (`/api/v1/platform/...`).
+  /// Only meaningful once the signed-in role is `platform_oversight`; the
+  /// backend rejects anyone else with 403.
+  late final PlatformApiService platformApi = PlatformApiService(_apiClient);
+
   List<ServerHive> _serverHives = [];
   List<ServerHarvest> _serverHarvests = [];
   List<ServerBatch> _serverBatches = [];
@@ -2192,11 +2206,22 @@ class HoneyChainStore extends ChangeNotifier {
   ServerBlockchainStatus? _blockchainStatus;
   ServerEvidenceBundle? _lastAnchoredBundle;
   List<ServerEvidenceBundle> _serverBundles = [];
+  ServerOrgDashboard? _orgDashboard;
+  String? _orgDashboardError;
+  bool _orgDashboardBusy = false;
   String? _serverCollectionsError;
   bool _serverCollectionsBusy = false;
 
   /// Live backend identity (token store) after a beekeeper login.
   ApiIdentity? get backendIdentity => ApiTokenStore.instance.identity;
+
+  /// Server-issued producer id (`HC-BK-XXXXXX`) from the signed-in session, or
+  /// the seeded demo beekeeper's id when no backend session exists.
+  String get producerId {
+    final identity = backendIdentity;
+    if (identity != null) return identity.producerId;
+    return 'HC-BK-000001';
+  }
 
   List<ServerHive> get serverHives => List.unmodifiable(_serverHives);
   List<ServerHarvest> get serverHarvests =>
@@ -2209,6 +2234,13 @@ class HoneyChainStore extends ChangeNotifier {
       List.unmodifiable(_serverBundles);
   String? get serverCollectionsError => _serverCollectionsError;
   bool get serverCollectionsBusy => _serverCollectionsBusy;
+
+  /// Live backend-driven FPO dashboard metrics (null until the signed-in org
+  /// round-trips successfully). Real numbers only — the UI falls back to the
+  /// offline local view otherwise.
+  ServerOrgDashboard? get orgDashboard => _orgDashboard;
+  String? get orgDashboardError => _orgDashboardError;
+  bool get orgDashboardBusy => _orgDashboardBusy;
 
   /// True when the shell should surface server data. Signed-in means a `/me`
   /// round-trip already succeeded, so the backend was reached; per-collection
@@ -2271,6 +2303,7 @@ class HoneyChainStore extends ChangeNotifier {
       await _loadServerHives(errors);
       await _loadServerHarvests(errors);
       await _loadServerBatches(errors);
+      await refreshOrgDashboard();
       if (_blockchainHealth?.isConnected ?? false) {
         try {
           _blockchainStatus = await honeyApi.blockchainStatus();
@@ -2318,6 +2351,41 @@ class HoneyChainStore extends ChangeNotifier {
     }
   }
 
+  /// Fetches the signed-in org's aggregate dashboard from the backend. The
+  /// org id comes from the user's own session ([ApiIdentity.organizationId]),
+  /// so an FPO can only ever read their own org's numbers. Every metric is
+  /// server-derived; counters stay at their true values (0 until real data).
+  Future<bool> refreshOrgDashboard() async {
+    if (testMode || !ApiConfig.isConfigured || !_backendSignedIn) {
+      _orgDashboard = null;
+      _orgDashboardError = null;
+      return false;
+    }
+    final orgId = backendIdentity?.organizationId ?? '';
+    if (orgId.isEmpty) return false;
+    if (_orgDashboardBusy) return false;
+
+    _orgDashboardBusy = true;
+    _orgDashboardError = null;
+    notifyListeners();
+    try {
+      _orgDashboard = await honeyApi.organizationDashboard(orgId);
+      _orgDashboardBusy = false;
+      notifyListeners();
+      return true;
+    } on ApiException catch (error) {
+      _orgDashboardError = backendFailureFriendly(error);
+      _orgDashboardBusy = false;
+      notifyListeners();
+      return false;
+    } on Exception {
+      _orgDashboardError = 'org dashboard unavailable';
+      _orgDashboardBusy = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Logs a beekeeper into the FastAPI backend and connects the app shell
   /// (same gate as the demo login) so they land in HoneyChain with their real
   /// server hives/harvests refreshed. Returns the role, or null on failure
@@ -2328,18 +2396,18 @@ class HoneyChainStore extends ChangeNotifier {
   }) async {
     final role = await backendLogin(identifier, password);
     if (role == null) return null;
+    _profile = _profile.copyWith(
+      name: (backendIdentity?.name.isNotEmpty ?? false)
+          ? backendIdentity!.name
+          : _profile.name,
+      phone: (backendIdentity?.email.isNotEmpty ?? false)
+          ? backendIdentity!.email
+          : _profile.phone,
+    );
+    LocalStore.instance.saveProfile(_profile);
+    _loggedIn = true;
+    LocalStore.instance.saveLoggedIn(true);
     if (role == 'beekeeper') {
-      _profile = _profile.copyWith(
-        name: (backendIdentity?.name.isNotEmpty ?? false)
-            ? backendIdentity!.name
-            : _profile.name,
-        phone: (backendIdentity?.email.isNotEmpty ?? false)
-            ? backendIdentity!.email
-            : _profile.phone,
-      );
-      LocalStore.instance.saveProfile(_profile);
-      _loggedIn = true;
-      LocalStore.instance.saveLoggedIn(true);
       await refreshServerCollections();
     }
     notifyListeners();
@@ -2483,6 +2551,8 @@ class HoneyChainStore extends ChangeNotifier {
     _lastAnchoredBundle = null;
     _blockchainHealth = null;
     _blockchainStatus = null;
+    _orgDashboard = null;
+    _orgDashboardError = null;
     _serverCollectionsError = null;
     if (ApiConfig.isConfigured) {
       unawaited(honeyApi.signOut());

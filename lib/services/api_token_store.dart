@@ -11,6 +11,7 @@ class ApiIdentity {
     required this.name,
     required this.role,
     this.organizationId = '',
+    this.producerId = '',
   });
 
   final String token;
@@ -20,6 +21,9 @@ class ApiIdentity {
   final String role;
   final String organizationId;
 
+  /// Beekeeper producer id (e.g. `HC-BK-000001`) issued server-side.
+  final String producerId;
+
   Map<String, dynamic> toJson() => {
         'token': token,
         'id': id,
@@ -27,6 +31,7 @@ class ApiIdentity {
         'name': name,
         'role': role,
         'organizationId': organizationId,
+        'producerId': producerId,
       };
 
   factory ApiIdentity.fromJson(Map<String, dynamic> json) => ApiIdentity(
@@ -36,6 +41,7 @@ class ApiIdentity {
         name: json['name'] as String? ?? '',
         role: json['role'] as String? ?? '',
         organizationId: json['organizationId'] as String? ?? '',
+        producerId: json['producerId'] as String? ?? '',
       );
 }
 

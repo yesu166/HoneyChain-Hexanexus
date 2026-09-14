@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ...core.rbac import require_permission
 from ...core.security import get_current_user
 from ...schemas import sync as sync_schemas
 
@@ -10,7 +11,7 @@ router = APIRouter(prefix="/api/v1/sync", tags=["sync"])
 
 @router.post("/push", response_model=sync_schemas.SyncPushResponse)
 def sync_push(
-    payload: dict, request: Request, user=Depends(get_current_user)
+    payload: dict, request: Request, user=Depends(require_permission("sync.push"))
 ) -> dict:
     """Idempotent push. A client_id accepted once is never duplicated."""
     items = payload.get("items") or []

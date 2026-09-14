@@ -58,4 +58,5 @@ class EvidenceVerifyResult(BaseModel):
     evidence_intact: bool = False
     anchor_state: Any = None
     anchored: bool = False
+    anchor_live: Optional[bool] = None
     evidence_count: int = 0

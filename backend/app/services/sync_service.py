@@ -56,7 +56,9 @@ class SyncService:
                 )
                 return {"accepted": True, "backend_id": row["id"], "client_id": client_id}
             if entity == "batch":
-                row = self._batches.create(data={**data, "client_id": client_id})
+                row = self._batches.create(
+                    data={**data, "client_id": client_id}, user=user
+                )
                 return {"accepted": True, "backend_id": row["id"], "client_id": client_id}
             if entity == "reading":
                 hive = self._hives.get_for_user(data.get("hive_id", ""), user=user)
@@ -69,8 +71,15 @@ class SyncService:
                 row = self._hives.add_reading(hive["id"], data)
                 return {"accepted": True, "backend_id": row["id"], "client_id": client_id}
             if entity == "custody":
+                batch_id = data.get("batch_id", "")
+                if self._batches.get_for_user(batch_id, user=user) is None:
+                    return {
+                        "accepted": False,
+                        "client_id": client_id,
+                        "error": "batch not in your scope",
+                    }
                 row = self._custody.add(
-                    batch_id=data.get("batch_id", ""), data=data
+                    batch_id=batch_id, data=data
                 )
                 return {"accepted": True, "backend_id": row["id"], "client_id": client_id}
         except ValueError as exc:
@@ -118,6 +127,10 @@ def build_services(
 
     notifications = NotificationService(repo)
 
+    from .platform_service import PlatformService
+
+    platform = PlatformService(repo)
+
     from .iot_service import DeviceSimulator, IoTDeviceService, TelemetryIngestor
 
     iot_devices = IoTDeviceService(repo, ledger, notifications)
@@ -147,6 +160,7 @@ def build_services(
         "ledger": ledger,
         "gateway": gateway,
         "notifications": notifications,
+        "platform": platform,
         "iot": {
             "devices": iot_devices,
             "ingestor": iot_ingestor,

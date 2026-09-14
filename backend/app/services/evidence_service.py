@@ -226,6 +226,22 @@ class HarvestEvidenceService:
             if isinstance(anchor, dict) and anchor.get("state")
             else self._gateway.verify_anchor(bundle.get("root_hash", ""))
         )
+
+        # For a real (e.g. Fabric) ledger we can live-verify the bundle's own
+        # commitment: the chaincode compares this exact recomputed root against
+        # the batch's current merkleRoot. Never trust the stored anchor copy
+        # alone on a live network.
+        anchor_live = None
+        if self._gateway.ledger_name == "fabric" and bundle.get("entity_ref"):
+            try:
+                anchor_live = self._gateway.verify_anchor(
+                    bundle["entity_ref"], recomputed_root
+                )
+            except Exception:
+                anchor_live = None
+            if anchor_live is not None:
+                anchor_state = "CONFIRMED" if anchor_live else "NOT_VERIFIED"
+
         return {
             "bundle_id": bundle_id,
             "entity_type": bundle.get("entity_type"),
@@ -235,6 +251,7 @@ class HarvestEvidenceService:
             "evidence_intact": not tampered,
             "anchor_state": anchor_state,
             "anchored": anchor_state == "CONFIRMED",
+            "anchor_live": anchor_live,
             "evidence_count": len(bundle.get("evidence", [])),
         }
 

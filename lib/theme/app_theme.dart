@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 
 /// HoneyChain visual language — simple agricultural utility app.
-/// Warm off-white background, orange primary, green success, red only for
-/// urgent problems. Rounded cards/buttons, soft borders + shadows.
+/// WHITE (#FFFFFF) dominant background, honey-gold accent palette, green
+/// success, red only for urgent problems. Rounded cards/buttons, subtle gray
+/// borders + soft shadows.
 class AppTheme {
   // Surfaces
-  static const Color cream = Color(0xFFFAF6EE); // warm off-white page background
+  static const Color cream = Color(0xFFFFFFFF); // WHITE dominant background (#section-29)
   static const Color card = Color(0xFFFFFFFF); // white cards
   static const Color cardWarm = Color(0xFFFFF7E9); // warm tinted surface
 
-  /// Warm off-white page background (legacy alias kept for existing screens).
+  /// White page background (legacy alias kept for existing screens).
   static const Color bg = cream;
+
+  /// Honey-gold accent (palette accent; used for selections/indicators/highlights).
+  static const Color honeyGold = Color(0xFFE8A33D);
 
   /// Warm tinted card surface (legacy alias kept for existing screens).
   static const Color cardCream = cardWarm;
@@ -50,17 +54,17 @@ class AppTheme {
 
   static ThemeData theme() {
     final scheme = ColorScheme.fromSeed(
-      seedColor: orange,
-      primary: orangeDark,
+      seedColor: honeyGold,
+      primary: honeyGold,
       surface: card,
     );
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: cream,
+      scaffoldBackgroundColor: Color(0xFFFFFFFF),
       fontFamily: 'Roboto',
       appBarTheme: const AppBarTheme(
-        backgroundColor: cream,
+        backgroundColor: Color(0xFFFFFFFF),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
@@ -103,8 +107,8 @@ class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: orange,
-          foregroundColor: Colors.white,
+          backgroundColor: honeyGold,
+          foregroundColor: AppTheme.ink,
           elevation: 0,
           minimumSize: const Size(0, 54),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
@@ -113,8 +117,8 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppTheme.orangeDark,
-          side: const BorderSide(color: AppTheme.orange),
+          foregroundColor: AppTheme.honeyDark,
+          side: const BorderSide(color: AppTheme.honeyGold),
           minimumSize: const Size(0, 50),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
@@ -122,14 +126,14 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppTheme.orangeDark,
+          foregroundColor: AppTheme.honeyDark,
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
       chipTheme: ChipThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
         side: BorderSide.none,
-        selectedColor: AppTheme.orange,
+        selectedColor: AppTheme.honeyGold,
         labelStyle: const TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,
@@ -151,7 +155,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: radiusField,
-          borderSide: const BorderSide(color: AppTheme.orange, width: 1.6),
+          borderSide: const BorderSide(color: AppTheme.honeyGold, width: 1.6),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: radiusField,
@@ -175,7 +179,7 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: card,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: AppTheme.orangeSoft,
+        indicatorColor: Color(0x33E8A33D),
         height: 68,
         elevation: 0,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -183,7 +187,7 @@ class AppTheme {
           (states) => IconThemeData(
             size: 24,
             color: states.contains(WidgetState.selected)
-                ? AppTheme.orangeDark
+                ? AppTheme.honeyDark
                 : AppTheme.inkFaint,
           ),
         ),
@@ -192,7 +196,7 @@ class AppTheme {
             fontSize: 11,
             fontWeight: FontWeight.w700,
             color: states.contains(WidgetState.selected)
-                ? AppTheme.orangeDark
+                ? AppTheme.honeyDark
                 : AppTheme.inkFaint,
           ),
         ),

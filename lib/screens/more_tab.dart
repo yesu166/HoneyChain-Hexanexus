@@ -10,7 +10,9 @@ import 'buyer/buyer_portal_screen.dart';
 import 'consumer_screen.dart';
 import 'developer_screen.dart';
 import 'honey_tab.dart';
+import 'lab_screen.dart';
 import 'org/org_portal_screen.dart';
+import 'platform/platform_shell.dart';
 import 'profile_tab.dart';
 import 'settings_screen.dart';
 import '../theme/beekeeper_tokens.dart';
@@ -165,13 +167,31 @@ class MoreTab extends StatelessWidget {
   /// session, no re-authentication: switching only changes the screen.
   static void _openWorkspace(BuildContext context, Workspace workspace) {
     if (workspace == Workspace.beekeeper) return;
+    if (workspace == Workspace.processor || workspace == Workspace.institution) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(
+            '${workspace.title} workspace selected. A dedicated portal is not '
+            'modeled in this demo; backend authorization still scopes any '
+            'server data to the signed-in role.',
+          ),
+          backgroundColor: AppTheme.honeyDark,
+          behavior: SnackBarBehavior.floating,
+        ));
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => switch (workspace) {
           Workspace.organization => const OrgPortalScreen(),
+          Workspace.lab => const LabScreen(),
           Workspace.buyer => const BuyerPortalScreen(),
           Workspace.consumer => const ConsumerScreen(),
+          Workspace.platform => const PlatformShell(),
           Workspace.beekeeper => const SizedBox.shrink(),
+          Workspace.processor => const SizedBox.shrink(),
+          Workspace.institution => const SizedBox.shrink(),
         },
       ),
     );
@@ -239,11 +259,11 @@ class _WorkspaceSwitcher extends StatelessWidget {
                     ),
                     selected: workspace == store.activeWorkspace,
                     showCheckmark: false,
-                    selectedColor: AppTheme.orangeSoft,
+                    selectedColor: const Color(0x1FE8A33D),
                     backgroundColor: AppTheme.card,
                     side: BorderSide(
                       color: workspace == store.activeWorkspace
-                          ? AppTheme.orange
+                          ? AppTheme.honeyGold
                           : AppTheme.border,
                     ),
                     labelStyle: TextStyle(

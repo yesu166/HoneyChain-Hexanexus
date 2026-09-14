@@ -15,8 +15,10 @@ class MockData {
       custodyStatus: 'accepted',
       labStatus: 'verified',
       authenticityStatus: 'verified',
-      blockchainStatus: 'anchored',
-      blockchainHash: '0x8f3a...92bc',
+      // Deliberately empty: a demo MUST NOT carry a fabricated hash. A real
+      // transaction hash is only ever displayed when the backend returns one.
+      blockchainStatus: 'committed',
+      blockchainHash: '',
       labResults: {
         'moisture': '17.2% — within expected range',
         'sugarProfile': 'Consistent with natural honey',
@@ -48,8 +50,9 @@ class MockData {
           type: 'ANCHOR',
           actor: 'HoneyChain Integrity Layer',
           timestamp: '27 Aug 2026, 16:09',
-          status: 'Anchored',
-          description: 'Verification evidence anchored to mock blockchain.',
+          status: 'Committed',
+          description: 'Verification evidence committed to the on-device '
+              'integrity log (demo). No blockchain hash is fabricated.',
         ),
       ],
     );

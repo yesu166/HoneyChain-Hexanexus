@@ -12,11 +12,19 @@ import 'org/org_login_screen.dart';
 /// portal). Organization/FPO -> a lightweight org login that opens the
 /// organization portal. No complex auth is required for the demo.
 class WhoAreYouScreen extends StatelessWidget {
-  const WhoAreYouScreen({super.key, required this.onBeekeeper});
+  const WhoAreYouScreen({
+    super.key,
+    required this.onBeekeeper,
+    required this.onPlatform,
+  });
 
   /// Raised when the Beekeeper role is tapped so the parent can swap the
   /// gate for the phone + OTP login without adding a route.
   final VoidCallback onBeekeeper;
+
+  /// Raised when the Platform Oversight role is tapped so the parent swaps to
+  /// the live-backend sign-in (platform users authenticate against the API).
+  final VoidCallback onPlatform;
 
   @override
   Widget build(BuildContext context) {
@@ -33,13 +41,13 @@ class WhoAreYouScreen extends StatelessWidget {
                 height: 76,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.orange, width: 2),
+                  border: Border.all(color: AppTheme.honeyGold, width: 2),
                   color: AppTheme.card,
                 ),
                 child: const Icon(
                   Icons.hive_outlined,
                   size: 38,
-                  color: AppTheme.orangeDark,
+                  color: AppTheme.honeyDark,
                 ),
               ),
             ),
@@ -79,16 +87,14 @@ class WhoAreYouScreen extends StatelessWidget {
             const SizedBox(height: 24),
             _RoleOption(
               icon: Icons.person_outline,
-              emoji: '🐝',
               title: store.tr('role.beekeeper'),
               subtitle: store.tr('role.beekeeper.desc'),
-              accent: AppTheme.orange,
+              accent: AppTheme.honeyDark,
               onTap: onBeekeeper,
             ),
             const SizedBox(height: 14),
             _RoleOption(
               icon: Icons.storefront_outlined,
-              emoji: '🏢',
               title: store.tr('role.organization'),
               subtitle: store.tr('role.organization.desc'),
               accent: AppTheme.green,
@@ -97,20 +103,26 @@ class WhoAreYouScreen extends StatelessWidget {
             const SizedBox(height: 14),
             _RoleOption(
               icon: Icons.shopping_bag_outlined,
-              emoji: '🛒',
               title: store.tr('role.buyer'),
               subtitle: store.tr('role.buyer.desc'),
-              accent: AppTheme.orangeDark,
+              accent: AppTheme.honeyDark,
               onTap: () => _openBuyer(context),
             ),
             const SizedBox(height: 14),
             _RoleOption(
               icon: Icons.qr_code_scanner_rounded,
-              emoji: '📱',
               title: store.tr('role.consumer'),
               subtitle: store.tr('role.consumer.desc'),
               accent: AppTheme.teal,
               onTap: () => _openConsumer(context),
+            ),
+            const SizedBox(height: 14),
+            _RoleOption(
+              icon: Icons.admin_panel_settings_outlined,
+              title: 'Platform Oversight',
+              subtitle: 'Organization lifecycle and membership governance',
+              accent: AppTheme.honeyGold,
+              onTap: onPlatform,
             ),
             const SizedBox(height: 22),
             Text(
@@ -148,7 +160,6 @@ class WhoAreYouScreen extends StatelessWidget {
 class _RoleOption extends StatelessWidget {
   const _RoleOption({
     required this.icon,
-    required this.emoji,
     required this.title,
     required this.subtitle,
     required this.accent,
@@ -156,7 +167,6 @@ class _RoleOption extends StatelessWidget {
   });
 
   final IconData icon;
-  final String emoji;
   final String title;
   final String subtitle;
   final Color accent;
@@ -187,7 +197,7 @@ class _RoleOption extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 alignment: Alignment.center,
-                child: Text(emoji, style: const TextStyle(fontSize: 28)),
+                child: Icon(icon, size: 26, color: accent),
               ),
               const SizedBox(width: 16),
               Expanded(

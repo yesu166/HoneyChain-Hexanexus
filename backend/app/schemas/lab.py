@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 class LabTestCreate(BaseModel):
     batch_id: str = Field(..., min_length=1)
-    lab_id: str = "LAB-TN-001"
+    lab_id: str = ""
     requested_note: str = ""
 
 

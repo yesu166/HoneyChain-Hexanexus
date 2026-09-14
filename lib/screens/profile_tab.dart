@@ -56,6 +56,29 @@ class ProfileTab extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 8),
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardWarm,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Text(
+                    'Producer ID · ${store.producerId}',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.honeyDark,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: 20),
               Container(
                 width: double.infinity,

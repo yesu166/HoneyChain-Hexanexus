@@ -47,15 +47,22 @@ class BatchService:
         self._repo = repo
 
     # ------------------------------------------------------------------ create
-    def create(self, *, data: dict[str, Any]) -> dict[str, Any]:
+    def create(self, *, data: dict[str, Any], user: Any = None) -> dict[str, Any]:
         client_id = data.get("client_id") or ""
         if client_id:
             existing = self._repo.find_by_client_id("batches", client_id)
             if existing:
                 return existing
+        # The server decides the owning organization. Org-bound roles can never
+        # write into another FPO's org, even if the client sends an org_id.
+        org_id = data.get("organization_id", "")
+        if user is not None and user.role in ("fpo", "processor", "beekeeper"):
+            org_id = user.org_id
+        elif user is not None and not org_id:
+            org_id = user.org_id or ""
         batch = {
             "batch_code": data["batch_code"],
-            "organization_id": data.get("organization_id", ""),
+            "organization_id": org_id,
             "origin": data.get("origin", ""),
             "honey_type": data.get("honey_type", "Not specified"),
             "quantity_kg": data["quantity_kg"],
@@ -71,27 +78,31 @@ class BatchService:
         return created
 
     # ------------------------------------------------------------------ read
-    def get_for_user(self, batch_id: str, *, user: Any) -> dict[str, Any] | None:
-        batch = self._repo.get_batch(batch_id)
-        if batch is None:
-            return None
-        if user.role in ("admin", "lab", "processor", "institution", "buyer"):
-            return batch
+    def in_user_scope(self, batch: dict[str, Any], *, user: Any) -> bool:
+        """Boolean scope check matching [get_for_user] without 404 semantics."""
+        if user.role in ("admin", "institution", "lab", "buyer"):
+            return True
+        if user.role == "processor":
+            return batch.get("organization_id") == user.org_id
         if user.role == "beekeeper":
             harvest_ids = {
                 link.get("harvest_id")
-                for link in self._repo.list_batch_harvests(batch_id)
+                for link in self._repo.list_batch_harvests(batch.get("id", ""))
             }
             mine = {
                 h.get("id")
                 for h in self._repo.list_harvests(user.user_id)
                 if h.get("id") in harvest_ids
             }
-            if mine:
-                return batch
-            return None
+            return bool(mine)
         # FPO / org users
-        if batch.get("organization_id") == user.org_id:
+        return batch.get("organization_id") == user.org_id
+
+    def get_for_user(self, batch_id: str, *, user: Any) -> dict[str, Any] | None:
+        batch = self._repo.get_batch(batch_id)
+        if batch is None:
+            return None
+        if self.in_user_scope(batch, user=user):
             return batch
         return None
 
@@ -99,8 +110,10 @@ class BatchService:
         return self._repo.get_batch_by_code(code)
 
     def list_for_user(self, *, user: Any) -> list[dict[str, Any]]:
-        if user.role in ("admin", "institution", "lab", "processor", "buyer"):
+        if user.role in ("admin", "institution", "lab", "buyer"):
             return self._repo.list_batches("")
+        if user.role == "processor":
+            return self._repo.list_batches(user.org_id)
         if user.role == "beekeeper":
             batch_ids = set()
             for harvest in self._repo.list_harvests(user.user_id):
@@ -124,11 +137,14 @@ class BatchService:
 
     # ------------------------------------------------------------------ split
     def split(
-        self, parent_id: str, child_quantities_kg: list[float], origin_hint: str = ""
+        self, parent_id: str, child_quantities_kg: list[float], origin_hint: str = "",
+        *, user: Any = None,
     ) -> dict[str, Any]:
         parent = self._repo.get_batch(parent_id)
         if parent is None:
             return {"error": "parent batch not found"}
+        if user is not None and not self.in_user_scope(parent, user=user):
+            return {"error": "batch not in your scope"}
         total = sum(child_quantities_kg)
         if abs(total - float(parent.get("quantity_kg", 0))) > 1e-6:
             return {
@@ -164,7 +180,8 @@ class BatchService:
 
     # ------------------------------------------------------------------ merge
     def merge(
-        self, batch_ids: list[str], new_batch_code: str
+        self, batch_ids: list[str], new_batch_code: str,
+        *, user: Any = None,
     ) -> dict[str, Any]:
         sources = []
         harvest_ids: list[str] = []
@@ -172,6 +189,8 @@ class BatchService:
             source = self._repo.get_batch(batch_id)
             if source is None:
                 return {"error": f"source batch not found: {batch_id}"}
+            if user is not None and not self.in_user_scope(source, user=user):
+                return {"error": f"source batch not in your scope: {batch_id}"}
             sources.append(source)
             harvest_ids.extend(
                 link.get("harvest_id")

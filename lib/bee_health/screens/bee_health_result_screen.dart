@@ -6,7 +6,6 @@ import 'package:honeychain/bee_health/services/bee_health_knowledge.dart';
 import 'package:honeychain/theme/app_theme.dart';
 import 'package:honeychain/widgets/listen_button.dart';
 
-
 class BeeHealthResultScreen extends StatelessWidget {
   const BeeHealthResultScreen({
     super.key,

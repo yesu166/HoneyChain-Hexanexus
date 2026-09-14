@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import 'core/api/api_config.dart';
 import 'core/supabase/supabase_client.dart';
 import 'data/honeychain_store.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
+import 'screens/platform/platform_shell.dart';
 import 'screens/who_are_you_screen.dart';
 import 'theme/app_theme.dart';
 
@@ -127,10 +128,16 @@ class _RootGateState extends State<_RootGate> {
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
-        if (store.loggedIn) return const MainShell();
+        if (store.loggedIn) {
+          if (store.backendRole == 'platform_oversight') {
+            return const PlatformShell();
+          }
+          return const MainShell();
+        }
         if (_beekeeperChosen) return const LoginScreen();
         return WhoAreYouScreen(
           onBeekeeper: () => setState(() => _beekeeperChosen = true),
+          onPlatform: () => setState(() => _beekeeperChosen = true),
         );
       },
     );

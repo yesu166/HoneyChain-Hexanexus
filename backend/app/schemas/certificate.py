@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 class CertificateIssue(BaseModel):
     batch_id: str = Field(..., min_length=1)
-    lab_id: str = "LAB-TN-001"
+    lab_id: str = ""
     certificate_type: str = "analysis"
     issued_at: str = ""
     valid_until: str = ""

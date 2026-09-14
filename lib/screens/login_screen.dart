@@ -114,13 +114,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 height: 72,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.orange, width: 2),
+                  border: Border.all(color: AppTheme.honeyGold, width: 2),
                   color: AppTheme.card,
                 ),
                 child: const Icon(
                   Icons.hive_outlined,
                   size: 34,
-                  color: AppTheme.orangeDark,
+                  color: AppTheme.honeyDark,
                 ),
               ),
             ),
@@ -212,7 +212,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: AppTheme.radiusField,
                   borderSide: const BorderSide(
-                    color: AppTheme.orange,
+                    color: AppTheme.honeyGold,
                     width: 1.6,
                   ),
                 ),
@@ -255,7 +255,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: AppTheme.radiusField,
                           borderSide: const BorderSide(
-                            color: AppTheme.orange,
+                            color: AppTheme.honeyGold,
                             width: 1.6,
                           ),
                         ),
@@ -276,7 +276,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: FilledButton.icon(
                 onPressed: _validPhone && _validOtp && !_busy ? _verify : null,
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.green,
+                  backgroundColor: AppTheme.honeyGold,
                   disabledBackgroundColor: AppTheme.grey,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(999),
@@ -288,10 +288,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: AppTheme.ink,
                         ),
                       )
-                    : const Icon(Icons.check_rounded, size: 20),
+                    : const Icon(Icons.check_rounded, size: 20,
+                        color: AppTheme.ink),
                 label: Text(
                   store.tr('verify.login'),
                   style: const TextStyle(
@@ -354,10 +355,10 @@ class _LangCard extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         height: 52,
         decoration: BoxDecoration(
-          color: selected ? AppTheme.orangeSoft : AppTheme.card,
+          color: selected ? const Color(0x1FE8A33D) : AppTheme.card,
           borderRadius: AppTheme.radiusField,
           border: Border.all(
-            color: selected ? AppTheme.orange : AppTheme.border,
+            color: selected ? AppTheme.honeyGold : AppTheme.border,
             width: selected ? 1.6 : 1,
           ),
         ),
@@ -433,7 +434,7 @@ class _BackendSignInForm extends StatelessWidget {
             focusedBorder: OutlineInputBorder(
               borderRadius: AppTheme.radiusField,
               borderSide: const BorderSide(
-                color: AppTheme.orange,
+                color: AppTheme.honeyGold,
                 width: 1.6,
               ),
             ),
@@ -477,7 +478,7 @@ class _BackendSignInForm extends StatelessWidget {
             focusedBorder: OutlineInputBorder(
               borderRadius: AppTheme.radiusField,
               borderSide: const BorderSide(
-                color: AppTheme.orange,
+                color: AppTheme.honeyGold,
                 width: 1.6,
               ),
             ),
@@ -510,7 +511,7 @@ class _BackendSignInForm extends StatelessWidget {
           child: FilledButton.icon(
             onPressed: busy ? null : onSignIn,
             style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.orange,
+              backgroundColor: AppTheme.honeyGold,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(999),
               ),
@@ -521,10 +522,11 @@ class _BackendSignInForm extends StatelessWidget {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: AppTheme.ink,
                     ),
                   )
-                : const Icon(Icons.cloud_done_outlined, size: 20),
+                : const Icon(Icons.cloud_done_outlined, size: 20,
+                    color: AppTheme.ink),
             label: Text(
               busy ? 'Signing in…' : 'Sign in',
               style: const TextStyle(
