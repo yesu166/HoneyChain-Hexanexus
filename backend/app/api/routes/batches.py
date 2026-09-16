@@ -36,9 +36,14 @@ def create_batch(
     request: Request,
     user=Depends(require_roles(*BATCH_MANAGERS)),
 ) -> dict:
-    return request.app.state.services["batches"].create(
+    result = request.app.state.services["batches"].create(
         data=payload.model_dump(), user=user
     )
+    if "error" in result:
+        # e.g. mass-balance violation (batch qty > linked harvest qty) or a
+        # missing linked harvest. Surface it as a conflict, not a 500.
+        raise HTTPException(status_code=409, detail=result["error"])
+    return result
 
 
 @router.get("/{batch_id}", response_model=batch_schemas.BatchRead)

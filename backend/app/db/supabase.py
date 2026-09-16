@@ -1740,10 +1740,28 @@ class SupabaseRepository(Repository):
             # unique index cannot act as an ON CONFLICT arbiter — plain insert.
             data = self._table(table).insert(row).execute().data
             return data[0] if data else row
-        data = (
-            self._table(table).upsert(row, on_conflict=key).execute().data
-        )
-        return data[0] if data else row
+        try:
+            data = (
+                self._table(table).upsert(row, on_conflict=key).execute().data
+            )
+            return data[0] if data else row
+        except Exception as exc:  # noqa: BLE001 — narrowed below by code probe
+            msg = str(getattr(exc, "args", [""])[0])
+            if "42P10" not in msg:
+                raise
+            # The table has no unique constraint on [key] (Postgres 42P10), so
+            # ON CONFLICT is impossible. Fall back to select-then-insert dedup:
+            # the same client_id returns the stored row instead of 500-ing, and
+            # a new one inserts. Idempotency is preserved at application level.
+            existing = (
+                self._table(table).select("*").eq(key, row[key]).limit(1).execute().data
+            )
+            if existing:
+                return existing[0]
+            data = self._table(table).insert(row).execute().data
+            return data[0] if data else row
+
+
 
 
 class DemoSeededRepository(InMemoryRepository):

@@ -30,15 +30,15 @@ class ServerHive {
   final DateTime? createdAt;
 
   factory ServerHive.fromJson(Map<String, dynamic> json) => ServerHive(
-        id: _str(json['id']),
-        hiveCode: _str(json['hive_code']),
-        beekeeperId: _str(json['beekeeper_id']),
-        orgId: _str(json['org_id']),
-        status: _str(json['status']),
-        clientId: _str(json['client_id']),
-        location: _str(json['location']),
-        createdAt: _date(json['created_at']),
-      );
+    id: _str(json['id']),
+    hiveCode: _str(json['hive_code']),
+    beekeeperId: _str(json['beekeeper_id']),
+    orgId: _str(json['org_id']),
+    status: _str(json['status']),
+    clientId: _str(json['client_id']),
+    location: _str(json['location']),
+    createdAt: _date(json['created_at']),
+  );
 }
 
 class ServerHarvest {
@@ -63,15 +63,15 @@ class ServerHarvest {
   final bool collected;
 
   factory ServerHarvest.fromJson(Map<String, dynamic> json) => ServerHarvest(
-        id: _str(json['id']),
-        hiveId: _str(json['hive_id']),
-        beekeeperId: _str(json['beekeeper_id']),
-        harvestedAt: _date(json['harvested_at']) ?? DateTime.now(),
-        quantityKg: _num(json['quantity_kg']),
-        honeyType: _str(json['honey_type']),
-        clientId: _str(json['client_id']),
-        collected: json['collected'] as bool? ?? false,
-      );
+    id: _str(json['id']),
+    hiveId: _str(json['hive_id']),
+    beekeeperId: _str(json['beekeeper_id']),
+    harvestedAt: _date(json['harvested_at']) ?? DateTime.now(),
+    quantityKg: _num(json['quantity_kg']),
+    honeyType: _str(json['honey_type']),
+    clientId: _str(json['client_id']),
+    collected: json['collected'] as bool? ?? false,
+  );
 }
 
 class ServerBatch {
@@ -100,17 +100,17 @@ class ServerBatch {
   final DateTime? createdAt;
 
   factory ServerBatch.fromJson(Map<String, dynamic> json) => ServerBatch(
-        id: _str(json['id']),
-        batchCode: _str(json['batch_code']),
-        status: _str(json['status']),
-        honeyType: _str(json['honey_type']),
-        quantityKg: _num(json['quantity_kg']),
-        origin: _str(json['origin']),
-        organizationId: _str(json['organization_id']),
-        trustTier: _str(json['trust_tier']),
-        clientId: _str(json['client_id']),
-        createdAt: _date(json['created_at']),
-      );
+    id: _str(json['id']),
+    batchCode: _str(json['batch_code']),
+    status: _str(json['status']),
+    honeyType: _str(json['honey_type']),
+    quantityKg: _num(json['quantity_kg']),
+    origin: _str(json['origin']),
+    organizationId: _str(json['organization_id']),
+    trustTier: _str(json['trust_tier']),
+    clientId: _str(json['client_id']),
+    createdAt: _date(json['created_at']),
+  );
 }
 
 /// Evidence bundle as created by `POST /api/v1/evidence/bundles`. The [anchor]
@@ -265,7 +265,8 @@ class ServerBlockchainStatus {
   /// Live Fabric health (present for the real Fabric adapter).
   final Map<String, dynamic>? fabric;
 
-  int get transactionCount => tracker['transactions'] as int? ?? transactions.length;
+  int get transactionCount =>
+      tracker['transactions'] as int? ?? transactions.length;
 
   factory ServerBlockchainStatus.fromJson(Map<String, dynamic> json) =>
       ServerBlockchainStatus(
@@ -370,10 +371,8 @@ class HoneyApiService {
     required String identifier,
     required String password,
   }) =>
-      FastApiAuthRepository(_client).login(
-        identifier: identifier,
-        password: password,
-      );
+      FastApiAuthRepository(_client)
+          .login(identifier: identifier, password: password);
 
   Future<void> signOut() => FastApiAuthRepository(_client).signOut();
 
@@ -392,13 +391,17 @@ class HoneyApiService {
     String? location,
     String clientId = '',
   }) async {
-    final body = await _client.postJson('/api/v1/hives', body: {
-      'hive_code': hiveCode,
-      'beekeeper_id': beekeeperId,
-      'status': 'active',
-      'client_id': clientId,
-      if (location != null && location.trim().isNotEmpty) 'location': location,
-    });
+    final body = await _client.postJson(
+      '/api/v1/hives',
+      body: {
+        'hive_code': hiveCode,
+        'beekeeper_id': beekeeperId,
+        'status': 'active',
+        'client_id': clientId,
+        if (location != null && location.trim().isNotEmpty)
+          'location': location,
+      },
+    );
     return ServerHive.fromJson(body);
   }
 
@@ -419,14 +422,17 @@ class HoneyApiService {
     String beekeeperId = '',
     String clientId = '',
   }) async {
-    final body = await _client.postJson('/api/v1/harvests', body: {
-      'hive_id': hiveId,
-      'beekeeper_id': beekeeperId,
-      'quantity_kg': quantityKg,
-      'honey_type': honeyType,
-      'client_id': clientId,
-      if (harvestedAt != null) 'harvested_at': harvestedAt.toIso8601String(),
-    });
+    final body = await _client.postJson(
+      '/api/v1/harvests',
+      body: {
+        'hive_id': hiveId,
+        'beekeeper_id': beekeeperId,
+        'quantity_kg': quantityKg,
+        'honey_type': honeyType,
+        'client_id': clientId,
+        if (harvestedAt != null) 'harvested_at': harvestedAt.toIso8601String(),
+      },
+    );
     return ServerHarvest.fromJson(body);
   }
 
@@ -452,8 +458,7 @@ class HoneyApiService {
     bool anchor = true,
     String clientId = '',
   }) async {
-    final capturedAt =
-        (harvestedAt ?? DateTime.now()).toIso8601String();
+    final capturedAt = (harvestedAt ?? DateTime.now()).toIso8601String();
     return createEvidenceBundle(
       entityType: 'harvest',
       entityRef: entityRef,
@@ -496,21 +501,25 @@ class HoneyApiService {
     String deviceId = '',
     bool anchor = true,
   }) async {
-    final body = await _client.postJson('/api/v1/evidence/bundles', body: {
-      'entity_type': entityType,
-      'entity_ref': entityRef,
-      'operator': operator,
-      'device_id': deviceId,
-      'anchor': anchor,
-      'include_telemetry': false,
-      'evidence': evidence,
-    });
+    final body = await _client.postJson(
+      '/api/v1/evidence/bundles',
+      body: {
+        'entity_type': entityType,
+        'entity_ref': entityRef,
+        'operator': operator,
+        'device_id': deviceId,
+        'anchor': anchor,
+        'include_telemetry': false,
+        'evidence': evidence,
+      },
+    );
     return ServerEvidenceBundle.fromJson(body);
   }
 
   Future<ServerEvidenceVerify> verifyBundle(String bundleId) async {
-    final body =
-        await _client.postJson('/api/v1/evidence/bundles/$bundleId/verify');
+    final body = await _client.postJson(
+      '/api/v1/evidence/bundles/$bundleId/verify',
+    );
     return ServerEvidenceVerify.fromJson(body);
   }
 
@@ -539,13 +548,18 @@ class HoneyApiService {
     String? actor,
     DateTime? occurredAt,
   }) async {
+    // The backend CustodyEventCreate schema requires `batch_id` in the body
+    // (the path param alone is not enough) and names the timestamp `event_at`.
+    // Sending only action/notes returned HTTP 422, silently dropping custody
+    // provenance. Include batch_id and use the schema's field names.
     return _client.postJson(
       '/api/v1/batches/$batchId/custody-events',
       body: {
+        'batch_id': batchId,
         'action': action,
         'notes': notes,
         if (actor != null && actor.isNotEmpty) 'actor': actor,
-        if (occurredAt != null) 'occurred_at': occurredAt.toIso8601String(),
+        if (occurredAt != null) 'event_at': occurredAt.toIso8601String(),
       },
     );
   }

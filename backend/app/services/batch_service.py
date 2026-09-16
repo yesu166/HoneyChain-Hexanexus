@@ -60,6 +60,28 @@ class BatchService:
             org_id = user.org_id
         elif user is not None and not org_id:
             org_id = user.org_id or ""
+
+        # Mass balance: a batch may never claim more honey than the harvests it
+        # is linked to actually produced. Without this gate a client could mint
+        # an arbitrary batch quantity over a small (or borrowed) harvest and
+        # then anchor that inflated provenance on the ledger.
+        harvest_ids = list(data.get("harvest_ids", []) or [])
+        if harvest_ids:
+            linked_qty = 0.0
+            for harvest_id in harvest_ids:
+                harvest = self._repo.get_harvest(harvest_id)
+                if harvest is None:
+                    return {"error": f"linked harvest not found: {harvest_id}"}
+                linked_qty += float(harvest.get("quantity_kg", 0) or 0)
+            requested = float(data["quantity_kg"])
+            if requested - linked_qty > 1e-6:
+                return {
+                    "error": (
+                        f"batch quantity ({requested} kg) exceeds the linked "
+                        f"harvest quantity ({linked_qty} kg)"
+                    )
+                }
+
         batch = {
             "batch_code": data["batch_code"],
             "organization_id": org_id,

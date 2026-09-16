@@ -84,9 +84,15 @@ class AuthService:
 
     def register(self, data: dict[str, Any]) -> dict[str, Any]:
         email = data["email"].lower()
-        if self._repo.get_user_by_email(email) or self._repo.get_user_by_phone(
-            data.get("phone", "")
-        ):
+        if self._repo.get_user_by_email(email):
+            return {"error": "user already exists"}
+        # Phone is only an identity when one was actually supplied. A blank
+        # phone is not unique: the users table legitimately holds many rows
+        # with an empty phone, so querying the phone column with "" collides
+        # with an unrelated account and blocks every phone-less registration
+        # ("user already exists"). Only look up a non-empty phone.
+        phone = str(data.get("phone") or "").strip()
+        if phone and self._repo.get_user_by_phone(phone):
             return {"error": "user already exists"}
 
         role = data["role"]

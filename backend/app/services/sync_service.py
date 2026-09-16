@@ -59,6 +59,15 @@ class SyncService:
                 row = self._batches.create(
                     data={**data, "client_id": client_id}, user=user
                 )
+                if "error" in row:
+                    # e.g. mass-balance violation — reject the item, keep the
+                    # client_id so the phone can surface the error and retry
+                    # with corrected quantities. Never fabricate a backend_id.
+                    return {
+                        "accepted": False,
+                        "client_id": client_id,
+                        "error": row["error"],
+                    }
                 return {"accepted": True, "backend_id": row["id"], "client_id": client_id}
             if entity == "reading":
                 hive = self._hives.get_for_user(data.get("hive_id", ""), user=user)
