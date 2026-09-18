@@ -1519,6 +1519,49 @@ class HoneyChainStore extends ChangeNotifier {
     );
   }
 
+  /// Extracts a passport subject code from a scanned/typed value.
+  ///
+  /// Accepts the app's own `honeychain://…` schemes, a passport URL of the
+  /// form `…/passport/<CODE>` and bare codes typed by hand.
+  static String? passportCodeFromScan(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final payload = TraceQrService.parse(trimmed);
+    if (payload != null && payload.code.isNotEmpty) return payload.code;
+    final marker = '/passport/';
+    final idx = trimmed.toLowerCase().indexOf(marker);
+    if (idx >= 0) {
+      final code = trimmed.substring(idx + marker.length).trim();
+      if (code.isNotEmpty) return Uri.tryParse(code)?.path ?? code;
+    }
+    return trimmed;
+  }
+
+  /// Online passport lookup for a scanned/typed code — the CONSUMER path.
+  ///
+  /// `resolveScan` only sees the on-device registry; a consumer scanning a
+  /// real jar gets "not in the local registry" even though the backend holds
+  /// the passport. This asks the public `/api/v1/passport/{code}` endpoint and
+  /// returns the honest result. Unavailable builds resolve to [unresolved].
+  Future<PassportVerificationResult> verifyScannedPassport(String raw) {
+    return verifyScannedPassportWith(passportVerificationService, raw);
+  }
+
+  /// Testable variant: injects the verification service so widget/unit tests
+  /// can stub the HTTP transport without touching global test mode.
+  Future<PassportVerificationResult> verifyScannedPassportWith(
+    PassportVerificationService service,
+    String raw,
+  ) async {
+    final code = passportCodeFromScan(raw);
+    if (code == null || code.isEmpty) {
+      return PassportVerificationResult.error(
+        'No readable passport code in that scan.',
+      );
+    }
+    return verifyPassportOnline(service, code);
+  }
+
   /// The recorded journey of a batch, derived strictly from persisted
   /// audit / custody / lab / processing / anchor / relation records.
   List<BatchEvent> journeyFor(Batch batch) {
@@ -2390,6 +2433,11 @@ class HoneyChainStore extends ChangeNotifier {
   /// (same gate as the demo login) so they land in HoneyChain with their real
   /// server hives/harvests refreshed. Returns the role, or null on failure
   /// ([backendError] carries the reason).
+  ///
+  /// The active workspace follows the BACKEND role, so an FPO / lab / buyer
+  /// sign-in opens its own portal instead of the beekeeper shell. Admin has
+  /// full read access and may enter the beekeeper workspace; the More tab
+  /// still exposes every workspace the role is allowed to switch to.
   Future<String?> beekeeperLogin({
     required String identifier,
     required String password,
@@ -2407,7 +2455,21 @@ class HoneyChainStore extends ChangeNotifier {
     LocalStore.instance.saveProfile(_profile);
     _loggedIn = true;
     LocalStore.instance.saveLoggedIn(true);
+    // Route the session to the workspace the signed-in role actually owns.
+    _activeWorkspace = switch (role) {
+      'fpo' => Workspace.organization,
+      'lab' => Workspace.lab,
+      'processor' => Workspace.processor,
+      'buyer' => Workspace.buyer,
+      'institution' => Workspace.institution,
+      'platform_oversight' => Workspace.platform,
+      _ => Workspace.beekeeper,
+    };
+    LocalStore.instance.saveActiveWorkspace(_activeWorkspace.code);
     if (role == 'beekeeper') {
+      await refreshServerCollections();
+    } else if (role == 'fpo' || role == 'processor') {
+      // The org portal renders live metrics from the org dashboard.
       await refreshServerCollections();
     }
     notifyListeners();

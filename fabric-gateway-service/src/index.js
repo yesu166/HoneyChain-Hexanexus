@@ -28,6 +28,32 @@ const {
   getEventArgs,
 } = require('./chaincode');
 
+// Security (Phase 15): the gateway must not be an arbitrary chaincode shell.
+// Only these contract functions may be submitted or evaluated through HTTP.
+// Keep in sync with CHAINCODE_FUNCTIONS in the Python adapter.
+const ALLOWED_FUNCTIONS = new Set([
+  // reads
+  'getEvent',
+  'getEventsByType',
+  'getBatch',
+  'getAllBatches',
+  'getAnchor',
+  'verifyMerkleRoot',
+  'getLineage',
+  'getCertificate',
+  'getCertificatesForBatch',
+  'getHistory',
+  'scanRange',
+  // writes
+  'submitEvent',
+  'createBatch',
+  'transitionBatch',
+  'recordLineage',
+  'anchorMerkleRoot',
+  'registerCertificate',
+  'revokeCertificate',
+]);
+
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
@@ -105,12 +131,19 @@ app.get('/health', async (_req, res) => {
 // -----------------------------------------------------------------------
 app.post('/submit', async (req, res) => {
   try {
-    const { function: fn, args = [], waitForCommit = true } = req.body;
+    const { function: fn, args = [] } = req.body;
 
     if (!fn || typeof fn !== 'string') {
       return res.status(400).json({
         status: 'error',
         error: 'Missing or invalid "function" field',
+      });
+    }
+
+    if (!ALLOWED_FUNCTIONS.has(fn)) {
+      return res.status(403).json({
+        status: 'error',
+        error: `function "${fn}" is not allowlisted for submission`,
       });
     }
 
@@ -125,24 +158,40 @@ app.post('/submit', async (req, res) => {
     const stringArgs = args.map(String);
 
     const startSubmit = Date.now();
-    const commit = await contract.submitTransaction(fn, ...stringArgs);
-    const submitMs = Date.now() - startSubmit;
+    // newProposal + submit + commitStatus gives us the REAL transaction id
+    // (the txid the proposal was signed with) before we report anything.
+    // submitTransaction() alone returns only the chaincode result bytes, so
+    // the gateway used to answer with tx_id: null and the backend stored an
+    // empty tx_hash on the anchor. No id is ever fabricated here.
+    const proposal = contract.newProposal(fn, ...stringArgs);
+    const txId = proposal.getTransactionId();
+    const signedProposal = await proposal.endorse();
+    const submittedTx = await contract.submit(signedProposal);
+    const commitStatus = await contract.commitStatus(submittedTx);
+    const commitMs = Date.now() - startSubmit;
 
-    // The Fabric Gateway SDK's submitTransaction already waits for commit
-    // by default. If it returns without throwing, the tx is committed.
-    let commitResult = null;
-    if (waitForCommit) {
-      commitResult = {
-        committed: true,
-        commit_ms: submitMs,
-      };
+    // Truth rules: submission success is distinct from commit confirmation.
+    // Only report committed when the commit status says so.
+    const commitCode = commitStatus.code; // 0 = OK (NOT_COMMITTED is 10)
+    const committed = commitCode === 0;
+    if (!committed) {
+      return res.status(502).json({
+        status: 'FABRIC_NOT_COMMITTED',
+        adapter: 'fabric',
+        function: fn,
+        args: stringArgs,
+        tx_id: txId,
+        error: `transaction ${txId} was not committed (status code ${commitCode})`,
+        channel: config.channel,
+        chaincode: config.chaincode,
+        submitted_at: new Date().toISOString(),
+      });
     }
 
-    // Extract transaction ID from the result if possible
-    let txId = null;
+    // The chaincode result bytes (what submitTransaction would have returned).
     let resultPayload = null;
     try {
-      const raw = Buffer.from(commit).toString('utf-8');
+      const raw = Buffer.from(submittedTx.getResult()).toString('utf-8');
       try {
         resultPayload = JSON.parse(raw);
       } catch (_) {
@@ -158,7 +207,10 @@ app.post('/submit', async (req, res) => {
       result: resultPayload,
       tx_id: txId,
       submitted_at: new Date().toISOString(),
-      commit: commitResult,
+      commit: {
+        committed: true,
+        commit_ms: commitMs,
+      },
       channel: config.channel,
       chaincode: config.chaincode,
     });
@@ -204,6 +256,13 @@ app.post('/evaluate', async (req, res) => {
       return res.status(400).json({
         status: 'error',
         error: 'Missing or invalid "function" field',
+      });
+    }
+
+    if (!ALLOWED_FUNCTIONS.has(fn)) {
+      return res.status(403).json({
+        status: 'error',
+        error: `function "${fn}" is not allowlisted for evaluation`,
       });
     }
 

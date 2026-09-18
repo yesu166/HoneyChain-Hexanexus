@@ -2,6 +2,7 @@
 
 import 'core/api/api_config.dart';
 import 'core/supabase/supabase_client.dart';
+import 'data/auth.dart';
 import 'data/honeychain_store.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
@@ -129,10 +130,22 @@ class _RootGateState extends State<_RootGate> {
       listenable: store,
       builder: (context, _) {
         if (store.loggedIn) {
-          if (store.backendRole == 'platform_oversight') {
-            return const PlatformShell();
+          // Route by the session's ACTIVE WORKSPACE (set at login from the
+          // backend role, switchable from the More tab) — not by role alone,
+          // so a platform-oversight user who switched to Consumer keeps the
+          // consumer portal instead of being forced back into oversight.
+          switch (store.activeWorkspace) {
+            case Workspace.platform:
+              return const PlatformShell();
+            case Workspace.beekeeper:
+            case Workspace.organization:
+            case Workspace.lab:
+            case Workspace.processor:
+            case Workspace.buyer:
+            case Workspace.institution:
+            case Workspace.consumer:
+              return const MainShell();
           }
-          return const MainShell();
         }
         if (_beekeeperChosen) return const LoginScreen();
         return WhoAreYouScreen(

@@ -13,8 +13,11 @@ class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key, this.onResolved});
 
   /// Called with the resolved target once a valid code is detected. When
-  /// null, the resolution is returned via `Navigator.pop`.
-  final Future<void> Function(ScanResolution resolution)? onResolved;
+  /// null, the resolution is returned via `Navigator.pop`. [raw] carries the
+  /// exact scanned string so callers can run their own (e.g. online passport)
+  /// lookup when the local registry has no record.
+  final Future<void> Function(ScanResolution resolution, {String? raw})?
+      onResolved;
 
   @override
   State<ScannerScreen> createState() => _ScannerScreenState();
@@ -49,6 +52,12 @@ class _ScannerScreenState extends State<ScannerScreen> {
     if (!mounted) return;
 
     if (resolution is ScanResolutionUnknown) {
+      // Unknown locally, but the caller (consumer flow) may still resolve it
+      // online against the backend passport registry.
+      if (widget.onResolved != null) {
+        await widget.onResolved!(resolution, raw: raw);
+        return;
+      }
       setState(() => _handlingScan = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(resolution.reason)),
@@ -58,7 +67,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     }
 
     if (widget.onResolved != null) {
-      await widget.onResolved!(resolution);
+      await widget.onResolved!(resolution, raw: raw);
       return;
     }
     Navigator.of(context).pop(resolution);

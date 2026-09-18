@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/honeychain_store.dart';
 import '../models/domain.dart';
+import '../services/passport_verification_service.dart';
 import '../services/trace_qr_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/brand_header.dart';
@@ -27,6 +28,24 @@ class _ConsumerScreenState extends State<ConsumerScreen> {
   final store = HoneyChainStore.instance;
   String? lastVerifiedId;
 
+  /// The backend passport result for a code that was NOT in the local
+  /// registry. Honest states only — never fabricated.
+  PassportVerificationResult? _onlineResult;
+  bool _checkingOnline = false;
+
+  /// Raw value of the latest typed/scanned code (for the online lookup).
+  String? _lastRawScan;
+
+  Future<void> _checkOnlinePassport(String raw) async {
+    setState(() => _checkingOnline = true);
+    final result = await store.verifyScannedPassport(raw);
+    if (!mounted) return;
+    setState(() {
+      _checkingOnline = false;
+      _onlineResult = result;
+    });
+  }
+
   @override
   void dispose() {
     controller.dispose();
@@ -42,7 +61,11 @@ class _ConsumerScreenState extends State<ConsumerScreen> {
       return;
     }
     final resolution = store.resolveScan(entered);
-    _openPassport(resolution);
+    if (resolution is ScanResolutionUnknown) {
+      // Remember the typed code for the online passport lookup.
+      _lastRawScan = entered;
+    }
+    _openPassport(resolution, rawScan: entered);
   }
 
   void _openScanner() {
@@ -53,29 +76,51 @@ class _ConsumerScreenState extends State<ConsumerScreen> {
     );
   }
 
-  Future<void> _onScanResolved(ScanResolution resolution) async {
+  Future<void> _onScanResolved(
+    ScanResolution resolution, {
+    String? raw,
+  }) async {
     if (!mounted) return;
-    _openPassport(resolution);
+    if (raw != null && raw.trim().isNotEmpty) {
+      _lastRawScan = raw.trim();
+    }
+    _openPassport(resolution, rawScan: _lastRawScan);
   }
 
-  void _openPassport(ScanResolution resolution) {
+  void _openPassport(ScanResolution resolution, {String? rawScan}) {
     switch (resolution) {
       case ScanResolutionJar(:final jar):
-        setState(() => lastVerifiedId = jar.jarId);
+        setState(() {
+          lastVerifiedId = jar.jarId;
+          _onlineResult = null;
+        });
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => HoneyPassportScreen(jar: jar)),
         );
       case ScanResolutionProduct(:final product):
-        setState(() => lastVerifiedId = product.productCode);
+        setState(() {
+          lastVerifiedId = product.productCode;
+          _onlineResult = null;
+        });
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => HoneyPassportScreen(product: product)),
         );
       case ScanResolutionBatch(:final batch):
-        setState(() => lastVerifiedId = batch.code);
+        setState(() {
+          lastVerifiedId = batch.code;
+          _onlineResult = null;
+        });
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => HoneyPassportScreen(batch: batch)),
         );
       case ScanResolutionUnknown(:final reason):
+        // Not a local record: a consumer scanning a REAL jar/batch should
+        // still verify against the backend passport registry when one is
+        // compiled in, instead of dead-ending on "not in local registry".
+        final raw = rawScan ?? _lastRawScan ?? '';
+        if (raw.isNotEmpty) {
+          _checkOnlinePassport(raw);
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(reason)),
         );
@@ -159,11 +204,17 @@ class _ConsumerScreenState extends State<ConsumerScreen> {
                             child: Text(store.tr('consumer.verify.button')),
                           ),
                         ],
-                      ),
-                    ],
-                  ),
-                ),
+                      ),                ],
               ),
+            ),
+          ),
+              if (_checkingOnline || _onlineResult != null) ...[
+                const SizedBox(height: 14),
+                _OnlinePassportResult(
+                  busy: _checkingOnline,
+                  result: _onlineResult,
+                ),
+              ],
               const SizedBox(height: 22),
               if (batch != null) ...[
                 SectionHeader(title: store.tr('passport.title'), seeAllLabel: ''),
@@ -378,6 +429,144 @@ class _JourneyPanel extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: JourneyTimeline(steps: steps),
+      ),
+    );
+  }
+}
+
+/// Honest backend verification result for a code that is not a local record.
+/// Every state maps to what the server actually said — nothing fabricated.
+class _OnlinePassportResult extends StatelessWidget {
+  const _OnlinePassportResult({required this.busy, required this.result});
+
+  final bool busy;
+  final PassportVerificationResult? result;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = HoneyChainStore.instance;
+    final r = result;
+    if (busy || r == null) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Checking the backend passport registry…',
+                  style: TextStyle(fontSize: 13, color: AppTheme.inkSoft),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final (icon, color, title, detail) = switch (r.outcome) {
+      VerifyOutcome.verified => (
+        Icons.verified_rounded,
+        AppTheme.green,
+        'Verified against the backend registry',
+        'Batch ${r.proof!.batchCode} · ${r.proof!.trustTier}',
+      ),
+      VerifyOutcome.notFound => (
+        Icons.search_off_outlined,
+        AppTheme.orangeDark,
+        'No passport found for this code',
+        r.message,
+      ),
+      VerifyOutcome.rateLimited => (
+        Icons.speed_outlined,
+        AppTheme.orangeDark,
+        'Verification rate-limited',
+        r.message,
+      ),
+      VerifyOutcome.unreachable => (
+        Icons.cloud_off_outlined,
+        AppTheme.red,
+        'Backend unreachable',
+        r.message,
+      ),
+      VerifyOutcome.error => (
+        Icons.error_outline,
+        AppTheme.red,
+        'Verification failed',
+        r.message,
+      ),
+      VerifyOutcome.unresolved => (
+        Icons.cloud_off_outlined,
+        AppTheme.inkSoft,
+        'Online verification not available in this build',
+        'This app was built without API_BASE_URL, so only local records '
+            'can be checked. Nothing has been fabricated.',
+      ),
+    };
+    return Card(
+      color: AppTheme.card,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
+                  ),
+                  if (detail.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      detail,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.inkSoft,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                  if (r.verified) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      r.proof!.anchor.txHash.isEmpty
+                          ? 'Registry status: ${r.proof!.anchor.chainStatus}'
+                          : 'Anchor tx: ${r.proof!.anchor.txHash}',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: AppTheme.inkFaint,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      // Tamper-evidence only — never a purity/health claim.
+                      store.tr('passport.anchor.infrastructure'),
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        color: AppTheme.inkFaint,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
