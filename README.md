@@ -4,6 +4,8 @@
 
 **SIH26021 — Honey Chain:** A blockchain-based honey traceability and smart beekeeping platform designed for fragmented, multi-organization, and intermittently connected honey supply chains.
 
+> **Repository state audited:** `main` at commit `92b1577639007519dfb9bacca719fc2afb5fac69` (2026-09-18). This README separates implemented behavior, simulated/demo surfaces, historical runtime evidence, and remaining work.
+
 HoneyChain is a flexible trust infrastructure for fragmented honey supply chains — connecting independent organizations and offline field operations into one continuously verifiable provenance network.
 
 HoneyChain combines:
@@ -164,7 +166,12 @@ Technical infrastructure is hidden unless the beekeeper explicitly opens technic
 
 ## Ask HoneyChain
 
-Ask HoneyChain is a structured AI assistant, not a generic chatbot. It connects observations to hive context and provides AI-assisted risk assessments.
+Ask HoneyChain currently has two assistive surfaces:
+
+- **Local intent parser:** deterministic, on-device intent handling for supported HoneyChain actions/questions, with a fallback instead of inventing unsupported answers.
+- **AI Snapshot research assistant:** an AI-native research/search surface for general honey-chain concepts and related knowledge; it does not create, certify, or modify supply-chain records.
+
+The hive-health path is an **assistive rule/evidence-based pre-screen**, not a served trained ML model, neural network, disease-diagnosis system, or LLM/RAG pipeline.
 
 **Example interaction:**
 
@@ -177,7 +184,7 @@ Ask HoneyChain is a structured AI assistant, not a generic chatbot. It connects 
 > - Recommends an appropriate next action
 > - Allows the beekeeper to save the structured observation
 
-**Important:** AI inference must not be presented as confirmed disease diagnosis or factual measurement. The current risk engine is **rule-based**, not a trained neural network or LLM/RAG system. It explicitly reports "insufficient data" rather than inventing a reading.
+**Hard boundary:** AI does not diagnose disease, replace laboratory testing, issue/revoke certificates, change batch quantities/custody, or alter verification state. It may surface a risk signal or recommend inspection. The current backend risk engine is rule/evidence-based and explicitly reports "insufficient data" when evidence is thin.
 
 ---
 
@@ -199,7 +206,7 @@ Local event
 - Each item is retried up to a cap; records are protected against duplicate sync through idempotent `client_id` upserts.
 - Fork preservation: both branches of a conflict are preserved and surfaced; merging is an explicit operation.
 
-**Current limitation:** the repository proves concrete offline/sync paths, but full offline synchronization of every provenance entity is not established as a production guarantee.
+**Current limitation:** the repository proves concrete offline/sync paths and recent create/sync fixes, but full offline synchronization of every provenance entity is not established as a production guarantee. The Supabase sync fallback handles tables without a `client_id` conflict arbiter, but select-then-insert remains race-prone until database uniqueness constraints are guaranteed everywhere.
 
 **Important:** Offline mode does not mean blockchain operates offline. The field record can be created offline; blockchain anchoring occurs when the backend and network are available.
 
@@ -267,6 +274,8 @@ Blockchain stores verifiable references and commitments (Merkle roots, event has
 
 **Important:** The deployed chaincode is **not** the local `fabric/chaincode/tracer/`. The deployed contract is `honeychain.js` with a different function interface. The local `tracer` source in `fabric/chaincode/tracer/` is a development reference only.
 
+The Node gateway is now allowlist-based rather than accepting arbitrary chaincode function names. Its write path obtains the real Fabric proposal transaction ID and waits for commit status before reporting confirmation. The gateway remains behind the private/SSH-tunnel boundary until service authentication is added.
+
 ### Chaincode Functions
 
 **Reads:** `getEvent`, `getEventsByType`, `getBatch`, `getAllBatches`, `getAnchor`, `verifyMerkleRoot`, `getLineage`, `getCertificate`, `getCertificatesForBatch`, `getHistory`, `scanRange`
@@ -319,6 +328,12 @@ The Honey Passport provides consumer-facing QR verification of honey provenance.
 ```
 Hive → Harvest → Verification → Lab → Processing → Packaging → Distribution
 ```
+
+### Current QR contract
+
+The QR currently contains a **plain `honeychain://trace/<productCode>` or legacy `honeychain://jar/<jarId>` identifier**. It does **not** embed a cryptographic signature or hash. Scanning resolves local records first and can fall back to the public backend passport endpoint for an unknown code. A real server response can expose the evidence root/data hash and real Fabric transaction hash when an actual anchor exists; the app does not fabricate these values.
+
+**Remaining QR-proof work:** bind the QR/passport directly to the canonical batch/evidence commitment so the consumer flow can recompute the expected SHA-256/Merkle root and compare it with the recorded Fabric anchor as one explicit `VERIFIED` check. Merely displaying a hash is not the same as this proof loop.
 
 ### Statuses
 
@@ -391,9 +406,9 @@ Scoping: beekeepers see only their own data; FPO/processor see their org's data;
 
 | Component | Status | Evidence |
 |---|---|---|
-| Flutter app (offline-first) | ✅ VERIFIED | `flutter test` → 112 passed, `flutter analyze` clean |
+| Flutter app (offline-first) | 🟡 VERIFIED IN TEST SUITE | Latest repository commit reports `flutter test` → 120 passed; physical-device E2E remains unverified |
 | Flutter ↔ backend (beekeeper path) | ✅ INTEGRATED | `honey_api_service` — real login, server hives/harvests, evidence/Fabric status path |
-| FastAPI backend | ✅ VERIFIED | `pytest` → 157 passed, 3 skipped in the documented default suite |
+| FastAPI backend | 🟡 VERIFIED IN TEST SUITE | Latest repository commit reports 207 backend tests passing; checked-in `TEST_RESULTS.md` still contains the older 157/3 baseline, so this is a commit-reported count rather than a fresh audit execution |
 | Supabase schema (migrations 001–008) | ✅ APPLIED | Migrations documented as applied to the project |
 | Backend repository abstraction | ✅ REAL | InMemory + Supabase repositories |
 | Evidence bundles + Merkle integrity | ✅ VERIFIED | Unit tests with tamper detection |
@@ -401,25 +416,30 @@ Scoping: beekeepers see only their own data; FPO/processor see their org's data;
 | BlockchainGateway + tx state machine | ✅ VERIFIED | PENDING → SUBMITTED → CONFIRMED |
 | Local dev ledger | ✅ REAL | Labeled `local` in responses |
 | EVM adapter boundary | ⚠️ NOT CONFIGURED | Returns `BLOCKCHAIN_NOT_CONFIGURED` |
-| Fabric adapter | ⚠️ LIVE EVIDENCE EXISTS | Previous live EC2 transactions are documented; latest audit did not re-run them |
+| Fabric adapter | 🟡 LIVE EVIDENCE + CURRENT CODE PATH | Previous EC2 transactions are documented; current source propagates real Fabric tx IDs/commit status, but this audit did not re-run the live EC2 network |
 | Lab certificate issue/verify/revoke | ✅ VERIFIED | Content-hash anchoring + revocation |
 | Trust tiers | ✅ VERIFIED | Weakest-tier merge logic tested |
 | RBAC matrix | ✅ VERIFIED | 7 roles × ~24 actions, server-side |
-| Honey Passport | ✅ REAL | PII-free public view |
-| Hive Intelligence risk engine | ⚠️ RULE-BASED | Not a trained model; reports "insufficient data" |
-| ML artifacts | ⚠️ DEMO | `ml/model.pkl` and metrics are demo artifacts |
+| Honey Passport | 🟡 REAL + ONLINE PATH | Server-backed PII-free passport; QR is still an unsigned identifier and the full QR→Merkle→Fabric proof loop is not yet complete |
+| Hive Intelligence risk engine | ⚠️ RULE/EVIDENCE-BASED | Assistive pre-screen; not a served trained model and not disease diagnosis |
+| ML artifacts | ⚠️ PROTOTYPE | `ml/model.pkl` / metrics are prototype material and are not wired into the live API |
+| Admin / oversight routing | ✅ FIXED IN CURRENT SOURCE | `RootGate` routes the active platform workspace separately from the beekeeper workspace |
 
-### What Is NOT Verified
+### What Is NOT Verified / NOT Complete
 
-| Component | Status | Blocker |
+| Component | Status | Current gap |
 |---|---|---|
-| Live Supabase writes | NOT VERIFIED | No `SUPABASE_SERVICE_ROLE_KEY` provided in the audit environment |
+| Live Supabase writes | NOT VERIFIED | No live write/read E2E was executed in this audit |
+| Full QR cryptographic verification | NOT COMPLETE | QR is a plain identifier; full QR → real batch → recomputed Merkle root → Fabric anchor comparison remains to be wired as one consumer proof path |
+| Harvest evidence → Fabric anchor | PARTIAL | Generic evidence bundles compute a real Merkle root, but the current harvest entity path submits an empty batch reference to the anchor adapter; batch-scoped anchoring is the canonical persisted path |
 | EVM anchoring | NOT CONFIGURED | No RPC + wallet + deployed contract |
-| Public Fabric access | SSH TUNNEL ONLY | EC2 security group does not open port 9446 |
-| Docker container builds | NOT RUNNING | Docker daemon not running in the audit environment |
-| Camera/QR on hardware | NOT TESTED | Widget tests only; no device access |
+| Public Fabric access | PRIVATE / SSH TUNNEL | EC2 gateway port 9446 is not publicly exposed |
+| Docker container builds | NOT VERIFIED IN THIS AUDIT | Docker runtime was not exercised here |
+| Camera/QR on hardware | NOT TESTED | No physical device access in the audit environment |
 | Real Android device E2E | NOT TESTED | No device/emulator in the audit environment |
-| Production release signing | NOT READY | Release APK builds but is debug-signed; keystore not provisioned |
+| Production release signing | NOT READY | Release APK is debug-signed; production keystore is still required |
+| Physical IoT protocols | NOT COMPLETE | Current telemetry path is software/simulation; MQTT/LoRa/BLE/Wi-Fi/cellular hardware adapters are not established as live |
+| Served ML model | NOT COMPLETE | Current risk engine is rule/evidence-based; prototype model artifacts are not wired into the API |
 
 ---
 
@@ -427,7 +447,7 @@ Scoping: beekeepers see only their own data; FPO/processor see their org's data;
 
 ### Backend — pytest
 
-**157 passed, 3 skipped** (documented default suite)
+**207 passing — latest repository commit report.** The checked-in `TEST_RESULTS.md` contains an older 157 passed / 3 skipped baseline; this README uses the newer commit-reported count while distinguishing it from a fresh audit execution.
 
 | Test File | Coverage |
 |---|---|
@@ -453,7 +473,7 @@ The 3 skipped tests are `LIVE_RUNTIME` tests gated by `FABRIC_GATEWAY_URL`.
 
 ### Flutter — flutter test
 
-**112 passed** — documented coverage includes beekeeper portal, recording harvests, hive details/alerts, honey passport drilldown, rule-based disease screening, IoT simulation warnings, responsive smoke tests, backend API service, offline queue + restart durability, no-duplicate sync, backend-mode guards, API config policy, auth/session state machine, workspace switching, and online passport verification client.
+**120 passing — latest repository commit report.** Coverage includes beekeeper portal, recording harvests, hive details/alerts, honey passport drilldown, rule-based disease screening, IoT simulation warnings, responsive smoke tests, backend API service, offline queue + restart durability, no-duplicate sync, backend-mode guards, API config policy, auth/session state machine, workspace switching, and online passport verification client.
 
 **One session, many workspaces:** a signed-in account can switch between the Beekeeper, Organization / FPO, Buyer and Consumer experiences from the More tab without logging out and without re-entering a persona login. The active workspace is persisted, a backend-backed account is narrowed to the workspaces its role is actually allowed to enter, and `logout` never deletes local domain records or the pending-sync queue.
 
@@ -515,15 +535,19 @@ The 3 skipped tests are `LIVE_RUNTIME` tests gated by `FABRIC_GATEWAY_URL`.
 ### 🟡 In Progress / Partially Verified
 
 - Full offline synchronization across all provenance entities
-- Supabase production writes / end-to-end live persistence verification
+- Supabase live persistence / end-to-end write verification
+- Full consumer QR proof: QR identifier → real passport → recomputed evidence commitment → Fabric comparison
+- Harvest evidence anchor semantics: attach harvest evidence to a canonical batch anchor before presenting it as blockchain-anchored
 - EVM adapter (boundary code exists, no network configured)
-- ML model training (demo artifacts only)
-- Disease screening from photos (simulated path only)
+- Physical IoT protocol adapters and real sensor ingestion
+- Served ML model / validated real-world hive-health training data
+- Disease screening from photos (not a validated diagnostic capability)
 - Multi-organization Fabric topology hardening
 
 ### 🔵 Planned / Production Hardening
 
-- Authenticated + allowlisted Node.js Fabric gateway endpoints
+- Authenticated Node.js Fabric gateway service before any network exposure (the function allowlist is already present)
+- Canonical QR/passport cryptographic proof flow with explicit recomputation + Fabric comparison
 - Secure platform-backed JWT storage
 - Alignment of Supabase RLS with backend RBAC
 - 24/7 public Fabric gateway endpoint (requires secure deployment rather than the current SSH-tunnel arrangement)
@@ -537,6 +561,17 @@ The 3 skipped tests are `LIVE_RUNTIME` tests gated by `FABRIC_GATEWAY_URL`.
 - Redis-backed rate limiting for multi-instance deployment
 
 ---
+
+## Current Implementation Priorities
+
+The next work should stay inside the existing architecture — no reconstruction or repository restructure is required:
+
+1. **Provenance correctness:** finish harvest evidence → canonical batch anchoring and verify the persisted relationship.
+2. **Consumer proof:** make the QR resolve to the real passport and expose the real evidence root / Fabric tx reference; then add the explicit recompute-and-compare verification step. Do not fake a hash just to populate the QR.
+3. **Supabase E2E:** execute real Flutter → FastAPI → Supabase write/read and offline-sync recovery tests.
+4. **Hardware path:** test QR scanning on a physical Android device and normalize real IoT inputs behind the existing telemetry pipeline.
+5. **Intelligence:** improve the local parser/risk logic first; only call the system ML/AI once an actual served model is wired and evaluated.
+6. **Security:** add service authentication to the private Fabric gateway before exposing it beyond the current boundary.
 
 ## Demo Flow
 
