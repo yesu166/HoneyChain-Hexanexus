@@ -40,6 +40,7 @@ def sync_push(
             accepted=bool(result.get("accepted")),
             backend_id=result.get("backend_id", ""),
             error=result.get("error", ""),
+            deduplicated=bool(result.get("deduplicated")),
         )
         (accepted if ack.accepted else rejected).append(ack)
     return {"accepted": accepted, "rejected": rejected}

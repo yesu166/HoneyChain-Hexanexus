@@ -6,7 +6,10 @@ from pydantic import BaseModel, Field
 
 
 class SyncItem(BaseModel):
-    entity: Literal["hive", "harvest", "batch", "reading", "custody"]
+    entity: Literal[
+        "hive", "harvest", "batch", "reading", "custody",
+        "quantity_assertion", "assertion",
+    ]
     client_id: str = Field(..., min_length=1)
     data: dict = Field(default_factory=dict)
 
@@ -22,6 +25,9 @@ class SyncAckItem(BaseModel):
     accepted: bool
     backend_id: str = ""
     error: str = ""
+    # True when this client_id was already accepted before (offline retry):
+    # the server did NOT create a duplicate record.
+    deduplicated: bool = False
 
 
 class SyncPushResponse(BaseModel):

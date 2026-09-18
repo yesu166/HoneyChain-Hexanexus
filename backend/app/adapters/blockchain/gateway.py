@@ -496,12 +496,17 @@ class FabricBlockchainAdapter(LedgerAdapter):
             except Exception:
                 result = {"raw": result}
 
-        # Commit is real (the Fabric Gateway SDK waits for it). The transaction
-        # id is the chaincode's own blockchainTxId — never fabricated.
+        # The REAL transaction id comes from the gateway (Fabric Gateway SDK
+        # proposal txid). The chaincode's own blockchainTxId field is used as
+        # a fallback for older gateway builds that still return it. The adapter
+        # never fabricates an id when neither is present — an empty tx_hash is
+        # stored honestly and the passport will show chain_status=pending.
+        gateway_tx_id = str(resp.get("tx_id") or "")
         blockchain_tx_id = result.get("blockchainTxId", "") if isinstance(result, dict) else ""
+        tx_hash = gateway_tx_id or str(blockchain_tx_id or "")
 
         return {
-            "tx_hash": blockchain_tx_id,
+            "tx_hash": tx_hash,
             "network": f"fabric:{self._channel}",
             "state": TxState.CONFIRMED,
             "fabric_result": result,
@@ -629,10 +634,12 @@ class FabricBlockchainAdapter(LedgerAdapter):
             except Exception:
                 result = {"raw": result}
 
+        gateway_tx_id = str(resp.get("tx_id") or "")
         blockchain_tx_id = result.get("blockchainTxId", "") if isinstance(result, dict) else ""
+        tx_hash = gateway_tx_id or str(blockchain_tx_id or "")
 
         return {
-            "tx_hash": blockchain_tx_id,
+            "tx_hash": tx_hash,
             "network": f"fabric:{self._channel}",
             "state": TxState.CONFIRMED,
             "fabric_result": result,

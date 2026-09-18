@@ -14,19 +14,29 @@ class PassportService:
     never as a purity/health certificate.
     """
 
-    def __init__(self, repo: Repository, batch_service: BatchService) -> None:
+    def __init__(
+        self,
+        repo: Repository,
+        batch_service: BatchService,
+        assertion_service: Any = None,
+    ) -> None:
         self._repo = repo
         self._batches = batch_service
+        # Optional: lets the passport report the CURRENT verification picture
+        # (derived from the assertion ledger) instead of a stale cached verdict.
+        self._assertions = assertion_service
 
     def resolve(self, subject_code: str) -> dict[str, Any] | None:
-        cached = self._repo.get_passport(subject_code)
-        if cached and cached.get("payload"):
-            return cached["payload"]
-
         batch = self._repo.get_batch_by_code(subject_code)
         if batch is None:
             return None
 
+        # A persisted passport is a cache, not the source of truth. Custody
+        # events, lab results and blockchain anchors arrive AFTER the first
+        # resolve; serving the cached payload forever would freeze the passport
+        # at its earliest state and hide real provenance from consumers.
+        # Always rebuild from live records (cheap, derived state) and refresh
+        # the stored copy so external references stay current.
         payload = self._build(batch)
         self._repo.save_passport(
             {

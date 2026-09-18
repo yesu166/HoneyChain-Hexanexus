@@ -12,6 +12,7 @@ from .adapters.blockchain.gateway import build_blockchain_gateway
 from .api.deps import build_services_live
 from .api.routes import (
     auth,
+    assertions,
     batches,
     blockchain,
     certificates,
@@ -116,6 +117,7 @@ for router in (
     notifications.router,
     org.router,
     platform_orgs.router,
+    assertions.router,
 ):
     app.include_router(router)
 

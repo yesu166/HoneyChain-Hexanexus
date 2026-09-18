@@ -24,6 +24,11 @@ class CustodyEventCreate(BaseModel):
     actor: str = ""
     notes: str = ""
     event_at: Optional[datetime] = None
+    # Handover semantics for TRANSFER events: who/org receives custody. The
+    # receiving actor gains batch scope (can assert, record receipt) without
+    # the batch's organization_id ever being rewritten.
+    to_actor: str = ""
+    to_org: str = ""
 
 
 class CustodyEventRead(BaseModel):
@@ -33,3 +38,5 @@ class CustodyEventRead(BaseModel):
     actor: str = ""
     notes: str = ""
     event_at: datetime
+    to_actor: str = ""
+    to_org: str = ""

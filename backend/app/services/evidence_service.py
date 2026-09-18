@@ -61,8 +61,8 @@ class HarvestEvidenceService:
         sequence, payload_hash, timestamp, hive_id) — never raw payload copies —
         so the anchored Merkle root binds the readings that preceded the
         harvest."""
-        if entity_type not in ("harvest", "batch"):
-            raise ValueError("entity_type must be 'harvest' or 'batch'")
+        if entity_type not in ("harvest", "batch", "assertion"):
+            raise ValueError("entity_type must be 'harvest', 'batch' or 'assertion'")
         if entity_ref and not evidence:
             raise ValueError("evidence list must not be empty")
         for item in evidence:

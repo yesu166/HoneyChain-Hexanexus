@@ -1479,6 +1479,11 @@ class SupabaseRepository(Repository):
     # -- custody --
     def add_custody_event(self, event):
         notes = event.get("notes") or ""
+        metadata: dict = {"notes": notes} if notes else {}
+        if event.get("to_actor"):
+            metadata["to_actor"] = event["to_actor"]
+        if event.get("to_org"):
+            metadata["to_org"] = event["to_org"]
         row = {
             "batch_id": event.get("batch_id"),
             "actor_id": None,
@@ -1487,7 +1492,7 @@ class SupabaseRepository(Repository):
             "timestamp": self._iso(event.get("event_at")),
             "location": None,
             "quantity_kg": None,
-            "metadata": {"notes": notes} if notes else {},
+            "metadata": metadata,
         }
         data = self._table("custody").insert(row).execute().data
         return self._custody(data[0])
@@ -1512,6 +1517,8 @@ class SupabaseRepository(Repository):
             "actor": row.get("actor_role") or row.get("actor_id") or "",
             "notes": meta.get("notes", "") if isinstance(meta, dict) else "",
             "event_at": row.get("timestamp"),
+            "to_actor": meta.get("to_actor", "") if isinstance(meta, dict) else "",
+            "to_org": meta.get("to_org", "") if isinstance(meta, dict) else "",
         }
 
     # -- anchors --

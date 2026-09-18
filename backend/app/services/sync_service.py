@@ -14,6 +14,9 @@ from .lab_certificate import LabCertificateService
 from .lab_service import LabService
 from .lineage_service import LineageService
 from .passport_service import PassportService
+from .assertion_service import AssertionService
+from .impact_service import ProvenanceImpactService
+from .reconciliation_service import ReconciliationService
 
 
 class SyncService:
@@ -32,6 +35,7 @@ class SyncService:
         batch_service: BatchService,
         custody_service: CustodyService,
         passport_service: PassportService,
+        assertion_service: Any = None,
     ) -> None:
         self._repo = repo
         self._hives = hive_service
@@ -39,6 +43,7 @@ class SyncService:
         self._batches = batch_service
         self._custody = custody_service
         self._passport = passport_service
+        self._assertions = assertion_service
 
     def push_item(self, item: dict[str, Any], *, user: Any) -> dict[str, Any]:
         entity = item["entity"]
@@ -91,6 +96,8 @@ class SyncService:
                     batch_id=batch_id, data=data
                 )
                 return {"accepted": True, "backend_id": row["id"], "client_id": client_id}
+            if entity in ("quantity_assertion", "assertion"):
+                return self._push_assertion(item, user=user)
         except ValueError as exc:
             return {"accepted": False, "client_id": client_id, "error": str(exc)}
         except Exception as exc:  # never let one item kill a sync pass
@@ -100,6 +107,18 @@ class SyncService:
             "client_id": client_id,
             "error": f"unknown entity: {entity}",
         }
+
+    def _push_assertion(self, item: dict[str, Any], *, user: Any) -> dict[str, Any]:
+        """Offline assertion -> server ledger (idempotent by client_id)."""
+        if self._assertions is None:
+            return {
+                "accepted": False,
+                "client_id": item.get("client_id", ""),
+                "error": "assertion service not configured",
+            }
+        data = dict(item.get("data") or {})
+        data.setdefault("client_id", item.get("client_id", ""))
+        return self._assertions.push_offline_assertion(data, user=user)
 
     def pull(self, *, user: Any) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
@@ -126,11 +145,20 @@ def build_services(
     batch_service = BatchService(repo)
     custody_service = CustodyService(repo)
     lab_service = LabService(repo)
-    passport_service = PassportService(repo, batch_service)
     ledger = EventLedger(repo)
     evidence_service = HarvestEvidenceService(repo, gateway)
     lab_certificate_service = LabCertificateService(repo, gateway, ledger)
     lineage_service = LineageService(repo, ledger)
+    # Evidence-linked assertions / reconciliation / impact analysis all build on
+    # the SAME ledger and batch genealogy — no parallel provenance system.
+    assertion_service = AssertionService(repo, ledger, gateway, batch_service)
+    reconciliation_service = ReconciliationService(
+        repo, assertion_service, batch_service, ledger
+    )
+    impact_service = ProvenanceImpactService(
+        repo, batch_service, assertion_service, reconciliation_service, ledger
+    )
+    passport_service = PassportService(repo, batch_service, assertion_service)
 
     from .notification_service import NotificationService
 
@@ -153,6 +181,7 @@ def build_services(
         batch_service,
         custody_service,
         passport_service,
+        assertion_service,
     )
     return {
         "repo": repo,
@@ -166,6 +195,9 @@ def build_services(
         "evidence": evidence_service,
         "certificates": lab_certificate_service,
         "lineage": lineage_service,
+        "assertions": assertion_service,
+        "reconciliation": reconciliation_service,
+        "impact": impact_service,
         "ledger": ledger,
         "gateway": gateway,
         "notifications": notifications,

@@ -21,6 +21,8 @@ class CustodyService:
             "actor": data.get("actor", ""),
             "notes": data.get("notes", ""),
             "event_at": data.get("event_at") or datetime.now(timezone.utc),
+            "to_actor": data.get("to_actor", ""),
+            "to_org": data.get("to_org", ""),
         }
         return self._repo.add_custody_event(event)
 

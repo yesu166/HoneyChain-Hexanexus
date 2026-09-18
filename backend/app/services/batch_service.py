@@ -61,26 +61,74 @@ class BatchService:
         elif user is not None and not org_id:
             org_id = user.org_id or ""
 
-        # Mass balance: a batch may never claim more honey than the harvests it
-        # is linked to actually produced. Without this gate a client could mint
-        # an arbitrary batch quantity over a small (or borrowed) harvest and
-        # then anchor that inflated provenance on the ledger.
+        # Mass balance with explicit per-harvest allocation. A batch consumes its
+        # quantity from the linked harvests: with one harvest the whole batch
+        # quantity is assigned to it; with several harvests the caller must
+        # supply harvest_allocations that sum exactly to the batch quantity and
+        # do not exceed any harvest's remaining quantity. Remaining quantity is
+        # the harvest total minus allocations already consumed by other batches
+        # (split children keep their own rows, so they never re-consume the
+        # harvest; merged sources are excluded because they no longer exist as
+        # sellable lots). Without this gate a 50 kg batch linked to two 30 kg
+        # harvests could silently claim 50 kg against EACH harvest.
         harvest_ids = list(data.get("harvest_ids", []) or [])
-        if harvest_ids:
-            linked_qty = 0.0
-            for harvest_id in harvest_ids:
+        raw_allocations = data.get("harvest_allocations") or []
+        allocations: list[tuple[str, float]] = []
+        for entry in raw_allocations:
+            if isinstance(entry, dict):
+                allocations.append(
+                    (str(entry.get("harvest_id") or ""), float(entry.get("quantity_kg", 0) or 0))
+                )
+            else:
+                allocations.append(
+                    (str(getattr(entry, "harvest_id", "") or ""), float(getattr(entry, "quantity_kg", 0) or 0))
+                )
+        if allocations:
+            allocation_ids = [harvest_id for harvest_id, _ in allocations]
+            if sorted(allocation_ids) != sorted(harvest_ids):
+                return {"error": "harvest_allocations must cover exactly harvest_ids"}
+            if any(quantity <= 0 for _, quantity in allocations):
+                return {"error": "harvest_allocations quantities must be positive"}
+            if abs(sum(quantity for _, quantity in allocations) - float(data["quantity_kg"])) > 1e-6:
+                return {
+                    "error": (
+                        "harvest_allocations must sum to the batch "
+                        f"quantity ({data['quantity_kg']} kg)"
+                    )
+                }
+            for harvest_id, quantity in allocations:
                 harvest = self._repo.get_harvest(harvest_id)
                 if harvest is None:
                     return {"error": f"linked harvest not found: {harvest_id}"}
-                linked_qty += float(harvest.get("quantity_kg", 0) or 0)
-            requested = float(data["quantity_kg"])
-            if requested - linked_qty > 1e-6:
+                remaining = self._remaining_harvest_quantity(harvest_id)
+                if quantity - remaining > 1e-6:
+                    return {
+                        "error": (
+                            f"allocation ({quantity} kg) exceeds remaining "
+                            f"harvest quantity ({remaining} kg) for {harvest_id}"
+                        )
+                    }
+        elif harvest_ids:
+            if len(harvest_ids) > 1:
                 return {
                     "error": (
-                        f"batch quantity ({requested} kg) exceeds the linked "
-                        f"harvest quantity ({linked_qty} kg)"
+                        "multi-harvest batches require explicit harvest_allocations "
+                        "so each kilogram is counted once"
                     )
                 }
+            harvest = self._repo.get_harvest(harvest_ids[0])
+            if harvest is None:
+                return {"error": f"linked harvest not found: {harvest_ids[0]}"}
+            requested = float(data["quantity_kg"])
+            remaining = self._remaining_harvest_quantity(harvest_ids[0])
+            if requested - remaining > 1e-6:
+                return {
+                    "error": (
+                        f"batch quantity ({requested} kg) exceeds remaining "
+                        f"harvest quantity ({remaining} kg)"
+                    )
+                }
+            allocations = [(harvest_ids[0], requested)]
 
         batch = {
             "batch_code": data["batch_code"],
@@ -93,19 +141,32 @@ class BatchService:
             "created_at": data.get("created_at") or datetime.now(timezone.utc),
         }
         created = self._repo.create_batch(batch, client_id=client_id)
-        for harvest_id in data.get("harvest_ids", []):
-            self._repo.link_batch_harvest(
-                created["id"], harvest_id, data["quantity_kg"]
-            )
+        for harvest_id, allocated in allocations:
+            self._repo.link_batch_harvest(created["id"], harvest_id, allocated)
         return created
 
     # ------------------------------------------------------------------ read
     def in_user_scope(self, batch: dict[str, Any], *, user: Any) -> bool:
-        """Boolean scope check matching [get_for_user] without 404 semantics."""
+        """Boolean scope check matching [get_for_user] without 404 semantics.
+
+        Beyond org ownership, an actor that RECEIVED custody of the batch (a
+        TRANSFER custody event naming it via to_actor/to_org) is in scope: the
+        physical holder of the goods must be able to assert facts about them,
+        without rewriting the batch's owning organization.
+        """
         if user.role in ("admin", "institution", "lab", "buyer"):
             return True
-        if user.role == "processor":
-            return batch.get("organization_id") == user.org_id
+        if user.role == "processor" and batch.get("organization_id") == user.org_id:
+            return True
+        if user.role != "beekeeper":
+            to_actor = str(getattr(user, "user_id", "") or "")
+            to_org = str(getattr(user, "org_id", "") or "")
+            if to_actor or to_org:
+                for event in self._repo.list_custody_events(batch.get("id", "")):
+                    if to_actor and event.get("to_actor") == to_actor:
+                        return True
+                    if to_org and event.get("to_org") == to_org:
+                        return True
         if user.role == "beekeeper":
             harvest_ids = {
                 link.get("harvest_id")
@@ -157,6 +218,67 @@ class BatchService:
             for link in self._repo.list_batch_harvests(batch_id)
         ]
 
+    def _remaining_harvest_quantity(
+        self, harvest_id: str, *, exclude_ids: set[str] | None = None
+    ) -> float:
+        """Harvest total minus quantities already allocated to live batches.
+
+        A batch is "live" while it still holds harvest material: superseded
+        parents (split children or merged lots) are excluded, because their
+        allocation lives on in their children and would otherwise be counted
+        twice. [exclude_ids] omits specific batches from the consumed sum.
+        """
+        harvest = self._repo.get_harvest(harvest_id)
+        if harvest is None:
+            return 0.0
+        total = float(harvest.get("quantity_kg", 0) or 0)
+        excluded = exclude_ids or set()
+        consumed = 0.0
+        for link in self._repo.list_batch_harvests_by_harvest(harvest_id):
+            batch_id = str(link.get("batch_id") or "")
+            if not batch_id or batch_id in excluded:
+                continue
+            if self._batch_is_superseded(batch_id):
+                continue
+            consumed += float(link.get("quantity_kg", 0) or 0)
+        return max(total - consumed, 0.0)
+
+    def _batch_is_superseded(self, batch_id: str) -> bool:
+        """True when the batch has split children or a merged successor.
+
+        Such batches no longer exist as independently sellable lots: their
+        material (and their harvest allocation) carries into the children, so
+        their own allocation must not also count against the harvest.
+        """
+        if not batch_id:
+            return False
+        for rel in self._repo.list_batch_relations(batch_id, direction="children"):
+            if str(rel.get("child_batch_id") or ""):
+                return True
+        return False
+
+    def _propagate_harvest_quantity(
+        self, *, source_batch_id: str, target_batch_id: str, target_quantity: float
+    ) -> None:
+        """Carry a source batch's harvest links onto a split child.
+
+        The child receives a proportional slice of each harvest the parent
+        consumed, so lineage preserves WHERE the material came from without
+        re-claiming quantity against the harvest.
+        """
+        links = self._repo.list_batch_harvests(source_batch_id)
+        if not links:
+            return
+        parent_qty = float(
+            self._repo.get_batch(source_batch_id).get("quantity_kg", 0) or 0
+        )
+        if parent_qty <= 0:
+            return
+        share = min(target_quantity / parent_qty, 1.0)
+        for link in links:
+            allocated = float(link.get("quantity_kg", 0) or 0) * share
+            self._repo.link_batch_harvest(target_batch_id, link.get("harvest_id"), allocated)
+
     # ------------------------------------------------------------------ split
     def split(
         self, parent_id: str, child_quantities_kg: list[float], origin_hint: str = "",
@@ -197,6 +319,11 @@ class BatchService:
                     "quantity_kg": qty,
                 }
             )
+            self._propagate_harvest_quantity(
+                source_batch_id=parent_id,
+                target_batch_id=child["id"],
+                target_quantity=qty,
+            )
             children.append(child)
         return {"parent": parent, "children": children}
 
@@ -206,7 +333,9 @@ class BatchService:
         *, user: Any = None,
     ) -> dict[str, Any]:
         sources = []
-        harvest_ids: list[str] = []
+        # harvest_id -> quantity contributed to the merged batch, summed across
+        # sources so two lots drawing on the same harvest add up correctly.
+        _harvest_qty: dict[str, float] = {}
         for batch_id in sorted(set(batch_ids)):
             source = self._repo.get_batch(batch_id)
             if source is None:
@@ -214,10 +343,12 @@ class BatchService:
             if user is not None and not self.in_user_scope(source, user=user):
                 return {"error": f"source batch not in your scope: {batch_id}"}
             sources.append(source)
-            harvest_ids.extend(
-                link.get("harvest_id")
-                for link in self._repo.list_batch_harvests(batch_id)
-            )
+            for link in self._repo.list_batch_harvests(batch_id):
+                harvest_id = str(link.get("harvest_id") or "")
+                if harvest_id:
+                    _harvest_qty[harvest_id] = _harvest_qty.get(harvest_id, 0.0) + float(
+                        link.get("quantity_kg", 0) or 0
+                    )
         total_kg = sum(float(s.get("quantity_kg", 0)) for s in sources)
         merged_tier = weakest_tier(
             [str(s.get("trust_tier", "self_declared")) for s in sources]
@@ -247,8 +378,12 @@ class BatchService:
                     "quantity_kg": source.get("quantity_kg"),
                 }
             )
-        for harvest_id in dict.fromkeys(harvest_ids):
-            self._repo.link_batch_harvest(merged["id"], harvest_id, total_kg)
+        # Mass conservation: the merged batch consumes exactly what its sources
+        # consumed. Link each harvest with the quantity that came from it —
+        # never the full merged total per harvest, which would double-count a
+        # kilogram against every contributing harvest at once.
+        for harvest_id, qty in sorted(_harvest_qty.items()):
+            self._repo.link_batch_harvest(merged["id"], harvest_id, qty)
         return {"merged": merged, "sources": sources}
 
     def genealogy(self, batch_id: str) -> list[dict[str, Any]]:

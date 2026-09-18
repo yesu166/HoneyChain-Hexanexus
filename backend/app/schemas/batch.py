@@ -13,6 +13,18 @@ TrustTier = Literal[
 ]
 
 
+class HarvestAllocation(BaseModel):
+    """Explicit share of one harvest consumed by a batch.
+
+    Required for multi-harvest batches so a kilogram is never counted against
+    two harvests at once. Single-harvest callers may omit it; the service then
+    assigns the whole batch quantity to the lone harvest.
+    """
+
+    harvest_id: str = Field(..., min_length=1)
+    quantity_kg: float = Field(..., gt=0)
+
+
 class BatchCreate(BaseModel):
     batch_code: str = Field(..., min_length=1, max_length=64)
     organization_id: str = ""
@@ -20,6 +32,10 @@ class BatchCreate(BaseModel):
     honey_type: str = "Not specified"
     quantity_kg: float = Field(..., gt=0)
     harvest_ids: list[str] = []
+    # Explicit per-harvest allocations. When supplied, each entry assigns part
+    # of the batch quantity to one harvest. The entries must cover the whole
+    # batch exactly, so the same kilogram can never be counted twice.
+    harvest_allocations: list[HarvestAllocation] = []
     status: Optional[str] = None
     client_id: str = ""
 
