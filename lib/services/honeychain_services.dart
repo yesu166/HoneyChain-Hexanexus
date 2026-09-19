@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 import '../data/demo_seed.dart';
 import '../models/domain.dart';
 import '../repositories/local_honeychain_repository.dart';
@@ -302,7 +306,13 @@ class BlockchainService {
       id: '${batch.id}-$eventType-anchor',
       batchId: batch.id,
       eventType: eventType,
-      anchorId: 'MOCK-${batch.code}-$eventType',
+      // Real SHA-256 commitment of the canonical local anchor payload.
+      // This is a hash, not a blockchain transaction id; the local anchor
+      // remains marked as demo until the live Fabric path is used.
+      anchorId: 'sha256:${sha256.convert(utf8.encode(jsonEncode({
+        'eventType': eventType,
+        'details': details,
+      })))}',
       anchoredAt: now,
       isMock: true,
       details: details,
