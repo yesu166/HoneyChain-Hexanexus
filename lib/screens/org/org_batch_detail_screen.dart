@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/honeychain_store.dart';
@@ -718,6 +721,15 @@ class _CustodyCard extends StatelessWidget {
   }
 }
 
+String _anchorDisplayId(BlockchainAnchor anchor) {
+  if (!anchor.anchorId.startsWith('MOCK-')) return anchor.anchorId;
+  final payload = jsonEncode({
+    'eventType': anchor.eventType,
+    'details': anchor.details,
+  });
+  return 'sha256:${sha256.convert(utf8.encode(payload))}';
+}
+
 class _IntegrityCard extends StatelessWidget {
   const _IntegrityCard({
     required this.batch,
@@ -775,7 +787,7 @@ class _IntegrityCard extends StatelessWidget {
                   child: Text(
                     store
                         .tr('org.detail.anchor.done')
-                        .replaceFirst('{ref}', anchor.anchorId),
+                        .replaceFirst('{ref}', _anchorDisplayId(anchor)),
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
