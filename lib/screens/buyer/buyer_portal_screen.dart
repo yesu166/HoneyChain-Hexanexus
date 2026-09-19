@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/honeychain_store.dart';
@@ -88,6 +91,15 @@ class BuyerPortalScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+String _anchorDisplayId(BlockchainAnchor anchor) {
+  if (!anchor.anchorId.startsWith('MOCK-')) return anchor.anchorId;
+  final payload = jsonEncode({
+    'eventType': anchor.eventType,
+    'details': anchor.details,
+  });
+  return 'sha256:${sha256.convert(utf8.encode(payload))}';
 }
 
 class _BuyerBatchCard extends StatelessWidget {
@@ -219,7 +231,7 @@ class _BuyerBatchCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    'Anchored: ${anchors.first.anchorId}'
+                    'Anchored: ${_anchorDisplayId(anchors.first)}'
                     '${anchors.first.isMock ? ' (demo integrity layer)' : ''}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
