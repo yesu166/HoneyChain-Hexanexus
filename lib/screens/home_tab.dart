@@ -1,26 +1,18 @@
 import 'package:flutter/material.dart';
 
-import '../bee_health/widgets/bee_health_entry_card.dart';
+import '../bee_health/screens/bee_health_home_screen.dart';
 import '../data/honeychain_store.dart';
 import '../models/domain.dart';
 import '../theme/app_theme.dart';
-import '../theme/beekeeper_tokens.dart';
-import '../widgets/beekeeper_widgets.dart';
 import '../widgets/sync_status_badge.dart';
 import 'bee_alert_detail_screen.dart';
 import 'record_harvest_screen.dart';
 
-/// The beekeeper portal Home, matching the reference layout: header ->
-/// online/offline -> greeting -> overall hive health -> current attention ->
-/// two primary actions (My Hives / Record Harvest) -> today's weather ->
-/// bee health entry. The "Ask HoneyChain" voice entry lives once on the
-/// bottom navigation bar (not duplicated here). All data flows from the
-/// existing HoneyChainStore (never faked here), and every label is localized
-/// via the store.
+/// Presentation-only beekeeper dashboard. Existing store/services remain the
+/// source of truth; this screen does not introduce new API or domain logic.
 class HomeTab extends StatelessWidget {
   const HomeTab({super.key, this.onGoToHives});
 
-  /// Switches the parent shell to the Hives tab (used by the My Hives tile).
   final VoidCallback? onGoToHives;
 
   @override
@@ -29,43 +21,55 @@ class HomeTab extends StatelessWidget {
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
-        final needCare = store.needsCareCount;
+        final healthy = store.hives
+            .where((h) => store.insightFor(h).riskLevel == RiskLevel.healthy)
+            .length;
+        final latest = _latestReading(store);
+        final attention = store.needsCareCount;
+
         return SafeArea(
+          bottom: false,
           child: ListView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: BeeTokens.spaceGutter,
-              vertical: BeeTokens.spaceMd,
-            ),
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
             children: [
-              _Header(),
-              const SizedBox(height: 12),
-              const SyncStatusBadge(),
-              const SizedBox(height: 4),
-              _Greeting(),
+              _Header(store: store),
+              const SizedBox(height: 10),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: SyncStatusBadge(),
+              ),
               const SizedBox(height: 14),
-              _AlertsSection(needCare: needCare, hiveCount: store.hives.length),
-              const SizedBox(height: 16),
+              _Hero(
+                store: store,
+                healthy: healthy,
+                attention: attention,
+              ),
+              const SizedBox(height: 22),
+              _SectionTitle(title: store.tr('home.alerts.title')),
+              const SizedBox(height: 9),
+              _AlertSurface(store: store, attention: attention),
+              const SizedBox(height: 22),
+              const _SectionTitle(title: 'Your apiary'),
+              const SizedBox(height: 10),
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: BeekeeperPrimaryAction(
-                      icon: Icons.hive_rounded,
-                      iconColor: AppTheme.greenDark,
-                      iconTint: AppTheme.greenSoft,
+                    child: _ActionTile(
                       title: store.tr('home.my.hives'),
                       subtitle: store.tr('home.my.hives.action.sub'),
+                      icon: Icons.hive_rounded,
+                      colors: const [Color(0xFF2F8A58), Color(0xFF1F6843)],
                       onTap: onGoToHives,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: BeekeeperPrimaryAction(
-                      icon: Icons.add_circle_outline_rounded,
-                      iconColor: AppTheme.honeyDark,
-                      iconTint: const Color(0x1FE8A33D),
+                    child: _ActionTile(
                       title: store.tr('home.record.harvest'),
                       subtitle: store.tr('home.record.harvest.sub'),
+                      icon: Icons.water_drop_rounded,
+                      colors: const [Color(0xFFF2B53D), Color(0xFFD98217)],
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const RecordHarvestScreen(),
@@ -75,11 +79,23 @@ class HomeTab extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              const BeekeeperAmbientStrip(),
-              const SizedBox(height: 16),
-              const BeeHealthEntryCard(),
-              const SizedBox(height: 12),
+              const SizedBox(height: 22),
+              _TelemetryCard(store: store, reading: latest),
+              const SizedBox(height: 22),
+              _HealthCard(
+                store: store,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const BeeHealthHomeScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              _StatsRow(
+                hives: store.hives.length,
+                healthy: healthy,
+                harvests: store.harvestCount,
+              ),
             ],
           ),
         );
@@ -89,19 +105,35 @@ class HomeTab extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
+  const _Header({required this.store});
+
+  final HoneyChainStore store;
+
   @override
   Widget build(BuildContext context) {
-    final store = HoneyChainStore.instance;
+    final name = store.profile.name.trim();
+    final org = store.profile.organizationName.trim();
+    final identity = name.isNotEmpty ? name : org;
+
     return Row(
       children: [
         Container(
           width: 46,
           height: 46,
           decoration: BoxDecoration(
-            color: AppTheme.honey.withValues(alpha: 0.18),
-            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFD86A), Color(0xFFE9A52D)],
+            ),
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.honeyGold.withValues(alpha: 0.25),
+                blurRadius: 16,
+                offset: const Offset(0, 7),
+              ),
+            ],
           ),
-          child: const Icon(Icons.hive_rounded, color: AppTheme.honeyDark, size: 26),
+          child: const Icon(Icons.hive_rounded, color: AppTheme.ink, size: 25),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -112,39 +144,56 @@ class _Header extends StatelessWidget {
                 'HoneyChain',
                 style: TextStyle(
                   fontSize: 20,
+                  height: 1,
                   fontWeight: FontWeight.w900,
                   color: AppTheme.ink,
                 ),
               ),
-              Text(
-                [
-                  if (store.profile.organizationName.isNotEmpty)
-                    store.profile.organizationName,
-                  if (store.producerId.isNotEmpty) store.producerId,
-                ].join(' · '),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.inkSoft,
+              if (identity.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  identity,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.inkSoft,
+                  ),
                 ),
-                overflow: TextOverflow.ellipsis,
-              ),
+              ],
             ],
           ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
-            color: AppTheme.card,
+            color: store.isOnline ? AppTheme.greenSoft : AppTheme.orangeSoft,
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: AppTheme.border),
           ),
-          child: Text(
-            store.language.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.inkSoft,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: store.isOnline ? AppTheme.green : AppTheme.orange,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                store.isOnline ? 'Online' : 'Offline',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: store.isOnline
+                      ? AppTheme.greenDark
+                      : AppTheme.orangeDark,
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -152,131 +201,797 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// ONE "Hive Alerts" section on Home: a heading plus a single row. When hives
-/// need attention the row is the aggregate alert (title "N hives need
-/// attention", subtitle = top hive's issue, tappable into alert detail). When
-/// everything is fine the row is a calm all-clear. There is deliberately no
-/// second health banner on Home.
-class _AlertsSection extends StatelessWidget {
-  const _AlertsSection({required this.needCare, required this.hiveCount});
+class _Hero extends StatelessWidget {
+  const _Hero({
+    required this.store,
+    required this.healthy,
+    required this.attention,
+  });
 
-  final int needCare;
-  final int hiveCount;
+  final HoneyChainStore store;
+  final int healthy;
+  final int attention;
 
   @override
   Widget build(BuildContext context) {
-    final store = HoneyChainStore.instance;
+    final name = store.profile.name.trim();
+    final first = name.isEmpty ? '' : ' ' + name.split(' ').first;
+    final greeting = store.tr('home.greeting') + first;
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFFCB50),
+            Color(0xFFF0A72D),
+            Color(0xFFE7891D),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFE8A33D).withValues(alpha: 0.28),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -34,
+            top: -44,
+            child: Container(
+              width: 155,
+              height: 155,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Positioned(
+            right: 44,
+            bottom: -70,
+            child: Container(
+              width: 135,
+              height: 135,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.09),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 18, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  greeting,
+                  style: const TextStyle(
+                    color: AppTheme.ink,
+                    fontSize: 25,
+                    height: 1.05,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Here is what is happening across your hives.',
+                  style: TextStyle(
+                    color: AppTheme.ink.withValues(alpha: 0.68),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    _HeroMetric(value: store.hives.length.toString(), label: 'Hives'),
+                    _HeroDivider(),
+                    _HeroMetric(value: healthy.toString(), label: 'Healthy'),
+                    _HeroDivider(),
+                    _HeroMetric(value: attention.toString(), label: 'Attention'),
+                    const Spacer(),
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.auto_awesome_rounded,
+                        color: AppTheme.ink,
+                        size: 24,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroMetric extends StatelessWidget {
+  const _HeroMetric({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            store.tr('home.alerts.title').toUpperCase(),
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-              color: AppTheme.inkFaint,
-            ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: AppTheme.ink,
           ),
         ),
-        if (needCare > 0)
-          _AttentionRow(store: store, needCare: needCare)
-        else
-          BeekeeperAlertRow(
-            title: store
-                .tr('home.all.healthy')
-                .replaceFirst('{count}', '$hiveCount'),
-            subtitle: store.tr('home.all.healthy.sub'),
-            level: BeeStatusLevel.healthy,
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.ink.withValues(alpha: 0.60),
           ),
+        ),
       ],
     );
   }
 }
 
-/// Single aggregated "what needs attention?" row. Uses the attention count as
-/// its title so Home shows exactly one alert line (never a list, never a
-/// second banner). Tapping opens the reference-style alert detail screen.
-class _AttentionRow extends StatelessWidget {
-  const _AttentionRow({required this.store, required this.needCare});
+class _HeroDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 31,
+      margin: const EdgeInsets.symmetric(horizontal: 14),
+      color: AppTheme.ink.withValues(alpha: 0.18),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w900,
+        color: AppTheme.ink,
+      ),
+    );
+  }
+}
+
+class _AlertSurface extends StatelessWidget {
+  const _AlertSurface({
+    required this.store,
+    required this.attention,
+  });
 
   final HoneyChainStore store;
-  final int needCare;
+  final int attention;
 
   @override
   Widget build(BuildContext context) {
     final hive = _mostRelevantHive(store);
-    if (hive == null) return const SizedBox.shrink();
-    final insight = store.insightFor(hive);
-    final alert = _newestAlert(store, hive.id);
+    final alert = hive == null ? null : _newestAlert(store, hive.id);
 
-    final title = needCare == 1
-        ? store.tr('home.hive.attention.one')
-        : store.tr('home.hive.attention.many').replaceFirst('{count}', '$needCare');
+    if (attention == 0 || hive == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        decoration: BoxDecoration(
+          color: AppTheme.greenSoft,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppTheme.green.withValues(alpha: 0.18),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.verified_rounded,
+              color: AppTheme.green,
+              size: 25,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                store.tr('home.all.healthy')
+                    .replaceFirst('{count}', store.hives.length.toString()),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.greenDark,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
-    final String subtitle =
-        switch (alert?.type) {
-          AlertType.disease => store.tr('alert.disease.note'),
-          AlertType.iot => store.tr('alert.iot.note'),
-          AlertType.temperature => store.tr('alert.needs.cooling.note'),
-          AlertType.humidity =>
-            store.tr('alert.needs.care.note').replaceFirst('{hive}', hive.name),
-          _ => insight.riskExplanation,
-        };
+    final detail = switch (alert?.type) {
+      AlertType.disease => store.tr('alert.disease.note'),
+      AlertType.iot => store.tr('alert.iot.note'),
+      AlertType.temperature => store.tr('alert.needs.cooling.note'),
+      AlertType.humidity =>
+        store.tr('alert.needs.care.note').replaceFirst('{hive}', hive.name),
+      _ => store.insightFor(hive).riskExplanation,
+    };
 
-    return BeekeeperAlertRow(
-      title: title,
-      subtitle: subtitle,
-      time: alert != null ? relativeTime(alert.createdAt, store) : null,
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => BeeAlertDetailScreen(hive: hive, alert: alert),
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => BeeAlertDetailScreen(hive: hive, alert: alert),
+          ),
+        ),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(15, 14, 12, 14),
+          decoration: BoxDecoration(
+            color: AppTheme.redSoft,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: AppTheme.red.withValues(alpha: 0.20),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppTheme.red.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.priority_high_rounded,
+                  color: AppTheme.red,
+                  size: 23,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      attention == 1
+                          ? store.tr('home.hive.attention.one')
+                          : store.tr('home.hive.attention.many')
+                              .replaceFirst('{count}', attention.toString()),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      detail,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 1.35,
+                        color: AppTheme.inkSoft,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 15,
+                color: AppTheme.inkFaint,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Warm local greeting line shown under the sync banner.
-class _Greeting extends StatelessWidget {
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.colors,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final List<Color> colors;
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
-    final store = HoneyChainStore.instance;
-    return Row(
-      children: [
-        Expanded(
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Ink(
+          height: 142,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: colors,
+            ),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: colors.last.withValues(alpha: 0.22),
+                blurRadius: 18,
+                offset: const Offset(0, 9),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(15, 15, 13, 13),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.20),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(icon, color: Colors.white, size: 24),
+              ),
+              const Spacer(),
               Text(
-                store.tr('home.greeting'),
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 26,
+                  color: Colors.white,
+                  fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  color: AppTheme.ink,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
-                store.tr('home.greeting.sub'),
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.inkSoft,
+                  color: Color(0xE6FFFFFF),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
         ),
-        Icon(
-          Icons.hive_outlined,
-          size: 44,
-          color: AppTheme.honey.withValues(alpha: 0.55),
+      ),
+    );
+  }
+}
+
+class _TelemetryCard extends StatelessWidget {
+  const _TelemetryCard({
+    required this.store,
+    required this.reading,
+  });
+
+  final HoneyChainStore store;
+  final HiveReading? reading;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = reading;
+    final hasData = r != null;
+    final healthy = r?.status == ReadingStatus.healthy;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(17, 17, 17, 15),
+      decoration: BoxDecoration(
+        color: const Color(0xFF24342C),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF24342C).withValues(alpha: 0.20),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppTheme.honeyGold.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.sensors_rounded,
+                  color: Color(0xFFFFC95A),
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hive Telemetry',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Latest reading from your apiary',
+                      style: TextStyle(
+                        color: Color(0xB8FFFFFF),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                hasData
+                    ? Icons.wifi_tethering_rounded
+                    : Icons.sync_disabled_rounded,
+                color: hasData
+                    ? const Color(0xFF7ED89A)
+                    : const Color(0xB8FFFFFF),
+                size: 20,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (!hasData)
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'No hive telemetry recorded yet.',
+                style: TextStyle(
+                  color: Color(0xE6FFFFFF),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            )
+          else
+            Row(
+              children: [
+                _TelemetryMetric(
+                  icon: Icons.thermostat_rounded,
+                  label: 'Temperature',
+                  value: r!.temperatureC.toStringAsFixed(1) + '°C',
+                ),
+                _TelemetryMetric(
+                  icon: Icons.water_drop_rounded,
+                  label: 'Humidity',
+                  value: r.humidityPercent.toStringAsFixed(0) + '%',
+                ),
+                _TelemetryMetric(
+                  icon: Icons.monitor_weight_rounded,
+                  label: 'Weight',
+                  value: r.weightKg.toStringAsFixed(1) + ' kg',
+                ),
+              ],
+            ),
+          if (hasData) ...[
+            const SizedBox(height: 13),
+            Row(
+              children: [
+                const Icon(
+                  Icons.schedule_rounded,
+                  color: Color(0xB8FFFFFF),
+                  size: 14,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  'Updated ' + _relative(r!.recordedAt),
+                  style: const TextStyle(
+                    color: Color(0xB8FFFFFF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  healthy ? 'Within range' : 'Needs review',
+                  style: TextStyle(
+                    color: healthy
+                        ? const Color(0xFF8BE0A3)
+                        : const Color(0xFFFFC16B),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _relative(DateTime time) {
+    final minutes = DateTime.now().difference(time).inMinutes;
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return minutes.toString() + 'm ago';
+    final hours = minutes ~/ 60;
+    if (hours < 24) return hours.toString() + 'h ago';
+    return (hours ~/ 24).toString() + 'd ago';
+  }
+}
+
+class _TelemetryMetric extends StatelessWidget {
+  const _TelemetryMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.only(right: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.075),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: const Color(0xFFFFC95A), size: 18),
+            const SizedBox(height: 7),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xB8FFFFFF),
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HealthCard extends StatelessWidget {
+  const _HealthCard({
+    required this.store,
+    required this.onTap,
+  });
+
+  final HoneyChainStore store;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF4DD),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: AppTheme.honeyGold.withValues(alpha: 0.24),
+            ),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: const BoxDecoration(
+                  color: AppTheme.greenSoft,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.health_and_safety_rounded,
+                  color: AppTheme.green,
+                  size: 27,
+                ),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      store.tr('bh.title'),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      store.tr('bh.subtitle'),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.inkSoft,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: AppTheme.inkFaint,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatsRow extends StatelessWidget {
+  const _StatsRow({
+    required this.hives,
+    required this.healthy,
+    required this.harvests,
+  });
+
+  final int hives;
+  final int healthy;
+  final int harvests;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _Stat(value: hives.toString(), label: 'Hives', icon: Icons.hive_outlined),
+        const SizedBox(width: 9),
+        _Stat(
+          value: healthy.toString(),
+          label: 'Healthy',
+          icon: Icons.check_circle_outline_rounded,
+        ),
+        const SizedBox(width: 9),
+        _Stat(
+          value: harvests.toString(),
+          label: 'Harvests',
+          icon: Icons.water_drop_outlined,
         ),
       ],
     );
   }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({
+    required this.value,
+    required this.label,
+    required this.icon,
+  });
+
+  final String value;
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: AppTheme.honeyDark, size: 20),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.ink,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.inkFaint,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+HiveReading? _latestReading(HoneyChainStore store) {
+  HiveReading? latest;
+  for (final hive in store.hives) {
+    final readings = store.readingsForHive(hive.id);
+    if (readings.isEmpty) continue;
+    final candidate = readings.last;
+    if (latest == null || candidate.recordedAt.isAfter(latest.recordedAt)) {
+      latest = candidate;
+    }
+  }
+  return latest;
 }
 
 Hive? _mostRelevantHive(HoneyChainStore store) {
@@ -284,23 +999,30 @@ Hive? _mostRelevantHive(HoneyChainStore store) {
       .where((h) => store.insightFor(h).riskLevel != RiskLevel.healthy)
       .toList();
   if (needing.isEmpty) return null;
-  needing.sort((a, b) =>
-      store.insightFor(b).riskLevel.index.compareTo(store.insightFor(a).riskLevel.index));
+  needing.sort(
+    (a, b) => store
+        .insightFor(b)
+        .riskLevel
+        .index
+        .compareTo(store.insightFor(a).riskLevel.index),
+  );
   return needing.first;
 }
 
 HiveAlert? _newestAlert(HoneyChainStore store, String hiveId) {
   HiveAlert? newest;
-  const hiveTypes = {
+  const types = {
     AlertType.temperature,
     AlertType.humidity,
     AlertType.disease,
     AlertType.iot,
   };
-  for (final a in store.alerts) {
-    if (a.hiveId != hiveId) continue;
-    if (!hiveTypes.contains(a.type)) continue;
-    if (newest == null || a.createdAt.isAfter(newest.createdAt)) newest = a;
+  for (final alert in store.alerts) {
+    if (alert.hiveId != hiveId) continue;
+    if (!types.contains(alert.type)) continue;
+    if (newest == null || alert.createdAt.isAfter(newest.createdAt)) {
+      newest = alert;
+    }
   }
   return newest;
 }
