@@ -215,8 +215,8 @@ class _Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = store.profile.name.trim();
-    final first = name.isEmpty ? '' : ' ' + name.split(' ').first;
-    final greeting = store.tr('home.greeting') + first;
+    final first = name.isEmpty ? '' : ' ${name.split(' ').first}';
+    final greeting = '${store.tr('home.greeting')}$first';
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -613,8 +613,8 @@ class _TelemetryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = reading;
     final hasData = r != null;
-    final healthy = hasData && store.hives.any(
-      (hive) => hive.id == r!.hiveId &&
+    final healthy = r != null && store.hives.any(
+      (hive) => hive.id == r.hiveId &&
           store.insightFor(hive).riskLevel == RiskLevel.healthy,
     );
 
@@ -756,10 +756,10 @@ class _TelemetryCard extends StatelessWidget {
   String _relative(DateTime time) {
     final minutes = DateTime.now().difference(time).inMinutes;
     if (minutes < 1) return 'just now';
-    if (minutes < 60) return minutes.toString() + 'm ago';
+    if (minutes < 60) return '${minutes}m ago';
     final hours = minutes ~/ 60;
-    if (hours < 24) return hours.toString() + 'h ago';
-    return (hours ~/ 24).toString() + 'd ago';
+    if (hours < 24) return '${hours}h ago';
+    return '${hours ~/ 24}d ago';
   }
 }
 
