@@ -6,6 +6,7 @@ import 'package:honeychain/bee_health/services/bee_health_question_engine.dart';
 import 'package:honeychain/theme/app_theme.dart';
 
 import '../widgets/symptom_illustration.dart';
+import '../widgets/disease_reference_gallery.dart';
 
 import 'bee_health_result_screen.dart';
 
@@ -102,6 +103,8 @@ class _BeeHealthQuestionScreenState extends State<BeeHealthQuestionScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 14),
+              const DiseaseReferenceGallery(),
               if (q.kind == QuestionKind.feature) ...[
                 const SizedBox(height: 14),
                 SymptomIllustration(featureId: q.featureId),
