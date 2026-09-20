@@ -752,7 +752,7 @@ class AppStrings {
     'collection.chain.node.lab': 'Laboratory',
     'collection.chain.node.pending': 'Pending lab verification',
     'fpo.title': 'FPO Portal',
-    'fpo.fpo.name': 'Nilgiris Honey FPO',
+    'fpo.fpo.name': 'Local Honey Cooperative',
     'fpo.pending.custody': 'Pending custody',
     'fpo.pending.lab': 'Pending lab',
     'fpo.total.batches': 'Total batches',
