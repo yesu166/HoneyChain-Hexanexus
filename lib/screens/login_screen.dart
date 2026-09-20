@@ -21,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _identifier = TextEditingController();
   final _password = TextEditingController();
   final _passwordFocus = FocusNode();
+  bool _showPassword = false;
 
   bool _validPhone = false;
   bool _validOtp = false;
@@ -34,8 +35,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _identifier.text = 'demo@honeychain.in';
-    _password.text = 'HoneyChainDemo!1';
     _phone.addListener(() {
       final valid =
           _phone.text.length == 10 && RegExp(r'^[0-9]+$').hasMatch(_phone.text);
@@ -145,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
             _LanguageSelector(),
             if (_backendEnabled) ...[
               const SizedBox(height: 26),
-              SectionLabel('Sign in with live backend'),
+              const Text('Beekeeper sign in', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppTheme.ink)),
               _BackendSignInForm(
                 identifier: _identifier,
                 password: _password,
@@ -154,26 +153,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 error: _backendError,
                 onSignIn: _verifyBackend,
               ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  const Expanded(child: Divider()),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    child: Text(
-                      'or demo login',
-                      style: const TextStyle(
-                        color: AppTheme.inkFaint,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const Expanded(child: Divider()),
-                ],
-              ),
-              const SizedBox(height: 6),
-            ],
             const SizedBox(height: 20),
             SectionLabel(store.tr('phone.label')),
             TextField(
@@ -410,7 +389,7 @@ class _BackendSignInForm extends StatelessWidget {
             color: AppTheme.ink,
           ),
           decoration: InputDecoration(
-            hintText: 'demo@honeychain.in',
+            hintText: 'Email or phone number',
             prefixIcon: const Icon(Icons.mail_outline,
                 color: AppTheme.inkFaint, size: 20),
             filled: true,
@@ -444,7 +423,7 @@ class _BackendSignInForm extends StatelessWidget {
         TextField(
           controller: password,
           focusNode: passwordFocus,
-          obscureText: true,
+          obscureText: !_showPassword,
           autocorrect: false,
           enableSuggestions: false,
           onSubmitted: (_) => busy ? null : onSignIn(),
@@ -454,7 +433,7 @@ class _BackendSignInForm extends StatelessWidget {
             color: AppTheme.ink,
           ),
           decoration: InputDecoration(
-            hintText: 'HoneyChainDemo!1',
+            hintText: 'Password',
             prefixIcon: const Icon(Icons.lock_outline,
                 color: AppTheme.inkFaint, size: 20),
             filled: true,
