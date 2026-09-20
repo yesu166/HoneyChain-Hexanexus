@@ -220,240 +220,16 @@ class IoTDeviceService:
         return dev.get("device_private_key_pem")
 
     def set_mode(self, device_id: str, mode: str) -> dict[str, Any]:
+        state = self._state_for(device_id)
         if mode not in ("STOPPED", "PAUSED") + SIM_MODES:
             raise ValueError(f"unknown simulation mode: {mode}")
-        dev = self._repo.get_iot_device(device_id)
-        if dev is None:
-            raise DeviceNotFound(device_id)
-        self._repo.update_iot_device(device_id, {"mode": mode})
-        if mode == "NORMAL":
-            self._repo.update_iot_device(device_id, {"device_status": "ONLINE"})
-        return self.get_device(device_id)
-
-    @staticmethod
-    def _strip(dev: dict[str, Any]) -> dict[str, Any]:
-        return {k: v for k, v in dev.items() if k != "device_private_key_pem"}
-
-    # ------------------------------------------------------------ signing
-    @staticmethod
-    def signed_event(event: dict[str, Any], key_pem: str) -> dict[str, Any]:
-        payload = event["payload"]
-        event["payload_hash"] = hash_payload_json(payload)
-        event["signature"] = base64.b64encode(
-            _sign_canonical(_signed_fields(event), key_pem)
-        ).decode("ascii")
-        return event
-
-
-# ---------------------------------------------------------------------------
-# Telemetry ingestion (the single pathway)
-# ---------------------------------------------------------------------------
-
-class TelemetryIngestor:
-    """Shared validation+persistence path used by single-, batch- and
-    simulator feeds. Physical devices and the simulator are identical here."""
-
-    def __init__(
-        self,
-        repo: Repository,
-        notifications: Any,
-        ledger: EventLedger,
-    ) -> None:
-        self._repo = repo
-        self._notifications = notifications
-        self._ledger = ledger
-
-    def ingest_events(
-        self, device_id: str, events: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
-        results = []
-        for ev in sorted(events, key=lambda e: int(e.get("sequence", 0))):
-            try:
-                result = self.ingest_single(device_id, ev)
-            except TelemetryRejected as exc:
-                result = {
-                    "event_id": ev.get("event_id", ""),
-                    "device_id": device_id,
-                    "accepted": False,
-                    "sequence": ev.get("sequence", 0),
-                    "reason": str(exc),
-                }
-            results.append(result)
-        return results
-
-    def ingest_single(self, device_id: str, ev: dict[str, Any]) -> dict[str, Any]:
-        device = self._repo.get_iot_device(device_id)
-        if device is None:
-            raise DeviceNotFound(device_id)
-        if device.get("device_status") == "DISABLED":
-            raise TelemetryRejected("device DISABLED")
-
-        event_id = ev.get("event_id", "")
-        sequence = int(ev.get("sequence", 0))
-        payload = ev.get("payload") or {}
-        if isinstance(payload, dict):
-            # The device signs exactly the fields it sent. Pydantic model_dump
-            # injects None-valued keys and an empty "extra"; drop them so the
-            # server canonicalizes byte-identical to what was signed.
-            payload = {
-                k: v
-                for k, v in payload.items()
-                if v is not None and not (k == "extra" and not v)
-            }
-            ev["payload"] = payload
-        ts = ev.get("timestamp")
-
-        if event_id and self._repo.get_telemetry_event(event_id) is not None:
-            self._notifications.note_rejected(device, "sequence", f"duplicate event {event_id}", title="Duplicate event")
-            raise DuplicateEvent(f"duplicate event: {event_id}")
-
-        provided_hash = ev.get("payload_hash", "")
-        computed_hash = hash_payload_json(payload)
-        if provided_hash and provided_hash != computed_hash:
-            self._notifications.note_rejected(device, "integrity", "payload_hash mismatch", title="Payload integrity")
-            raise InvalidPayloadHash("payload_hash mismatch")
-
-        expected = int(device.get("sequence", 0)) + 1
-        if sequence > expected:
-            self._notifications.note_rejected(device, "sequence", f"sequence gap: got {sequence}, expected {expected}", title="Sequence gap")
-            raise SequenceGap(f"sequence gap: got {sequence}, expected {expected}")
-        if sequence <= int(device.get("sequence", 0)):
-            self._notifications.note_rejected(device, "sequence", f"replayed/repeated sequence {sequence}", title="Duplicate event")
-            raise DuplicateEvent(f"sequence {sequence} already seen")
-
-        sig_pem = device.get("device_public_key_pem", "")
-        if sig_pem and not _verify_event(ev, sig_pem):
-            self._notifications.note_rejected(device, "integrity", "signature invalid", title="Invalid signature")
-            raise InvalidSignature("signature invalid")
-
-        row = {
-            "event_id": event_id or f"{device_id}-{sequence}",
-            "device_id": device_id,
-            "sequence": sequence,
-            "timestamp": ts,
-            "payload": payload,
-            "payload_hash": computed_hash,
-            "previous_event_hash": ev.get("previous_event_hash", ""),
-            "hive_id": device.get("assigned_hive_id") or None,
-            "organization_id": device.get("organization_id", ""),
-            "signature": ev.get("signature", ""),
-            "is_simulated": bool(device.get("is_simulated", True)),
-            "created_at": _now_iso(),
-        }
-        self._repo.add_telemetry_event(row)
-        self._repo.update_iot_device(
-            device_id,
-            {
-                "sequence": sequence,
-                "event_count": int(device.get("event_count", 0)) + 1,
-                "last_seen": ts,
-                "device_status": "ONLINE",
-                "battery_percent": payload.get("battery_percent") or device.get("battery_percent", 100.0),
-                "signal_strength": payload.get("signal_strength") or device.get("signal_strength", -60.0),
-            },
-        )
-        if row["hive_id"]:
-            source = "iot" if not row["is_simulated"] else "simulation"
-            self._repo.add_reading(
-                {
-                    "hive_id": row["hive_id"],
-                    "temperature_c": payload.get("temperature_c"),
-                    "humidity_percent": payload.get("humidity_percent"),
-                    "weight_kg": payload.get("hive_weight_kg"),
-                    "recorded_at": ts,
-                    "source": source,
-                }
-            )
-        self._ledger.append(
-            chain_id=f"device:{device_id}",
-            event_type="telemetry",
-            entity_ref=row["event_id"],
-            payload={
-                "sequence": sequence,
-                "payload_hash": computed_hash,
-                "hive_id": row["hive_id"],
-            },
-            device_id=device_id,
-            ts=ts,
-        )
-        ml_result = self._ml.ingest(device_id, payload, timestamp=ts)
-        alert_triggered = self._notifications.evaluate(device, row)
-        return {
-            "event_id": row["event_id"],
-            "device_id": device_id,
-            "accepted": True,
-            "sequence": sequence,
-            "hive_id": row["hive_id"],
-            "alert_triggered": alert_triggered,
-            "ml_status": ml_result.get("status"),
-            "ml_score": ml_result.get("score"),
-            "ml_anomaly": bool(ml_result.get("ml_anomaly", False)),
-            "ml_evidence": ml_result.get("evidence", []),
-            "ml_reason": ml_result.get("reason", ""),
-            "ml_recommendation": ml_result.get("recommendation", ""),
-            "ml_persistence_observations": int(ml_result.get("persistence_observations", 0)),
-            "reason": "",
-        }
-
-
-    @property
-    def ml_engine(self) -> HoneyChainML:
-        return self._ml
-
-
-# ---------------------------------------------------------------------------
-# Software IoT simulator
-# ---------------------------------------------------------------------------
-
-class DeviceSimulator:
-    """Configurable software IoT device emitting realistic temporal telemetry.
-
-    Values have *state* (temperature drifts, weight changes slowly, battery
-    decays, signal wobbles, pre-harvest anomalies) instead of random noise.
-    Generated events are signed with the registered device key and submitted
-    through the real ingestion path.
-
-    OFFLINE mode queues events locally (device_status=OFFLINE); RECOVERY
-    flushes the queue through the same ingestion path (SYNCING -> ONLINE) so
-    the UI can show real pending/synced/remaining counts — never a faked
-    refresh.
-    """
-
-    def __init__(self, repo: Repository, ingestor: TelemetryIngestor, ledger: EventLedger) -> None:
-        self._repo = repo
-        self._ingestor = ingestor
-        self._ledger = ledger
-        self._ml = HoneyChainML()
-        self._state: dict[str, dict[str, Any]] = {}
-        self._queue: dict[str, list[dict[str, Any]]] = {}
-
-    def _state_for(self, device_id: str) -> dict[str, Any]:
-        state = self._state.setdefault(device_id, {})
-        if not state:
-            state.update(
-                {
-                    "temp": 24.0 + (_rng(device_id, 1) % 80) / 10 - 4.0,
-                    "humidity": 55.0 + (_rng(device_id, 2) % 200) / 10 - 10.0,
-                    "weight": 12.0 + (_rng(device_id, 3) % 50) / 10,
-                    "activity": 60.0 + (_rng(device_id, 4) % 30),
-                    "battery": 100.0,
-                    "signal": -60.0,
-                    "acoustic": 210.0,
-                    "anomaly": False,
-                    "mode": "NORMAL",
-                    "t": 0,
-                }
-            )
-        return state
-
-    def set_mode(self, device_id: str, mode: str) -> dict[str, Any]:
-        state = self._state_for(device_id)
+        if mode == "RESET":
+            self._reset_state(device_id)
+            state = self._state_for(device_id)
+            mode = "NORMAL"
         state["mode"] = mode
-        if mode == "ANOMALY":
-            state["anomaly"] = True
-        elif mode == "NORMAL":
-            state["anomaly"] = False
-        elif mode == "RECOVERY":
+        state["fault"] = mode == "SENSOR_FAULT"
+        if mode == "RECOVERY":
             self._flush_offline(device_id)
             self._repo.update_iot_device(device_id, {"device_status": "ONLINE"})
         return self.get_device_status(device_id)
@@ -472,73 +248,77 @@ class DeviceSimulator:
             raise DeviceNotFound(device_id)
         state = self._state_for(device_id)
         mode = dev.get("mode", "STOPPED")
-
         if mode in ("STOPPED", "PAUSED"):
             return {"device_id": device_id, "paused": True, "queued": False}
 
         state["t"] += 1
+        def noise(salt: int, scale: float) -> float:
+            return (_rng(device_id, salt + state["t"] % 17) / 1000.0 - 0.5) * scale
 
-        drift = (_rng(device_id, 5 + state["t"] % 7) / 100.0) - 0.12
-        if state["anomaly"]:
-            state["temp"] = min(42.0, state["temp"] + 0.5)
-            state["humidity"] = min(99.0, state["humidity"] + 1.2)
-            state["weight"] = max(1.0, state["weight"] - 0.6)
-            state["activity"] = max(5.0, state["activity"] - 3.5)
-        else:
-            state["temp"] = min(38.0, max(14.0, state["temp"] + drift))
-            state["humidity"] = min(90.0, max(25.0, state["humidity"] + (_rng(device_id, 6 + state["t"] % 5) / 40.0 - 0.3)))
-            state["weight"] = max(0.5, state["weight"] + (_rng(device_id, 7 + state["t"] % 5) / 100.0 - 0.05))
-            state["activity"] = min(100.0, max(10.0, state["activity"] + (_rng(device_id, 8 + state["t"] % 5) / 10.0 - 0.5)))
+        state["temp"] += noise(5, 0.20)
+        state["humidity"] += noise(7, 0.60)
+        state["weight"] += noise(11, 0.08)
+        state["activity"] += noise(13, 1.5)
+        state["acoustic"] += noise(17, 1.5)
+
+        if mode == "TEMPERATURE_STRESS":
+            state["temp"] += 0.45
+        elif mode == "HUMIDITY_STRESS":
+            state["humidity"] += 1.8
+        elif mode == "WEIGHT_CHANGE":
+            state["weight"] -= 0.28
+        elif mode == "ACOUSTIC_CHANGE":
+            state["activity"] += 2.5; state["acoustic"] += 4.0
+        elif mode == "COMBINED_STRESS":
+            state["temp"] += 0.35; state["humidity"] += 1.2; state["weight"] -= 0.18
+            state["activity"] -= 2.0; state["acoustic"] += 3.0
+        elif mode == "PERSISTENT_ANOMALY":
+            state["temp"] += 0.28; state["humidity"] += 0.9; state["weight"] -= 0.16
+            state["activity"] -= 1.6; state["acoustic"] += 2.5
+        elif mode == "RECOVERY":
+            b = self._ingestor.ml_engine.baseline()
+            state["temp"] += (b["temperature"] - state["temp"]) * 0.18
+            state["humidity"] += (b["humidity"] - state["humidity"]) * 0.18
+            state["weight"] += (b["hive_power"] - state["weight"]) * 0.12
+            state["activity"] += (b["audio_density"] - state["activity"]) * 0.18
+            state["acoustic"] += (b["acoustic_mean"] - state["acoustic"]) * 0.18
+
+        state["temp"] = min(70.0, max(-10.0, state["temp"]))
+        state["humidity"] = min(100.0, max(0.0, state["humidity"]))
+        state["weight"] = min(500.0, max(0.0, state["weight"]))
+        state["activity"] = min(500.0, max(0.0, state["activity"]))
+        state["acoustic"] = min(2000.0, max(0.0, state["acoustic"]))
         state["battery"] = max(2.0, state["battery"] - 0.05)
-        state["signal"] = min(-40.0, max(-95.0, state["signal"] + (_rng(device_id, 9) / 10.0 - 0.5)))
-        state["acoustic"] = min(420.0, max(150.0, state["acoustic"] + (4.0 if state["anomaly"] else 0.05)))
+        state["signal"] = min(-40.0, max(-95.0, state["signal"] + noise(19, 1.0)))
 
         payload = {
-            "temperature_c": round(state["temp"], 2),
-            "humidity_percent": round(state["humidity"], 2),
-            "hive_weight_kg": round(state["weight"], 2),
-            "bee_activity": round(state["activity"], 2),
-            "acoustic_frequency_hz": round(state["acoustic"], 2),
-            "battery_percent": round(state["battery"], 2),
+            "temperature_c": round(state["temp"], 2), "humidity_percent": round(state["humidity"], 2),
+            "hive_weight_kg": round(state["weight"], 2), "bee_activity": round(state["activity"], 2),
+            "acoustic_frequency_hz": round(state["acoustic"], 2), "battery_percent": round(state["battery"], 2),
             "signal_strength": round(state["signal"], 2),
         }
+        if state["fault"] or mode == "SENSOR_FAULT":
+            payload["temperature_c"] = None
         if custom:
-            merged = dict(payload)
-            for key, val in (custom or {}).items():
-                if val is not None and key != "extra":
-                    merged[key] = val
-            payload = merged
+            payload.update({k: v for k, v in custom.items() if v is not None and k != "extra"})
 
         from datetime import datetime, timedelta, timezone
-
         queued_count = len(self._queue.get(device_id, []))
         sequence = int(dev.get("sequence", 0)) + 1 + queued_count
         timestamp = (datetime.now(timezone.utc) + timedelta(seconds=_rng(device_id, 10) // 60)).isoformat()
-
         last = self._repo.list_telemetry_events(device_id, limit=1)
         previous_hash = device_chain_hash(int(last[0]["sequence"]), last[0]["payload_hash"]) if last else ""
-
         event = {
-            "event_id": f"{device_id}-{sequence}",
-            "device_id": device_id,
-            "sequence": sequence,
-            "timestamp": timestamp,
-            "payload": payload,
-            "payload_hash": "",
-            "previous_event_hash": previous_hash,
-            "signature": "",
+            "event_id": f"{device_id}-{sequence}", "device_id": device_id, "sequence": sequence,
+            "timestamp": timestamp, "payload": payload, "payload_hash": "",
+            "previous_event_hash": previous_hash, "signature": "",
         }
         key_pem = self._repo.get_iot_device(device_id).get("device_private_key_pem")
         if key_pem:
             event = IoTDeviceService.signed_event(event, key_pem)
-
         if mode == "OFFLINE":
-            # queue locally; do NOT touch the network path while offline
             self._queue.setdefault(device_id, []).append(event)
-            self._repo.update_iot_device(
-                device_id,
-                {"device_status": "OFFLINE", "last_seen": None},
-            )
+            self._repo.update_iot_device(device_id, {"device_status": "OFFLINE", "last_seen": None})
             return {**event, "queued": True}
         return self._ingestor.ingest_single(device_id, event)
 
@@ -599,6 +379,16 @@ class DeviceSimulator:
         }
         return report
 
+    def _reset_state(self, device_id: str) -> None:
+        self._state.pop(device_id, None)
+        self._queue.pop(device_id, None)
+        self._ingestor.ml_engine.reset(device_id)
+        self._repo.update_iot_device(device_id, {
+            "sequence": 0, "event_count": 0, "battery_percent": 100.0,
+            "signal_strength": -60.0, "last_seen": None,
+            "device_status": "ONLINE", "mode": "NORMAL",
+        })
+
     def simulator_status(self) -> list[dict[str, Any]]:
         out = []
         for d in self._repo.list_iot_devices():
@@ -617,6 +407,7 @@ class DeviceSimulator:
                     "last_seen": d.get("last_seen"),
                     "pending_events": len(self._queue.get(d["device_id"], [])),
                     "is_simulated": bool(d.get("is_simulated", True)),
+                    "ml": self._ingestor.ml_engine.latest_for(d["device_id"]),
                 }
             )
         return out
