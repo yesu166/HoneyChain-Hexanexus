@@ -6,7 +6,6 @@ void main() {
   const requiredLanguages = ['en', 'hi', 'bn', 'pa', 'ta', 'ml', 'mr'];
 
   const coreKeys = [
-    'app.title',
     'app.subtitle',
     'nav.home',
     'nav.hives',
