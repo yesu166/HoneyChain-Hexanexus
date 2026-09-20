@@ -66,8 +66,8 @@ class HomeTab extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _ActionTile(
-                      title: store.tr('home.record.harvest'),
-                      subtitle: store.tr('home.record.harvest.sub'),
+                      title: store.tr('home.record.harvest.sub'),
+                      subtitle: store.tr('home.record.harvest'),
                       icon: Icons.water_drop_rounded,
                       colors: const [Color(0xFFF2B53D), Color(0xFFD98217)],
                       onTap: () => Navigator.of(context).push(
@@ -289,28 +289,50 @@ class _Hero extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 18),
-                Row(
-                  children: [
-                    _HeroMetric(value: store.hives.length.toString(), label: 'Hives'),
-                    _HeroDivider(),
-                    _HeroMetric(value: healthy.toString(), label: 'Healthy'),
-                    _HeroDivider(),
-                    _HeroMetric(value: attention.toString(), label: 'Attention'),
-                    const Spacer(),
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.22),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.auto_awesome_rounded,
-                        color: AppTheme.ink,
-                        size: 24,
-                      ),
-                    ),
-                  ],
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 330;
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: _HeroMetric(
+                            value: store.hives.length.toString(),
+                            label: 'Hives',
+                          ),
+                        ),
+                        if (!compact) _HeroDivider(),
+                        Expanded(
+                          child: _HeroMetric(
+                            value: healthy.toString(),
+                            label: 'Healthy',
+                          ),
+                        ),
+                        if (!compact) _HeroDivider(),
+                        Expanded(
+                          child: _HeroMetric(
+                            value: attention.toString(),
+                            label: 'Attention',
+                          ),
+                        ),
+                        if (!compact) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.auto_awesome_rounded,
+                              color: AppTheme.ink,
+                              size: 21,
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
