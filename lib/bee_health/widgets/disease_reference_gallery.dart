@@ -86,7 +86,7 @@ class DiseaseReferenceGallery extends StatelessWidget {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: _items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (context, index) {
                 final item = _items[index];
                 return SizedBox(
@@ -99,7 +99,7 @@ class DiseaseReferenceGallery extends StatelessWidget {
                         Image.network(
                           item.url,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
+                          errorBuilder: (_, _, _) => Container(
                             color: AppTheme.cardWarm,
                             alignment: Alignment.center,
                             child: const Icon(
