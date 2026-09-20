@@ -69,7 +69,7 @@ class ProfileTab extends StatelessWidget {
                     border: Border.all(color: AppTheme.border),
                   ),
                   child: Text(
-                    'Producer ID · ${store.producerId}',
+                    '${store.tr('profile.producer.label')} · ${store.producerId}',
                     style: const TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
