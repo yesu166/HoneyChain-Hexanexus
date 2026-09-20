@@ -165,7 +165,7 @@ class LocalHoneychainRepository implements HoneychainRepository {
       code: 'HC-TN-00128',
       organizationId: 'ORG-TN-001',
       honeyType: 'Multi-Flora',
-      origin: 'Nilgiris, Tamil Nadu',
+      origin: 'Local Apiary',
       quantityKg: 81.4,
       createdAt: DateTime(2026, 8, 23),
       status: BatchStatus.completed,
