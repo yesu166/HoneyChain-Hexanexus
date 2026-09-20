@@ -754,24 +754,10 @@ class _TelemetryCard extends StatelessWidget {
             ),
           if (hasData) ...[
             const SizedBox(height: 13),
-            Row(
-              children: [
-                const Icon(
-                  Icons.schedule_rounded,
-                  color: Color(0xB8FFFFFF),
-                  size: 14,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  'Updated ${_relative(r.recordedAt)}',
-                  style: const TextStyle(
-                    color: Color(0xB8FFFFFF),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Spacer(),
-                Text(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 300;
+                final status = Text(
                   healthy ? 'Within range' : 'Needs review',
                   style: TextStyle(
                     color: healthy
@@ -780,8 +766,47 @@ class _TelemetryCard extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
-                ),
-              ],
+                );
+                final updated = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.schedule_rounded,
+                      color: Color(0xB8FFFFFF),
+                      size: 14,
+                    ),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        'Updated ${_relative(r.recordedAt)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xB8FFFFFF),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+                return compact
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          updated,
+                          const SizedBox(height: 5),
+                          status,
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(child: updated),
+                          const SizedBox(width: 8),
+                          status,
+                        ],
+                      );
+              },
             ),
           ],
         ],
