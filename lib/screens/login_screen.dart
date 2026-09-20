@@ -153,6 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 error: _backendError,
                 onSignIn: _verifyBackend,
               ),
+            ],
             const SizedBox(height: 20),
             SectionLabel(store.tr('phone.label')),
             TextField(
@@ -281,6 +282,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
+            ],
           ],
         ),
       ),
@@ -436,6 +438,14 @@ class _BackendSignInForm extends StatelessWidget {
             hintText: 'Password',
             prefixIcon: const Icon(Icons.lock_outline,
                 color: AppTheme.inkFaint, size: 20),
+            suffixIcon: IconButton(
+              tooltip: _showPassword ? 'Hide password' : 'Show password',
+              onPressed: () => setState(() => _showPassword = !_showPassword),
+              icon: Icon(
+                _showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                color: AppTheme.inkFaint,
+              ),
+            ),
             filled: true,
             fillColor: AppTheme.card,
             hintStyle: const TextStyle(
