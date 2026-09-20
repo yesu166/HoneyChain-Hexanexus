@@ -88,7 +88,7 @@ void main() {
       for (final entry in placeholders.entries) {
         final value = AppStrings.of(language, entry.key);
         for (final token in entry.value) {
-          expect(value, contains(token), reason: language + ' lost ' + token + ' in ' + entry.key);
+          expect(value, contains(token), reason: '$language lost $token in ${entry.key}');
         }
       }
     }
