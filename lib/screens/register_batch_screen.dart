@@ -14,7 +14,7 @@ class RegisterBatchScreen extends StatefulWidget {
 class _RegisterBatchScreenState extends State<RegisterBatchScreen> {
   final formKey = GlobalKey<FormState>();
 
-  final nameController = TextEditingController(text: 'Ravi Kumar');
+  final nameController = TextEditingController(text: 'Beekeeper');
   final originController = TextEditingController(text: 'Tamil Nadu');
   final honeyController = TextEditingController(text: 'Multifloral Honey');
   final quantityController = TextEditingController(text: '25');
