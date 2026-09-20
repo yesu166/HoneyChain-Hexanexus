@@ -154,6 +154,27 @@ class _LoginScreenState extends State<LoginScreen> {
                 onSignIn: _verifyBackend,
               ),
             ] else ...[
+            if (HoneyChainStore.testMode) ...[
+              const SizedBox(height: 4),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: FilledButton.icon(
+                  onPressed: _busy ? null : () => store.completeLogin(
+                    phone: '',
+                    name: store.profile.name.trim().isEmpty ? 'Beekeeper' : store.profile.name.trim(),
+                  ),
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 19),
+                  label: const Text('Continue as Beekeeper', style: TextStyle(fontWeight: FontWeight.w800)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Local test mode — no server credentials required.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: AppTheme.inkFaint),
+              ),
+            ],
             const SizedBox(height: 20),
             SectionLabel(store.tr('phone.label')),
             TextField(
