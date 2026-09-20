@@ -1,40 +1,33 @@
 import 'package:flutter/material.dart';
 
-/// HoneyChain visual language — simple agricultural utility app.
-/// WHITE (#FFFFFF) dominant background, honey-gold accent palette, green
-/// success, red only for urgent problems. Rounded cards/buttons, subtle gray
-/// borders + soft shadows.
+/// HoneyChain light visual system.
+///
+/// The palette is intentionally warm and agricultural: soft cream surfaces,
+/// honey amber for primary actions, deep brown ink, green for healthy state,
+/// and red only for attention. Existing semantic names are retained so the
+/// rest of the application does not need a logic rewrite.
 class AppTheme {
-  // Surfaces
-  static const Color cream = Color(0xFFFFFFFF); // WHITE dominant background (#section-29)
-  static const Color card = Color(0xFFFFFFFF); // white cards
-  static const Color cardWarm = Color(0xFFFFF7E9); // warm tinted surface
-
-  /// White page background (legacy alias kept for existing screens).
+  static const Color cream = Color(0xFFFFFBF4);
+  static const Color card = Color(0xFFFFFFFF);
+  static const Color cardWarm = Color(0xFFFFF5E3);
   static const Color bg = cream;
 
-  /// Honey-gold accent (palette accent; used for selections/indicators/highlights).
-  static const Color honeyGold = Color(0xFFE8A33D);
-
-  /// Warm tinted card surface (legacy alias kept for existing screens).
+  static const Color honeyGold = Color(0xFFF0AE32);
   static const Color cardCream = cardWarm;
 
-  // Text
-  static const Color ink = Color(0xFF2E2417); // dark brown primary text
-  static const Color inkSoft = Color(0xFF6E6558); // muted text
-  static const Color inkFaint = Color(0xFF978E7F); // faint labels
+  static const Color ink = Color(0xFF2E2417);
+  static const Color inkSoft = Color(0xFF6E6558);
+  static const Color inkFaint = Color(0xFF978E7F);
 
-  // Semantic
-  static const Color orange = Color(0xFFE8640E); // primary action/accent
+  static const Color orange = Color(0xFFE8640E);
   static const Color orangeDark = Color(0xFFD2540A);
   static const Color orangeSoft = Color(0x1FE8640E);
-  static const Color green = Color(0xFF2E7D32); // healthy / success / confirm
+  static const Color green = Color(0xFF2E7D32);
   static const Color greenDark = Color(0xFF256428);
   static const Color greenSoft = Color(0x1A2E7D32);
-  static const Color red = Color(0xFFC93A3A); // urgent problems only
+  static const Color red = Color(0xFFC93A3A);
   static const Color redSoft = Color(0x14C93A3A);
 
-  // Legacy honey accents (kept for existing role screens/widgets)
   static const Color honey = Color(0xFFE8A33D);
   static const Color honeyDark = Color(0xFFB97B1B);
   static const Color teal = Color(0xFF00897B);
@@ -42,9 +35,11 @@ class AppTheme {
   static const Color purple = Color(0xFF5E35B1);
   static const Color grey = Color(0xFF757575);
 
-  static const Color border = Color(0x1F000000);
-  static const BorderRadius radiusCard = BorderRadius.all(Radius.circular(18));
-  static const BorderRadius radiusField = BorderRadius.all(Radius.circular(14));
+  static const Color border = Color(0x1A2E2417);
+  static const BorderRadius radiusCard =
+      BorderRadius.all(Radius.circular(18));
+  static const BorderRadius radiusField =
+      BorderRadius.all(Radius.circular(14));
 
   static const BoxShadow shadowCard = BoxShadow(
     color: Color(0x12000000),
@@ -58,13 +53,14 @@ class AppTheme {
       primary: honeyGold,
       surface: card,
     );
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: Color(0xFFFFFFFF),
+      scaffoldBackgroundColor: cream,
       fontFamily: 'Roboto',
       appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFFFFFFFF),
+        backgroundColor: cream,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
@@ -91,10 +87,18 @@ class AppTheme {
           fontSize: 19,
           fontWeight: FontWeight.w800,
         ),
-        titleMedium: TextStyle(color: ink, fontSize: 16, fontWeight: FontWeight.w700),
+        titleMedium: TextStyle(
+          color: ink,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+        ),
         bodyLarge: TextStyle(color: ink, fontSize: 16),
         bodyMedium: TextStyle(color: ink, fontSize: 14, height: 1.35),
-        labelMedium: TextStyle(color: ink, fontSize: 13, fontWeight: FontWeight.w600),
+        labelMedium: TextStyle(
+          color: ink,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       cardTheme: CardThemeData(
         color: card,
@@ -108,43 +112,57 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: honeyGold,
-          foregroundColor: AppTheme.ink,
+          foregroundColor: ink,
           elevation: 0,
           minimumSize: const Size(0, 54),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppTheme.honeyDark,
-          side: const BorderSide(color: AppTheme.honeyGold),
+          foregroundColor: honeyDark,
+          side: const BorderSide(color: honeyGold),
           minimumSize: const Size(0, 50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppTheme.honeyDark,
+          foregroundColor: honeyDark,
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
       chipTheme: ChipThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(999),
+        ),
         side: BorderSide.none,
-        selectedColor: AppTheme.honeyGold,
+        selectedColor: honeyGold,
         labelStyle: const TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,
-          color: AppTheme.inkSoft,
+          color: inkSoft,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: card,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: radiusField,
           borderSide: const BorderSide(color: border),
@@ -155,20 +173,28 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: radiusField,
-          borderSide: const BorderSide(color: AppTheme.honeyGold, width: 1.6),
+          borderSide: const BorderSide(color: honeyGold, width: 1.6),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: radiusField,
-          borderSide: const BorderSide(color: AppTheme.red),
+          borderSide: const BorderSide(color: red),
         ),
-        labelStyle: const TextStyle(color: AppTheme.inkSoft, fontWeight: FontWeight.w600),
+        labelStyle: const TextStyle(
+          color: inkSoft,
+          fontWeight: FontWeight.w600,
+        ),
       ),
-      dividerTheme: const DividerThemeData(color: border, thickness: 1),
+      dividerTheme: const DividerThemeData(
+        color: border,
+        thickness: 1,
+      ),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: Color(0xFF2E2417),
+        backgroundColor: ink,
         contentTextStyle: TextStyle(color: Colors.white),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(14))),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(14)),
+        ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: card,
@@ -187,8 +213,8 @@ class AppTheme {
           (states) => IconThemeData(
             size: 24,
             color: states.contains(WidgetState.selected)
-                ? AppTheme.honeyDark
-                : AppTheme.inkFaint,
+                ? honeyDark
+                : inkFaint,
           ),
         ),
         labelTextStyle: WidgetStateProperty.resolveWith(
@@ -196,14 +222,13 @@ class AppTheme {
             fontSize: 11,
             fontWeight: FontWeight.w700,
             color: states.contains(WidgetState.selected)
-                ? AppTheme.honeyDark
-                : AppTheme.inkFaint,
+                ? honeyDark
+                : inkFaint,
           ),
         ),
       ),
     );
   }
 
-  /// Soft tint used behind decorative icons.
   static Color tint(Color c) => c.withValues(alpha: 0.14);
 }
