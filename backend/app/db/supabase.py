@@ -1808,8 +1808,13 @@ def build_repository() -> Repository:
         return SupabaseRepository(
             settings.supabase_url, settings.supabase_service_role_key
         )
+    if settings.is_production:
+        raise RuntimeError(
+            "Production requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY; "
+            "refusing to start with the in-memory repository."
+        )
     log.warning(
         "No SUPABASE_SERVICE_ROLE_KEY configured — using in-memory repository "
-        "(safe for local dev/tests; switch to SupabaseRepository for production)."
+        "(development/test only)."
     )
     return DemoSeededRepository()
