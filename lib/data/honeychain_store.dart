@@ -828,7 +828,7 @@ class HoneyChainStore extends ChangeNotifier {
           ? hive.organizationId
           : 'ORG-TN-001',
       origin:
-          hive.location.isNotEmpty ? hive.location : 'Nilgiris, Tamil Nadu',
+          hive.location.isNotEmpty ? hive.location : 'Local Apiary',
       honeyType: cleanSource,
       quantityKg: quantityKg,
       createdAt: harvestedAt,
