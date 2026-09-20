@@ -74,7 +74,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // First-launch role gate -> Beekeeper.
-    await tester.tap(find.text('Beekeeper'));
+    await tester.tap(find.byKey(const ValueKey('role-beekeeper')));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const ValueKey('login-phone')), '9876543210');
