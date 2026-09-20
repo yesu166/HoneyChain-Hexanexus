@@ -176,6 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 20),
             SectionLabel(store.tr('phone.label')),
             TextField(
+              key: const ValueKey('login-phone'),
               controller: _phone,
               keyboardType: TextInputType.phone,
               inputFormatters: [
@@ -226,6 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     height: 60,
                     margin: EdgeInsets.only(right: i < 3 ? 12 : 0),
                     child: TextField(
+                      key: ValueKey('login-otp-$i'),
                       controller: _otp[i],
                       focusNode: _otpFocus[i],
                       keyboardType: TextInputType.number,
