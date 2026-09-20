@@ -24,7 +24,15 @@ class _MainShellState extends State<MainShell> {
       listenable: store,
       builder: (context, _) => Scaffold(
         backgroundColor: AppTheme.bg,
-        body: IndexedStack(
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [AppTheme.bg, Color(0xFFFFF8ED)],
+            ),
+          ),
+          child: IndexedStack(
           index: _index,
           children: [
             HomeTab(
@@ -52,21 +60,34 @@ class _MainShellState extends State<MainShell> {
             const VoiceHarvestScreen(),
             const MoreTab(),
           ],
+          ),
         ),
         bottomNavigationBar: SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-            child: NavigationBar(
-              selectedIndex: _index,
-              onDestinationSelected: (i) => setState(() => _index = i),
-              backgroundColor: AppTheme.card,
-              surfaceTintColor: Colors.transparent,
-              height: 72,
-              elevation: 8,
-              shadowColor: Colors.black.withValues(alpha: 0.10),
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-              destinations: [
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppTheme.card.withValues(alpha: 0.97),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppTheme.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.10),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: NavigationBar(
+                selectedIndex: _index,
+                onDestinationSelected: (i) => setState(() => _index = i),
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                height: 70,
+                elevation: 0,
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                destinations: [
                 NavigationDestination(
                   icon: const Icon(Icons.home_outlined),
                   selectedIcon: const Icon(Icons.home_rounded),
