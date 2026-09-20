@@ -155,6 +155,13 @@ class SimulatorDeviceStatus {
     required this.deviceStatus,
     required this.pendingEvents,
     this.lastEventAt,
+    this.mlStatus = 'NORMAL',
+    this.mlScore,
+    this.mlAnomaly = false,
+    this.mlEvidence = const [],
+    this.mlReason = '',
+    this.mlRecommendation = '',
+    this.mlPersistenceObservations = 0,
   });
 
   final String deviceId;
@@ -162,15 +169,37 @@ class SimulatorDeviceStatus {
   final String deviceStatus;
   final int pendingEvents;
   final String? lastEventAt;
+  final String mlStatus;
+  final double? mlScore;
+  final bool mlAnomaly;
+  final List<String> mlEvidence;
+  final String mlReason;
+  final String mlRecommendation;
+  final int mlPersistenceObservations;
 
-  factory SimulatorDeviceStatus.fromJson(Map<String, dynamic> json) =>
-      SimulatorDeviceStatus(
-        deviceId: json['device_id'] as String? ?? '',
-        mode: json['mode'] as String? ?? 'STOPPED',
-        deviceStatus: json['device_status'] as String? ?? 'OFFLINE',
-        pendingEvents: json['pending_events'] as int? ?? 0,
-        lastEventAt: json['last_event_at'] as String?,
-      );
+  factory SimulatorDeviceStatus.fromJson(Map<String, dynamic> json) {
+    final ml = json['ml'] is Map
+        ? Map<String, dynamic>.from(json['ml'] as Map)
+        : const <String, dynamic>{};
+    return SimulatorDeviceStatus(
+      deviceId: json['device_id'] as String? ?? '',
+      mode: json['mode'] as String? ?? 'STOPPED',
+      deviceStatus: json['device_status'] as String? ?? 'OFFLINE',
+      pendingEvents: json['pending_events'] as int? ?? 0,
+      lastEventAt: json['last_event_at'] as String?,
+      mlStatus: ml['status'] as String? ?? 'NORMAL',
+      mlScore: _asDouble(ml['score']),
+      mlAnomaly: ml['ml_anomaly'] as bool? ?? false,
+      mlEvidence: (ml['evidence'] as List?)
+              ?.whereType<String>()
+              .toList() ??
+          const [],
+      mlReason: ml['reason'] as String? ?? '',
+      mlRecommendation: ml['recommendation'] as String? ?? '',
+      mlPersistenceObservations:
+          ml['persistence_observations'] as int? ?? 0,
+    );
+  }
 }
 
 class BackendNotification {
