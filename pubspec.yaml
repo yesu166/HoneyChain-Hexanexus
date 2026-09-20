@@ -50,6 +50,7 @@ dependencies:
 
   # Canonical HTTP client for the FastAPI backend (Flutter -> HTTPS -> FastAPI).
   http: ^1.2.0
+  crypto: ^3.0.6
 
 dev_dependencies:
   flutter_test:
