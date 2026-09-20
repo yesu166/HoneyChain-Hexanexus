@@ -613,7 +613,10 @@ class _TelemetryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = reading;
     final hasData = r != null;
-    final healthy = r?.status == ReadingStatus.healthy;
+    final healthy = hasData && store.hives.any(
+      (hive) => hive.id == r!.hiveId &&
+          store.insightFor(hive).riskLevel == RiskLevel.healthy,
+    );
 
     return Container(
       padding: const EdgeInsets.fromLTRB(17, 17, 17, 15),
@@ -699,17 +702,17 @@ class _TelemetryCard extends StatelessWidget {
                 _TelemetryMetric(
                   icon: Icons.thermostat_rounded,
                   label: 'Temperature',
-                  value: r!.temperatureC.toStringAsFixed(1) + '°C',
+                  value: '${r.temperatureC.toStringAsFixed(1)}°C',
                 ),
                 _TelemetryMetric(
                   icon: Icons.water_drop_rounded,
                   label: 'Humidity',
-                  value: r.humidityPercent.toStringAsFixed(0) + '%',
+                  value: '${r.humidityPercent.toStringAsFixed(0)}%',
                 ),
                 _TelemetryMetric(
                   icon: Icons.monitor_weight_rounded,
                   label: 'Weight',
-                  value: r.weightKg.toStringAsFixed(1) + ' kg',
+                  value: '${r.weightKg.toStringAsFixed(1)} kg',
                 ),
               ],
             ),
@@ -724,7 +727,7 @@ class _TelemetryCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 5),
                 Text(
-                  'Updated ' + _relative(r!.recordedAt),
+                  'Updated ${_relative(r.recordedAt)}',
                   style: const TextStyle(
                     color: Color(0xB8FFFFFF),
                     fontSize: 11,
