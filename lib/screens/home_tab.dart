@@ -44,7 +44,7 @@ class HomeTab extends StatelessWidget {
               const SizedBox(height: 9),
               _AlertSurface(store: store, attention: attention),
               const SizedBox(height: 18),
-              const _SectionTitle(title: 'Quick actions'),
+              _SectionTitle(title: store.tr('home.quick.actions')),
               const SizedBox(height: 10),
               Row(
                 children: [
@@ -172,7 +172,7 @@ class _Header extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                store.isOnline ? 'Online' : 'Offline',
+                store.isOnline ? store.tr('status.online') : store.tr('status.offline'),
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
@@ -276,7 +276,7 @@ class _Hero extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  'Here is what your hive data is showing right now.',
+                  store.tr('home.greeting.sub'),
                   style: TextStyle(
                     color: AppTheme.ink.withValues(alpha: 0.68),
                     fontSize: 13,
@@ -292,21 +292,21 @@ class _Hero extends StatelessWidget {
                         Expanded(
                           child: _HeroMetric(
                             value: store.hives.length.toString(),
-                            label: 'Hives',
+                            label: store.tr('home.hives.metric'),
                           ),
                         ),
                         if (!compact) _HeroDivider(),
                         Expanded(
                           child: _HeroMetric(
                             value: healthy.toString(),
-                            label: 'Healthy',
+                            label: store.tr('home.healthy.metric'),
                           ),
                         ),
                         if (!compact) _HeroDivider(),
                         Expanded(
                           child: _HeroMetric(
                             value: attention.toString(),
-                            label: 'Attention',
+                            label: store.tr('home.attention.metric'),
                           ),
                         ),
                         if (!compact) ...[
