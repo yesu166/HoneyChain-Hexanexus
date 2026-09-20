@@ -86,7 +86,6 @@ class WhoAreYouScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             _RoleOption(
-              key: const ValueKey('role-beekeeper'),
               icon: Icons.person_outline,
               title: store.tr('role.beekeeper'),
               subtitle: store.tr('role.beekeeper.desc'),
