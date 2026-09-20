@@ -4,7 +4,6 @@ import '../bee_health/screens/bee_health_home_screen.dart';
 import '../data/honeychain_store.dart';
 import '../models/domain.dart';
 import '../theme/app_theme.dart';
-import '../widgets/sync_status_badge.dart';
 import 'bee_alert_detail_screen.dart';
 import 'record_harvest_screen.dart';
 
@@ -35,11 +34,6 @@ class HomeTab extends StatelessWidget {
             children: [
               _Header(store: store),
               const SizedBox(height: 10),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: SyncStatusBadge(),
-              ),
-              const SizedBox(height: 14),
               _Hero(
                 store: store,
                 healthy: healthy,
@@ -214,9 +208,16 @@ class _Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = store.profile.name.trim();
-    final first = name.isEmpty ? '' : ' ${name.split(' ').first}';
-    final greeting = '${store.tr('home.greeting')}$first';
+    final name = store.profile.name.trim().isEmpty
+        ? 'Beekeeper'
+        : store.profile.name.trim();
+    final first = name.split(' ').first;
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Good morning, $first'
+        : hour < 17
+            ? 'Good afternoon, $first'
+            : 'Good evening, $first';
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -281,7 +282,7 @@ class _Hero extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  'Here is what is happening across your hives.',
+                  'Here is what your hive data is showing right now.',
                   style: TextStyle(
                     color: AppTheme.ink.withValues(alpha: 0.68),
                     fontSize: 13,
@@ -685,7 +686,7 @@ class _TelemetryCard extends StatelessWidget {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Latest reading from your apiary',
+                      'Latest available hive telemetry',
                       style: TextStyle(
                         color: Color(0xB8FFFFFF),
                         fontSize: 11,
@@ -710,7 +711,7 @@ class _TelemetryCard extends StatelessWidget {
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'No hive telemetry recorded yet.',
+                'No live hive telemetry available yet.',
                 style: TextStyle(
                   color: Color(0xE6FFFFFF),
                   fontSize: 13,
