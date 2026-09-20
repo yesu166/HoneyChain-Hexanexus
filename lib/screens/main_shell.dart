@@ -34,11 +34,14 @@ class _MainShellState extends State<MainShell> {
                     backgroundColor: AppTheme.bg,
                     appBar: AppBar(
                       backgroundColor: AppTheme.bg,
+                      surfaceTintColor: Colors.transparent,
                       elevation: 0,
                       foregroundColor: AppTheme.ink,
                       title: Text(
                         store.tr('my.hives.title'),
-                        style: const TextStyle(fontWeight: FontWeight.w800),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                     body: const HivesTab(),
@@ -50,74 +53,82 @@ class _MainShellState extends State<MainShell> {
             const MoreTab(),
           ],
         ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
-          destinations: [
-            NavigationDestination(
-              icon: const Icon(Icons.home_outlined),
-              selectedIcon: const Icon(Icons.home_rounded),
-              label: store.tr('nav.home'),
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+            child: NavigationBar(
+              selectedIndex: _index,
+              onDestinationSelected: (i) => setState(() => _index = i),
+              backgroundColor: AppTheme.card,
+              surfaceTintColor: Colors.transparent,
+              height: 72,
+              elevation: 8,
+              shadowColor: Colors.black.withValues(alpha: 0.10),
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              destinations: [
+                NavigationDestination(
+                  icon: const Icon(Icons.home_outlined),
+                  selectedIcon: const Icon(Icons.home_rounded),
+                  label: store.tr('nav.home'),
+                ),
+                NavigationDestination(
+                  icon: _AskButton(selected: false),
+                  selectedIcon: _AskButton(selected: true),
+                  label: store.tr('voice.ask'),
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.more_horiz_rounded),
+                  selectedIcon: const Icon(Icons.menu_rounded),
+                  label: store.tr('nav.more'),
+                ),
+              ],
             ),
-            NavigationDestination(
-              icon: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0x1FE8A33D),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppTheme.honeyGold.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.mic_rounded, color: AppTheme.honeyDark, size: 20),
-                    SizedBox(width: 6),
-                    Text(
-                      'Ask',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.honeyDark,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              selectedIcon: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppTheme.honeyGold,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.mic_rounded, color: AppTheme.ink, size: 20),
-                    SizedBox(width: 6),
-                    Text(
-                      'Ask',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.ink,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              label: store.tr('voice.ask'),
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.more_horiz_rounded),
-              selectedIcon: const Icon(Icons.menu_rounded),
-              label: store.tr('nav.more'),
-            ),
-          ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _AskButton extends StatelessWidget {
+  const _AskButton({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: selected ? 52 : 46,
+      height: selected ? 52 : 46,
+      decoration: BoxDecoration(
+        gradient: selected
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFFFD76A), Color(0xFFE9A52D)],
+              )
+            : null,
+        color: selected ? null : AppTheme.orangeSoft,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: AppTheme.honeyGold.withValues(alpha: selected ? 0.0 : 0.35),
+        ),
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: AppTheme.honeyGold.withValues(alpha: 0.30),
+                  blurRadius: 12,
+                  offset: const Offset(0, 5),
+                ),
+              ]
+            : null,
+      ),
+      child: Icon(
+        Icons.mic_rounded,
+        color: selected ? AppTheme.ink : AppTheme.honeyDark,
+        size: 23,
       ),
     );
   }
