@@ -39,9 +39,7 @@ class _MainShellState extends State<MainShell> {
                       foregroundColor: AppTheme.ink,
                       title: Text(
                         store.tr('my.hives.title'),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.w900),
                       ),
                     ),
                     body: const HivesTab(),
@@ -79,22 +77,23 @@ class _MainShellState extends State<MainShell> {
                 elevation: 0,
                 labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
                 destinations: [
-                NavigationDestination(
-                  icon: const Icon(Icons.home_outlined),
-                  selectedIcon: const Icon(Icons.home_rounded),
-                  label: store.tr('nav.home'),
-                ),
-                NavigationDestination(
-                  icon: _AskButton(selected: false),
-                  selectedIcon: _AskButton(selected: true),
-                  label: store.tr('voice.ask'),
-                ),
-                NavigationDestination(
-                  icon: const Icon(Icons.more_horiz_rounded),
-                  selectedIcon: const Icon(Icons.menu_rounded),
-                  label: store.tr('nav.more'),
-                ),
-              ],
+                  NavigationDestination(
+                    icon: const Icon(Icons.home_outlined),
+                    selectedIcon: const Icon(Icons.home_rounded),
+                    label: store.tr('nav.home'),
+                  ),
+                  NavigationDestination(
+                    icon: _AskButton(selected: false),
+                    selectedIcon: _AskButton(selected: true),
+                    label: store.tr('voice.ask'),
+                  ),
+                  NavigationDestination(
+                    icon: const Icon(Icons.more_horiz_rounded),
+                    selectedIcon: const Icon(Icons.menu_rounded),
+                    label: store.tr('nav.more'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
