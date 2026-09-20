@@ -4,7 +4,7 @@ import '../models/domain.dart';
 /// Mirrors the reference UI narrative: generic beekeeper demo
 /// · Local Apiary · 4 hives.
 class DemoSeed {
-  static final now = DateTime.now()
+  static final now = DateTime.now();
 
   static const profile = BeekeeperProfile(
     name: 'Beekeeper',
