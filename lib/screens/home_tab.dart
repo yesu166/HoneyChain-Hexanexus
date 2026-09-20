@@ -30,21 +30,21 @@ class HomeTab extends StatelessWidget {
           bottom: false,
           child: ListView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 24),
             children: [
               _Header(store: store),
-              const SizedBox(height: 10),
+              const SizedBox(height: 14),
               _Hero(
                 store: store,
                 healthy: healthy,
                 attention: attention,
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 16),
               _SectionTitle(title: store.tr('home.alerts.title')),
               const SizedBox(height: 9),
               _AlertSurface(store: store, attention: attention),
-              const SizedBox(height: 22),
-              const _SectionTitle(title: 'Your apiary'),
+              const SizedBox(height: 18),
+              const _SectionTitle(title: 'Quick actions'),
               const SizedBox(height: 10),
               Row(
                 children: [
@@ -73,9 +73,9 @@ class HomeTab extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 18),
               _TelemetryCard(store: store, reading: latest),
-              const SizedBox(height: 22),
+              const SizedBox(height: 18),
               _HealthCard(
                 store: store,
                 onTap: () => Navigator.of(context).push(
@@ -83,12 +83,6 @@ class HomeTab extends StatelessWidget {
                     builder: (_) => const BeeHealthHomeScreen(),
                   ),
                 ),
-              ),
-              const SizedBox(height: 18),
-              _StatsRow(
-                hives: store.hives.length,
-                healthy: healthy,
-                harvests: store.harvestCount,
               ),
             ],
           ),
@@ -267,7 +261,7 @@ class _Hero extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 18, 18),
+            padding: const EdgeInsets.fromLTRB(20, 18, 18, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -275,7 +269,7 @@ class _Hero extends StatelessWidget {
                   greeting,
                   style: const TextStyle(
                     color: AppTheme.ink,
-                    fontSize: 25,
+                    fontSize: 23,
                     height: 1.05,
                     fontWeight: FontWeight.w900,
                   ),
@@ -289,7 +283,7 @@ class _Hero extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final compact = constraints.maxWidth < 330;
@@ -564,7 +558,7 @@ class _ActionTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
         child: Ink(
-          height: 142,
+          height: 126,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -580,7 +574,7 @@ class _ActionTile extends StatelessWidget {
               ),
             ],
           ),
-          padding: const EdgeInsets.fromLTRB(15, 15, 13, 13),
+          padding: const EdgeInsets.fromLTRB(14, 13, 12, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -686,7 +680,7 @@ class _TelemetryCard extends StatelessWidget {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Latest available hive telemetry',
+                      'Live sensor snapshot',
                       style: TextStyle(
                         color: Color(0xB8FFFFFF),
                         fontSize: 11,
@@ -865,12 +859,12 @@ class _HealthCard extends StatelessWidget {
               color: AppTheme.honeyGold.withValues(alpha: 0.24),
             ),
           ),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
           child: Row(
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: 46,
+                height: 46,
                 decoration: const BoxDecoration(
                   color: AppTheme.greenSoft,
                   shape: BoxShape.circle,
@@ -878,7 +872,7 @@ class _HealthCard extends StatelessWidget {
                 child: const Icon(
                   Icons.health_and_safety_rounded,
                   color: AppTheme.green,
-                  size: 27,
+                  size: 24,
                 ),
               ),
               const SizedBox(width: 13),
@@ -913,94 +907,6 @@ class _HealthCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({
-    required this.hives,
-    required this.healthy,
-    required this.harvests,
-  });
-
-  final int hives;
-  final int healthy;
-  final int harvests;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _Stat(value: hives.toString(), label: 'Hives', icon: Icons.hive_outlined),
-        const SizedBox(width: 9),
-        _Stat(
-          value: healthy.toString(),
-          label: 'Healthy',
-          icon: Icons.check_circle_outline_rounded,
-        ),
-        const SizedBox(width: 9),
-        _Stat(
-          value: harvests.toString(),
-          label: 'Harvests',
-          icon: Icons.water_drop_outlined,
-        ),
-      ],
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({
-    required this.value,
-    required this.label,
-    required this.icon,
-  });
-
-  final String value;
-  final String label;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppTheme.card,
-          borderRadius: BorderRadius.circular(17),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: AppTheme.honeyDark, size: 20),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      color: AppTheme.ink,
-                    ),
-                  ),
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.inkFaint,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );
