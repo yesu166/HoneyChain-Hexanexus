@@ -77,10 +77,10 @@ void main() {
     await tester.tap(find.text('Beekeeper'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField).first, '9876543210');
+    await tester.enterText(find.byKey(const ValueKey('login-phone')), '9876543210');
     await tester.pump();
     for (var i = 0; i < 4; i++) {
-      await tester.enterText(find.byType(TextField).at(i + 1), '${i + 1}');
+      await tester.enterText(find.byKey(ValueKey('login-otp-$i')), '${i + 1}');
       await tester.pump();
     }
 
@@ -185,9 +185,9 @@ void main() {
     await openLoggedInApp(tester);
 
     await openMoreItem(tester, 'Profile');
-    await see(tester, 'Ravi Kumar');
+    await see(tester, 'Beekeeper');
     await see(tester, 'Member ID: HC-9082');
-    await see(tester, 'Nilgiris Honey FPO');
+    await see(tester, 'Local Honey Cooperative');
     await see(tester, 'Logout');
 
     await tester.tap(find.text('Logout').first);
