@@ -44,8 +44,9 @@ from ..core.crypto import (
 from ..core.security import CurrentUser
 from ..db.supabase import Repository
 from .event_ledger import EventLedger
+from .honeychain_ml_service import HoneyChainML
 
-SIM_MODES = ("NORMAL", "ANOMALY", "OFFLINE", "RECOVERY", "BURST", "CUSTOM")
+SIM_MODES = ("NORMAL", "TEMPERATURE_STRESS", "HUMIDITY_STRESS", "WEIGHT_CHANGE", "ACOUSTIC_CHANGE", "COMBINED_STRESS", "PERSISTENT_ANOMALY", "SENSOR_FAULT", "RECOVERY", "OFFLINE", "RESET", "BURST", "CUSTOM")
 DEVICE_STATUSES = ("ONLINE", "OFFLINE", "SYNCING", "ERROR", "DISABLED")
 
 
@@ -375,6 +376,7 @@ class TelemetryIngestor:
             device_id=device_id,
             ts=ts,
         )
+        ml_result = self._ml.ingest(device_id, payload, timestamp=ts)
         alert_triggered = self._notifications.evaluate(device, row)
         return {
             "event_id": row["event_id"],
@@ -383,6 +385,13 @@ class TelemetryIngestor:
             "sequence": sequence,
             "hive_id": row["hive_id"],
             "alert_triggered": alert_triggered,
+            "ml_status": ml_result.get("status"),
+            "ml_score": ml_result.get("score"),
+            "ml_anomaly": bool(ml_result.get("ml_anomaly", False)),
+            "ml_evidence": ml_result.get("evidence", []),
+            "ml_reason": ml_result.get("reason", ""),
+            "ml_recommendation": ml_result.get("recommendation", ""),
+            "ml_persistence_observations": int(ml_result.get("persistence_observations", 0)),
             "reason": "",
         }
 
@@ -409,6 +418,7 @@ class DeviceSimulator:
         self._repo = repo
         self._ingestor = ingestor
         self._ledger = ledger
+        self._ml = HoneyChainML()
         self._state: dict[str, dict[str, Any]] = {}
         self._queue: dict[str, list[dict[str, Any]]] = {}
 
