@@ -33,33 +33,31 @@ class _MainShellState extends State<MainShell> {
             ),
           ),
           child: IndexedStack(
-          index: _index,
-          children: [
-            HomeTab(
-              onGoToHives: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => Scaffold(
-                    backgroundColor: AppTheme.bg,
-                    appBar: AppBar(
+            index: _index,
+            children: [
+              HomeTab(
+                onGoToHives: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => Scaffold(
                       backgroundColor: AppTheme.bg,
-                      surfaceTintColor: Colors.transparent,
-                      elevation: 0,
-                      foregroundColor: AppTheme.ink,
-                      title: Text(
-                        store.tr('my.hives.title'),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
+                      appBar: AppBar(
+                        backgroundColor: AppTheme.bg,
+                        surfaceTintColor: Colors.transparent,
+                        elevation: 0,
+                        foregroundColor: AppTheme.ink,
+                        title: Text(
+                          store.tr('my.hives.title'),
+                          style: const TextStyle(fontWeight: FontWeight.w900),
                         ),
                       ),
+                      body: const HivesTab(),
                     ),
-                    body: const HivesTab(),
                   ),
                 ),
               ),
-            ),
-            const VoiceHarvestScreen(),
-            const MoreTab(),
-          ],
+              const VoiceHarvestScreen(),
+              const MoreTab(),
+            ],
           ),
         ),
         bottomNavigationBar: SafeArea(
@@ -88,22 +86,23 @@ class _MainShellState extends State<MainShell> {
                 elevation: 0,
                 labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
                 destinations: [
-                NavigationDestination(
-                  icon: const Icon(Icons.home_outlined),
-                  selectedIcon: const Icon(Icons.home_rounded),
-                  label: store.tr('nav.home'),
-                ),
-                NavigationDestination(
-                  icon: _AskButton(selected: false),
-                  selectedIcon: _AskButton(selected: true),
-                  label: store.tr('voice.ask'),
-                ),
-                NavigationDestination(
-                  icon: const Icon(Icons.more_horiz_rounded),
-                  selectedIcon: const Icon(Icons.menu_rounded),
-                  label: store.tr('nav.more'),
-                ),
-              ],
+                  NavigationDestination(
+                    icon: const Icon(Icons.home_outlined),
+                    selectedIcon: const Icon(Icons.home_rounded),
+                    label: store.tr('nav.home'),
+                  ),
+                  NavigationDestination(
+                    icon: _AskButton(selected: false),
+                    selectedIcon: _AskButton(selected: true),
+                    label: store.tr('voice.ask'),
+                  ),
+                  NavigationDestination(
+                    icon: const Icon(Icons.more_horiz_rounded),
+                    selectedIcon: const Icon(Icons.menu_rounded),
+                    label: store.tr('nav.more'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -134,7 +133,9 @@ class _AskButton extends StatelessWidget {
         color: selected ? null : AppTheme.orangeSoft,
         shape: BoxShape.circle,
         border: Border.all(
-          color: AppTheme.honeyGold.withValues(alpha: selected ? 0.0 : 0.35),
+          color: AppTheme.honeyGold.withValues(
+            alpha: selected ? 0.0 : 0.35,
+          ),
         ),
         boxShadow: selected
             ? [
