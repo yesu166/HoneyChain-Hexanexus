@@ -977,7 +977,7 @@ class _MlStatusCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'ML STATUS · ' + _label(s.mlStatus),
+                  'ML STATUS · ${_label(s.mlStatus)}',
                   style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: color),
                 ),
                 if (s.mlReason.isNotEmpty) ...[
@@ -986,11 +986,11 @@ class _MlStatusCard extends StatelessWidget {
                 ],
                 if (s.mlEvidence.isNotEmpty) ...[
                   const SizedBox(height: 3),
-                  Text('Evidence: ' + s.mlEvidence.join(', '), style: const TextStyle(fontSize: 11, color: AppTheme.inkFaint)),
+                  Text('Evidence: ${s.mlEvidence.join(', ')}', style: const TextStyle(fontSize: 11, color: AppTheme.inkFaint)),
                 ],
                 if (s.mlRecommendation.isNotEmpty) ...[
                   const SizedBox(height: 3),
-                  Text('→ ' + s.mlRecommendation, style: const TextStyle(fontSize: 11, color: AppTheme.inkSoft)),
+                  Text('→ ${s.mlRecommendation}', style: const TextStyle(fontSize: 11, color: AppTheme.inkSoft)),
                 ],
               ],
             ),
