@@ -134,7 +134,7 @@ class LocalHoneychainRepository implements HoneychainRepository {
       Harvest(
         id: h1,
         hiveId: 'hive-001',
-        beekeeperId: 'user-ravi',
+        beekeeperId: 'user-beekeeper',
         harvestedAt: DateTime(2026, 8, 20),
         honeyType: 'Floral Honey',
         quantityKg: 28.4,
@@ -143,7 +143,7 @@ class LocalHoneychainRepository implements HoneychainRepository {
       Harvest(
         id: h2,
         hiveId: 'hive-002',
-        beekeeperId: 'user-ravi',
+        beekeeperId: 'user-beekeeper',
         harvestedAt: DateTime(2026, 8, 21),
         honeyType: 'Mustard Honey',
         quantityKg: 19.2,
@@ -152,7 +152,7 @@ class LocalHoneychainRepository implements HoneychainRepository {
       Harvest(
         id: h3,
         hiveId: 'hive-003',
-        beekeeperId: 'user-ravi',
+        beekeeperId: 'user-beekeeper',
         harvestedAt: DateTime(2026, 8, 22),
         honeyType: 'Neem Honey',
         quantityKg: 33.8,
