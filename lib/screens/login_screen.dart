@@ -381,7 +381,7 @@ class _LangCard extends StatelessWidget {
 /// Email/phone + password sign-in against the live FastAPI backend. Shown only
 /// when a backend URL is compiled in (see [ApiConfig]); the demo OTP flow stays
 /// the fallback for offline/untargeted builds.
-class _BackendSignInForm extends StatelessWidget {
+class _BackendSignInForm extends StatefulWidget {
   const _BackendSignInForm({
     required this.identifier,
     required this.password,
@@ -399,7 +399,20 @@ class _BackendSignInForm extends StatelessWidget {
   final VoidCallback onSignIn;
 
   @override
+  State<_BackendSignInForm> createState() => _BackendSignInFormState();
+}
+
+class _BackendSignInFormState extends State<_BackendSignInForm> {
+  bool _showPassword = false;
+
+  @override
   Widget build(BuildContext context) {
+    final identifier = widget.identifier;
+    final password = widget.password;
+    final passwordFocus = widget.passwordFocus;
+    final busy = widget.busy;
+    final error = widget.error;
+    final onSignIn = widget.onSignIn;
     return Column(
       children: [
         TextField(
