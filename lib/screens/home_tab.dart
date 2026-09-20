@@ -208,10 +208,10 @@ class _Hero extends StatelessWidget {
     final first = name.split(' ').first;
     final hour = DateTime.now().hour;
     final greeting = hour < 12
-        ? 'Good morning, $first'
+        ? store.tr('home.greeting.morning').replaceFirst('{name}', first)
         : hour < 17
-            ? 'Good afternoon, $first'
-            : 'Good evening, $first';
+            ? store.tr('home.greeting.afternoon').replaceFirst('{name}', first)
+            : store.tr('home.greeting.evening').replaceFirst('{name}', first);
 
     return Container(
       clipBehavior: Clip.antiAlias,
