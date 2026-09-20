@@ -8,7 +8,7 @@ class MockData {
     return const HoneyBatch(
       id: 'HC-2026-003',
       honeyType: 'Multifloral Honey',
-      beekeeper: 'Ravi Kumar',
+      beekeeper: 'Beekeeper',
       origin: 'Tamil Nadu',
       harvestDate: '24 Aug 2026',
       quantity: 25,
