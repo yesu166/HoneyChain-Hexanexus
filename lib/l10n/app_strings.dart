@@ -1303,6 +1303,11 @@ class AppStrings {
     'home.healthy.metric': 'সুস্থ',
     'home.attention.metric': 'মনোযোগ',
     'profile.producer.label': 'উৎপাদক আইডি',
+    'home.all.healthy': 'সব {count}টি মৌচাক সুস্থ আছে',
+    'home.my.hives.sub': '{count}টি মৌচাক · {healthy}টি সুস্থ',
+    'time.minutes.ago': '{n} মিনিট আগে',
+    'time.hours.ago': '{n} ঘণ্টা আগে',
+    'time.days.ago': '{n} দিন আগে',
   };
 
   static const _pa = <String, String>{
@@ -1414,6 +1419,11 @@ class AppStrings {
     'home.healthy.metric': 'ਸਿਹਤਮੰਦ',
     'home.attention.metric': 'ਧਿਆਨ',
     'profile.producer.label': 'ਉਤਪਾਦਕ ID',
+    'home.all.healthy': 'ਸਾਰੇ {count} ਛੱਤੇ ਸਿਹਤਮੰਦ ਹਨ',
+    'home.my.hives.sub': '{count} ਛੱਤੇ · {healthy} ਸਿਹਤਮੰਦ',
+    'time.minutes.ago': '{n} ਮਿੰਟ ਪਹਿਲਾਂ',
+    'time.hours.ago': '{n} ਘੰਟੇ ਪਹਿਲਾਂ',
+    'time.days.ago': '{n} ਦਿਨ ਪਹਿਲਾਂ',
   };
 
   static const _ml = <String, String>{
@@ -1525,6 +1535,11 @@ class AppStrings {
     'home.healthy.metric': 'ആരോഗ്യകരം',
     'home.attention.metric': 'ശ്രദ്ധ',
     'profile.producer.label': 'ഉൽപ്പാദക ID',
+    'home.all.healthy': 'എല്ലാ {count} കൂടുകളും ആരോഗ്യകരമാണ്',
+    'home.my.hives.sub': '{count} കൂടുകൾ · {healthy} ആരോഗ്യകരം',
+    'time.minutes.ago': '{n} മിനിറ്റ് മുമ്പ്',
+    'time.hours.ago': '{n} മണിക്കൂർ മുമ്പ്',
+    'time.days.ago': '{n} ദിവസം മുമ്പ്',
   };
 
   static const _mr = <String, String>{
@@ -1636,6 +1651,11 @@ class AppStrings {
     'home.healthy.metric': 'निरोगी',
     'home.attention.metric': 'लक्ष',
     'profile.producer.label': 'उत्पादक ID',
+    'home.all.healthy': 'सर्व {count} पेट्या निरोगी आहेत',
+    'home.my.hives.sub': '{count} पेट्या · {healthy} निरोगी',
+    'time.minutes.ago': '{n} मिनिटांपूर्वी',
+    'time.hours.ago': '{n} तासांपूर्वी',
+    'time.days.ago': '{n} दिवसांपूर्वी',
   };
 
   static const _ta = <String, String>{
