@@ -1,35 +1,21 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from .adapters.ai.base import build_risk_engine
 from .adapters.blockchain.gateway import build_blockchain_gateway
 from .api.deps import build_services_live
 from .api.routes import (
-    auth,
-    assertions,
-    batches,
-    blockchain,
-    certificates,
-    custody,
-    evidence,
-    harvests,
-    health,
-    hives,
-    iot,
-    labs,
-    lineage,
-    notifications,
-    org,
-    passport,
-    platform_orgs,
-    sync,
-    tamper,
+    auth, assertions, batches, blockchain, certificates, custody, evidence,
+    harvests, health, hives, iot, labs, lineage, notifications, org,
+    passport, platform_orgs, sync, tamper,
 )
 from .core.config import get_settings
 from .core.logging import configure_logging, get_logger
@@ -46,27 +32,18 @@ app = FastAPI(
     redoc_url=None if get_settings().is_production else None,
 )
 
-
 @app.middleware("http")
 async def _request_logging(request: Request, call_next: Any):
     start = time.perf_counter()
     response = await call_next(request)
     duration_ms = (time.perf_counter() - start) * 1000
-    log.info(
-        "%s %s -> %s (%.1fms)",
-        request.method,
-        request.url.path,
-        response.status_code,
-        duration_ms,
-    )
+    log.info("%s %s -> %s (%.1fms)", request.method, request.url.path, response.status_code, duration_ms)
     return response
-
 
 @app.exception_handler(Exception)
 async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
     log.exception("unhandled error on %s %s", request.method, request.url.path)
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
-
 
 @app.on_event("startup")
 def _startup() -> None:
@@ -79,48 +56,24 @@ def _startup() -> None:
     app.state.blockchain = gateway
     app.state.risk_engine = build_risk_engine(settings.ai_adapter)
     app.state.settings = settings
-    log.info(
-        "HoneyChain API started | env=%s | db=%s | ledger=%s | ai=%s",
-        settings.api_env,
-        type(repo).__name__,
-        gateway.ledger_name,
-        settings.ai_adapter,
-    )
-
+    log.info("HoneyChain API started | env=%s | db=%s | ledger=%s | ai=%s", settings.api_env, type(repo).__name__, gateway.ledger_name, settings.ai_adapter)
 
 settings = get_settings()
 if settings.cors_origins:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 for router in (
-    health.router,
-    auth.router,
-    hives.router,
-    harvests.router,
-    batches.router,
-    labs.router,
-    custody.router,
-    passport.router,
-    sync.router,
-    evidence.router,
-    certificates.router,
-    lineage.router,
-    blockchain.router,
-    tamper.router,
-    iot.router,
-    notifications.router,
-    org.router,
-    platform_orgs.router,
-    assertions.router,
+    health.router, auth.router, hives.router, harvests.router, batches.router,
+    labs.router, custody.router, passport.router, sync.router, evidence.router,
+    certificates.router, lineage.router, blockchain.router, tamper.router, iot.router,
+    notifications.router, org.router, platform_orgs.router, assertions.router,
 ):
     app.include_router(router)
 
+# Additive live operations portal. The existing Flutter/web structure is untouched.
+_PORTAL_DIR = Path(__file__).resolve().parents[2] / "portal"
+if _PORTAL_DIR.is_dir():
+    app.mount("/portal", StaticFiles(directory=_PORTAL_DIR, html=True), name="portal")
 
 @app.get("/health")
 async def liveness() -> dict[str, str]:
