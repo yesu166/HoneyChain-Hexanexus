@@ -108,7 +108,7 @@ class BatchService {
       status: BatchStatus.created,
     );
     repository.addBatch(batch, harvests.map((harvest) => BatchHarvest(batchId: batch.id, harvestId: harvest.id, quantityKg: harvest.quantityKg)).toList());
-    repository.addEvent(AuditEvent(id: 'event-$sequence-created', batchId: batch.id, type: 'CREATED', actor: 'Nilgiris Honey FPO', recordedAt: created, description: 'Batch ${batch.code} created (${quantityKg.toStringAsFixed(1)} kg).'));
+    repository.addEvent(AuditEvent(id: 'event-$sequence-created', batchId: batch.id, type: 'CREATED', actor: 'Local Honey Cooperative', recordedAt: created, description: 'Batch ${batch.code} created (${quantityKg.toStringAsFixed(1)} kg).'));
     return batch;
   }
 
