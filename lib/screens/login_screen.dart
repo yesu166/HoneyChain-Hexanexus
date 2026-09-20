@@ -144,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
             _LanguageSelector(),
             if (_backendEnabled) ...[
               const SizedBox(height: 26),
-              const Text('Beekeeper sign in', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppTheme.ink)),
+              Text(store.tr('login.beekeeper.signin'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppTheme.ink)),
               _BackendSignInForm(
                 identifier: _identifier,
                 password: _password,
@@ -165,12 +165,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     name: store.profile.name.trim().isEmpty ? 'Beekeeper' : store.profile.name.trim(),
                   ),
                   icon: const Icon(Icons.arrow_forward_rounded, size: 19),
-                  label: const Text('Continue as Beekeeper', style: TextStyle(fontWeight: FontWeight.w800)),
+                  label: Text(store.tr('login.continue.beekeeper'), style: const TextStyle(fontWeight: FontWeight.w800)),
                 ),
               ),
               const SizedBox(height: 10),
               const Text(
-                'Local test mode — no server credentials required.',
+                store.tr('login.local.test'),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 11, color: AppTheme.inkFaint),
               ),
@@ -319,18 +319,19 @@ class _LanguageSelector extends StatelessWidget {
       listenable: store,
       builder: (context, _) {
         final current = store.language;
-        return Row(
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
           children: [
-            for (final lang in AppLanguages.all) ...[
-              Expanded(
+            for (final lang in AppLanguages.all)
+              SizedBox(
+                width: (MediaQuery.sizeOf(context).width - 58) / 2,
                 child: _LangCard(
                   lang: lang,
                   selected: lang.code == current,
                   onTap: () => store.setLanguage(lang.code),
                 ),
               ),
-              if (lang != AppLanguages.all.last) const SizedBox(width: 10),
-            ],
           ],
         );
       },
