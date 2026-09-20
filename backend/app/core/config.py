@@ -47,7 +47,7 @@ class Settings:
 
         # Blockchain + AI adapters.
         self.blockchain_adapter: str = os.getenv(
-            "BLOCKCHAIN_ADAPTER", "simulated"
+            "BLOCKCHAIN_ADAPTER", "fabric" if self.is_production else "local"
         )
         self.blockchain_rpc_url: str = os.getenv("BLOCKCHAIN_RPC_URL", "")
         self.blockchain_chain_id: str = os.getenv("BLOCKCHAIN_CHAIN_ID", "")
