@@ -383,11 +383,10 @@ class IoTDeviceService:
         self._state.pop(device_id, None)
         self._queue.pop(device_id, None)
         self._ingestor.ml_engine.reset(device_id)
-        self._repo.update_iot_device(device_id, {
-            "sequence": 0, "event_count": 0, "battery_percent": 100.0,
-            "signal_strength": -60.0, "last_seen": None,
-            "device_status": "ONLINE", "mode": "NORMAL",
-        })
+        self._repo.update_iot_device(
+            device_id,
+            {"battery_percent": 100.0, "signal_strength": -60.0, "device_status": "ONLINE", "mode": "NORMAL"},
+        )
 
     def simulator_status(self) -> list[dict[str, Any]]:
         out = []
