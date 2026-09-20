@@ -396,6 +396,11 @@ class TelemetryIngestor:
         }
 
 
+    @property
+    def ml_engine(self) -> HoneyChainML:
+        return self._ml
+
+
 # ---------------------------------------------------------------------------
 # Software IoT simulator
 # ---------------------------------------------------------------------------
