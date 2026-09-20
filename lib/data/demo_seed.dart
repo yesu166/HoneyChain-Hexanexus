@@ -1,45 +1,45 @@
 import '../models/domain.dart';
 
 /// Deterministic demo data for the beekeeper-facing HoneyChain app.
-/// Mirrors the reference UI narrative: Ravi Kumar · Nilgiris Honey FPO
-/// · Nilgiris, Tamil Nadu · 4 hives.
+/// Mirrors the reference UI narrative: generic beekeeper demo
+/// · Local Apiary · 4 hives.
 class DemoSeed {
-  static final now = DateTime(2026, 8, 28, 10);
+  static final now = DateTime.now()
 
   static const profile = BeekeeperProfile(
-    name: 'Ravi Kumar',
+    name: 'Beekeeper',
     memberId: 'HC-9082',
-    organizationName: 'Nilgiris Honey FPO',
-    location: 'Nilgiris, Tamil Nadu',
+    organizationName: 'Local Honey Cooperative',
+    location: 'Local Apiary',
     phone: '9876543210',
   );
 
   static const cluster = Cluster(
     id: 'cluster-tn-01',
-    name: 'Nilgiris Honey Cluster',
+    name: 'Local Honey Cluster',
     state: 'Tamil Nadu',
   );
   static const beekeeperOrg = Organization(
     id: 'org-beekeeper-01',
-    name: 'Ravi Kumar Apiary',
+    name: 'My Apiary',
     type: OrganizationType.fpo,
     clusterId: 'cluster-tn-01',
   );
   static const fpo = Organization(
     id: 'org-fpo-01',
-    name: 'Nilgiris Honey FPO',
+    name: 'Local Honey Cooperative',
     type: OrganizationType.fpo,
     clusterId: 'cluster-tn-01',
   );
   static const lab = Organization(
     id: 'org-lab-01',
-    name: 'Nilgiris Regional Laboratory',
+    name: 'Regional Honey Laboratory',
     type: OrganizationType.lab,
     clusterId: 'cluster-tn-01',
   );
   static const ravi = User(
-    id: 'user-ravi',
-    name: 'Ravi Kumar',
+    id: 'user-beekeeper',
+    name: 'Beekeeper',
     role: UserRole.beekeeper,
     organizationId: 'org-beekeeper-01',
   );
@@ -49,7 +49,7 @@ class DemoSeed {
   static const organizations = <Organization>[
     Organization(
       id: 'ORG-TN-001',
-      name: 'Nilgiris Honey FPO',
+      name: 'Local Honey Cooperative',
       type: OrganizationType.fpo,
       clusterId: 'cluster-tn-01',
     ),
@@ -71,10 +71,10 @@ class DemoSeed {
   /// one healthy, two flagged by the seeded alerts, and the anomalous hive the
   /// disease/IoT simulations exercise. No explosion of fake hives.
   static const hives = [
-    Hive(id: 'hive-001', name: 'Hive #1', detail: 'Mango Orchard', beekeeperId: 'user-ravi', organizationId: 'org-beekeeper-01', location: 'North Corner', honeyType: 'Floral Honey'),
-    Hive(id: 'hive-002', name: 'Hive #2', detail: 'Mustard Field', beekeeperId: 'user-ravi', organizationId: 'org-beekeeper-01', location: 'Near stream · East side', honeyType: 'Mustard Honey'),
-    Hive(id: 'hive-003', name: 'Hive #3', detail: 'Neem Grove', beekeeperId: 'user-ravi', organizationId: 'org-beekeeper-01', location: 'Center Block', honeyType: 'Neem Honey'),
-    Hive(id: 'hive-004', name: 'Hive #4', detail: 'Guava Patch', beekeeperId: 'user-ravi', organizationId: 'org-beekeeper-01', location: 'South Fence', honeyType: 'Wildflower Honey'),
+    Hive(id: 'hive-001', name: 'Hive #1', detail: 'Mango Orchard', beekeeperId: 'user-beekeeper', organizationId: 'org-beekeeper-01', location: 'North Corner', honeyType: 'Floral Honey'),
+    Hive(id: 'hive-002', name: 'Hive #2', detail: 'Mustard Field', beekeeperId: 'user-beekeeper', organizationId: 'org-beekeeper-01', location: 'Near stream · East side', honeyType: 'Mustard Honey'),
+    Hive(id: 'hive-003', name: 'Hive #3', detail: 'Neem Grove', beekeeperId: 'user-beekeeper', organizationId: 'org-beekeeper-01', location: 'Center Block', honeyType: 'Neem Honey'),
+    Hive(id: 'hive-004', name: 'Hive #4', detail: 'Guava Patch', beekeeperId: 'user-beekeeper', organizationId: 'org-beekeeper-01', location: 'South Fence', honeyType: 'Wildflower Honey'),
   ];
 
   static List<HiveReading> readingsFor(String hiveId) {
@@ -109,10 +109,10 @@ class DemoSeed {
   }
 
   static List<Harvest> get harvests => [
-    Harvest(id: 'harvest-001', hiveId: 'hive-001', beekeeperId: 'user-ravi', harvestedAt: DateTime(2026, 8, 12), honeyType: 'Floral Honey', quantityKg: 12),
-    Harvest(id: 'harvest-002', hiveId: 'hive-002', beekeeperId: 'user-ravi', harvestedAt: DateTime(2026, 8, 25), honeyType: 'Mustard Honey', quantityKg: 15),
-    Harvest(id: 'harvest-003', hiveId: 'hive-003', beekeeperId: 'user-ravi', harvestedAt: DateTime(2026, 7, 10), honeyType: 'Neem Honey', quantityKg: 10),
-    Harvest(id: 'harvest-004', hiveId: 'hive-004', beekeeperId: 'user-ravi', harvestedAt: DateTime(2026, 7, 5), honeyType: 'Wildflower Honey', quantityKg: 12),
+    Harvest(id: 'harvest-001', hiveId: 'hive-001', beekeeperId: 'user-beekeeper', harvestedAt: DateTime(2026, 8, 12), honeyType: 'Floral Honey', quantityKg: 12),
+    Harvest(id: 'harvest-002', hiveId: 'hive-002', beekeeperId: 'user-beekeeper', harvestedAt: DateTime(2026, 8, 25), honeyType: 'Mustard Honey', quantityKg: 15),
+    Harvest(id: 'harvest-003', hiveId: 'hive-003', beekeeperId: 'user-beekeeper', harvestedAt: DateTime(2026, 7, 10), honeyType: 'Neem Honey', quantityKg: 10),
+    Harvest(id: 'harvest-004', hiveId: 'hive-004', beekeeperId: 'user-beekeeper', harvestedAt: DateTime(2026, 7, 5), honeyType: 'Wildflower Honey', quantityKg: 12),
   ];
 
   static List<Batch> get batches => [
@@ -121,7 +121,7 @@ class DemoSeed {
       code: 'Batch #24',
       organizationId: 'org-fpo-01',
       honeyType: 'Mustard Honey',
-      origin: 'Nilgiris, Tamil Nadu',
+      origin: 'Local Apiary',
       quantityKg: 24,
       createdAt: DateTime(2026, 8, 12),
       status: BatchStatus.labVerified,
@@ -132,7 +132,7 @@ class DemoSeed {
       code: 'Batch #23',
       organizationId: 'org-fpo-01',
       honeyType: 'Floral Honey',
-      origin: 'Nilgiris, Tamil Nadu',
+      origin: 'Local Apiary',
       quantityKg: 18,
       createdAt: DateTime(2026, 8, 1),
       status: BatchStatus.labPending,
@@ -143,7 +143,7 @@ class DemoSeed {
       code: 'Batch #22',
       organizationId: 'org-fpo-01',
       honeyType: 'Neem Honey',
-      origin: 'Nilgiris, Tamil Nadu',
+      origin: 'Local Apiary',
       quantityKg: 32,
       createdAt: DateTime(2026, 7, 15),
       status: BatchStatus.labPending,
