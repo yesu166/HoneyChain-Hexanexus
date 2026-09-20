@@ -4,7 +4,7 @@
 
 **SIH26021 — Honey Chain:** A blockchain-based honey traceability and smart beekeeping platform designed for fragmented, multi-organization, and intermittently connected honey supply chains.
 
-> **Repository state audited:** `main` at commit `92b1577639007519dfb9bacca719fc2afb5fac69` (2026-09-18). This README separates implemented behavior, simulated/demo surfaces, historical runtime evidence, and remaining work.
+> **Repository state audited:** `main` at commit `a140002c4cf338cbc43e77f357a2824c8ad422cc` (2026-09-20). This README separates implemented behavior, simulated/demo surfaces, historical runtime evidence, and remaining work.
 
 HoneyChain is a flexible trust infrastructure for fragmented honey supply chains — connecting independent organizations and offline field operations into one continuously verifiable provenance network.
 
@@ -171,7 +171,7 @@ Ask HoneyChain currently has two assistive surfaces:
 - **Local intent parser:** deterministic, on-device intent handling for supported HoneyChain actions/questions, with a fallback instead of inventing unsupported answers.
 - **AI Snapshot research assistant:** an AI-native research/search surface for general honey-chain concepts and related knowledge; it does not create, certify, or modify supply-chain records.
 
-The hive-health path is an **assistive rule/evidence-based pre-screen**, not a served trained ML model, neural network, disease-diagnosis system, or LLM/RAG pipeline.
+The hive-health path has two distinct layers: the existing **offline Decision Tree screening flow** in Flutter, trained/exported from the repository's `SYNTHETIC_PROTOTYPE` dataset, and the newer backend **telemetry anomaly engine** used by IoT ingestion/simulation. The telemetry engine is a 28-feature One-Class SVM anomaly detector when its external model artifacts are available; it does **not** diagnose biological disease. The repository does not currently contain those One-Class SVM artifact files, so a checkout without externally supplied artifacts must report ML as unavailable rather than fabricate inference.
 
 **Example interaction:**
 
@@ -421,8 +421,8 @@ Scoping: beekeepers see only their own data; FPO/processor see their org's data;
 | Trust tiers | ✅ VERIFIED | Weakest-tier merge logic tested |
 | RBAC matrix | ✅ VERIFIED | 7 roles × ~24 actions, server-side |
 | Honey Passport | 🟡 REAL + ONLINE PATH | Server-backed PII-free passport; QR is still an unsigned identifier and the full QR→Merkle→Fabric proof loop is not yet complete |
-| Hive Intelligence risk engine | ⚠️ RULE/EVIDENCE-BASED | Assistive pre-screen; not a served trained model and not disease diagnosis |
-| ML artifacts | ⚠️ PROTOTYPE | `ml/model.pkl` / metrics are prototype material and are not wired into the live API |
+| Hive Intelligence risk engine | ✅ OFFLINE SCREENING | Flutter Decision Tree inference is implemented/exported from the synthetic prototype dataset; it is assistive screening, not disease diagnosis |
+| ML artifacts / telemetry model | 🟡 PARTIAL | The backend 28-feature One-Class SVM inference service is wired into IoT ingestion/simulation, but `one_class_svm.joblib`, `scaler.joblib`, and `production_threshold.joblib` are not present in the repository checkout; the dedicated real-model test is therefore skipped when those artifacts are absent |
 | Admin / oversight routing | ✅ FIXED IN CURRENT SOURCE | `RootGate` routes the active platform workspace separately from the beekeeper workspace |
 
 ### What Is NOT Verified / NOT Complete
@@ -438,8 +438,8 @@ Scoping: beekeepers see only their own data; FPO/processor see their org's data;
 | Camera/QR on hardware | NOT TESTED | No physical device access in the audit environment |
 | Real Android device E2E | NOT TESTED | No device/emulator in the audit environment |
 | Production release signing | NOT READY | Release APK is debug-signed; production keystore is still required |
-| Physical IoT protocols | NOT COMPLETE | Current telemetry path is software/simulation; MQTT/LoRa/BLE/Wi-Fi/cellular hardware adapters are not established as live |
-| Served ML model | NOT COMPLETE | Current risk engine is rule/evidence-based; prototype model artifacts are not wired into the API |
+| Physical IoT protocols | NOT COMPLETE | The real telemetry ingestion contract, device identity/signatures, validation, notifications, and simulator are implemented; physical MQTT/LoRa/BLE/Wi-Fi/cellular adapters and real sensor deployment are not established as live |
+| Served telemetry ML | PARTIAL | 28-feature One-Class SVM inference is wired into the backend IoT pipeline and simulator, but the required model/scaler/threshold artifacts are external to the current repository checkout; this is anomaly detection, not disease diagnosis |
 
 ---
 
@@ -447,7 +447,7 @@ Scoping: beekeepers see only their own data; FPO/processor see their org's data;
 
 ### Backend — pytest
 
-**207 passing — latest repository commit report.** The checked-in `TEST_RESULTS.md` contains an older 157 passed / 3 skipped baseline; this README uses the newer commit-reported count while distinguishing it from a fresh audit execution.
+**Test status:** the repository's earlier audit recorded **207 backend tests passing** and **120 Flutter tests passing**. Since that audit, the latest commits add dedicated HoneyChain ML service tests and extend the IoT simulator/telemetry path. This README update is source/commit inspection only; it does not claim a fresh local test execution.
 
 | Test File | Coverage |
 |---|---|
@@ -528,6 +528,8 @@ The 3 skipped tests are `LIVE_RUNTIME` tests gated by `FABRIC_GATEWAY_URL`.
 - Hyperledger Fabric adapter and recorded live-runtime evidence
 - Honey Passport (PII-free, public)
 - Rule-based hive intelligence
+- Offline Decision Tree bee-health screening from the repository's synthetic prototype dataset
+- Backend 28-feature telemetry anomaly engine shared by simulator and telemetry ingestion
 - QR camera scanning
 - Voice-ready observation recording
 - Split / merge / correction business logic
@@ -540,7 +542,8 @@ The 3 skipped tests are `LIVE_RUNTIME` tests gated by `FABRIC_GATEWAY_URL`.
 - Harvest evidence anchor semantics: attach harvest evidence to a canonical batch anchor before presenting it as blockchain-anchored
 - EVM adapter (boundary code exists, no network configured)
 - Physical IoT protocol adapters and real sensor ingestion
-- Served ML model / validated real-world hive-health training data
+- External One-Class SVM model/scaler/threshold artifacts in the repository and a reproducible deployed-model artifact pipeline
+- Real-world validation of the telemetry anomaly model
 - Disease screening from photos (not a validated diagnostic capability)
 - Multi-organization Fabric topology hardening
 
@@ -570,7 +573,7 @@ The next work should stay inside the existing architecture — no reconstruction
 2. **Consumer proof:** make the QR resolve to the real passport and expose the real evidence root / Fabric tx reference; then add the explicit recompute-and-compare verification step. Do not fake a hash just to populate the QR.
 3. **Supabase E2E:** execute real Flutter → FastAPI → Supabase write/read and offline-sync recovery tests.
 4. **Hardware path:** test QR scanning on a physical Android device and normalize real IoT inputs behind the existing telemetry pipeline.
-5. **Intelligence:** improve the local parser/risk logic first; only call the system ML/AI once an actual served model is wired and evaluated.
+5. **Intelligence:** keep the existing offline Decision Tree screening honest and assistive; the new telemetry One-Class SVM path is already wired, but requires its external model artifacts before real-model inference can run.
 6. **Security:** add service authentication to the private Fabric gateway before exposing it beyond the current boundary.
 
 ## Demo Flow
@@ -591,7 +594,7 @@ See [`docs/DEMO.md`](docs/DEMO.md) for a scripted walkthrough, demo credentials,
 | Step | Action | Status |
 |---|---|---|
 | 1 | Beekeeper opens mobile app | ✅ Runtime-tested workflow |
-| 2 | Checks hive health scores | ✅ Rule-based engine |
+| 2 | Checks hive health scores | ✅ Offline Decision Tree + rule/evidence-based hive intelligence |
 | 3 | Ask HoneyChain identifies an observation | ✅ AI-assisted recommendation |
 | 4 | Beekeeper performs inspection | ✅ Workflow tested |
 | 5 | Takes photo | ⚠️ Requires device camera |
