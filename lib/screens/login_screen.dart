@@ -153,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 error: _backendError,
                 onSignIn: _verifyBackend,
               ),
-            ],
+            ] else ...[
             const SizedBox(height: 20),
             SectionLabel(store.tr('phone.label')),
             TextField(
