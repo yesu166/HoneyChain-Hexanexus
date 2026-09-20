@@ -37,14 +37,14 @@ class AppTheme {
 
   static const Color border = Color(0x1A2E2417);
   static const BorderRadius radiusCard =
-      BorderRadius.all(Radius.circular(18));
+      BorderRadius.all(Radius.circular(20));
   static const BorderRadius radiusField =
       BorderRadius.all(Radius.circular(14));
 
   static const BoxShadow shadowCard = BoxShadow(
     color: Color(0x12000000),
-    blurRadius: 14,
-    offset: Offset(0, 4),
+    blurRadius: 20,
+    offset: Offset(0, 7),
   );
 
   static ThemeData theme() {
@@ -114,7 +114,7 @@ class AppTheme {
           backgroundColor: honeyGold,
           foregroundColor: ink,
           elevation: 0,
-          minimumSize: const Size(0, 54),
+          minimumSize: const Size(0, 52),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(999),
           ),
@@ -128,7 +128,7 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: honeyDark,
           side: const BorderSide(color: honeyGold),
-          minimumSize: const Size(0, 50),
+          minimumSize: const Size(0, 48),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(999),
           ),
@@ -205,8 +205,8 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: card,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: Color(0x33E8A33D),
-        height: 68,
+        indicatorColor: Color(0x26E8A33D),
+        height: 66,
         elevation: 0,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         iconTheme: WidgetStateProperty.resolveWith(
