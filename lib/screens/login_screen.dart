@@ -169,7 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 store.tr('login.local.test'),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 11, color: AppTheme.inkFaint),
