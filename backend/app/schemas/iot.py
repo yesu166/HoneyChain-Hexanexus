@@ -16,7 +16,9 @@ from pydantic import BaseModel, Field
 
 DeviceStatus = Literal["ONLINE", "OFFLINE", "SYNCING", "ERROR", "DISABLED"]
 SimulationMode = Literal[
-    "NORMAL", "ANOMALY", "OFFLINE", "RECOVERY", "BURST", "CUSTOM", "PAUSED", "STOPPED"
+    "NORMAL", "TEMPERATURE_STRESS", "HUMIDITY_STRESS", "WEIGHT_CHANGE",
+    "ACOUSTIC_CHANGE", "COMBINED_STRESS", "PERSISTENT_ANOMALY", "SENSOR_FAULT",
+    "RECOVERY", "OFFLINE", "RESET", "PAUSED", "STOPPED", "ANOMALY", "BURST", "CUSTOM"
 ]
 
 
@@ -131,6 +133,13 @@ class TelemetryIngestResult(BaseModel):
     reason: str = ""
     hive_id: Optional[str] = None
     alert_triggered: bool = False
+    ml_status: Optional[str] = None
+    ml_score: Optional[float] = None
+    ml_anomaly: bool = False
+    ml_evidence: list[str] = Field(default_factory=list)
+    ml_reason: str = ""
+    ml_recommendation: str = ""
+    ml_persistence_observations: int = 0
 
 
 class SimulatorControl(BaseModel):
