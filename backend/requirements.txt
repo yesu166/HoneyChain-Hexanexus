@@ -7,3 +7,7 @@ supabase>=2.4
 PyJWT>=2.8
 python-dotenv>=1.0
 cryptography>=42.0
+joblib>=1.5
+numpy>=2.0
+pandas>=2.2
+scikit-learn>=1.9
