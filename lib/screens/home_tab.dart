@@ -714,24 +714,43 @@ class _TelemetryCard extends StatelessWidget {
               ),
             )
           else
-            Row(
-              children: [
-                _TelemetryMetric(
-                  icon: Icons.thermostat_rounded,
-                  label: 'Temperature',
-                  value: '${r.temperatureC.toStringAsFixed(1)}°C',
-                ),
-                _TelemetryMetric(
-                  icon: Icons.water_drop_rounded,
-                  label: 'Humidity',
-                  value: '${r.humidityPercent.toStringAsFixed(0)}%',
-                ),
-                _TelemetryMetric(
-                  icon: Icons.monitor_weight_rounded,
-                  label: 'Weight',
-                  value: '${r.weightKg.toStringAsFixed(1)} kg',
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 310;
+                final columns = compact ? 2 : 3;
+                final gap = 7.0;
+                final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+                return Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  children: [
+                    SizedBox(
+                      width: width,
+                      child: _TelemetryMetric(
+                        icon: Icons.thermostat_rounded,
+                        label: 'Temperature',
+                        value: '${r.temperatureC.toStringAsFixed(1)}°C',
+                      ),
+                    ),
+                    SizedBox(
+                      width: width,
+                      child: _TelemetryMetric(
+                        icon: Icons.water_drop_rounded,
+                        label: 'Humidity',
+                        value: '${r.humidityPercent.toStringAsFixed(0)}%',
+                      ),
+                    ),
+                    SizedBox(
+                      width: width,
+                      child: _TelemetryMetric(
+                        icon: Icons.monitor_weight_rounded,
+                        label: 'Weight',
+                        value: '${r.weightKg.toStringAsFixed(1)} kg',
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           if (hasData) ...[
             const SizedBox(height: 13),
@@ -793,8 +812,7 @@ class _TelemetryMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
+    return Container(
         margin: const EdgeInsets.only(right: 7),
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 10),
         decoration: BoxDecoration(
@@ -829,7 +847,6 @@ class _TelemetryMetric extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }
