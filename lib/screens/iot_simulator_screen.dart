@@ -647,11 +647,19 @@ class _DeviceCard extends StatelessWidget {
   final Future<void> Function() onFork;
   final Future<void> Function() onLedger;
 
-  static const _modes = ['NORMAL', 'ANOMALY', 'OFFLINE', 'RECOVERY'];
+  static const _modes = [
+    'NORMAL', 'TEMPERATURE_STRESS', 'HUMIDITY_STRESS', 'WEIGHT_CHANGE',
+    'ACOUSTIC_CHANGE', 'COMBINED_STRESS', 'PERSISTENT_ANOMALY',
+    'SENSOR_FAULT', 'OFFLINE', 'RECOVERY', 'RESET',
+  ];
 
   @override
   Widget build(BuildContext context) {
     final accent = device.isOnline ? AppTheme.green : AppTheme.orange;
+    SimulatorDeviceStatus? mlInfo;
+    for (final s in store.apiSimulatorStatus) {
+      if (s.deviceId == device.deviceId) { mlInfo = s; break; }
+    }
     final pending = store.apiSimulatorStatus
         .where((s) => s.deviceId == device.deviceId)
         .fold<int>(0, (sum, s) => sum + s.pendingEvents);
@@ -732,6 +740,8 @@ class _DeviceCard extends StatelessWidget {
                 ),
             ],
           ),
+          const SizedBox(height: 10),
+          _MlStatusCard(status: mlInfo),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -908,6 +918,82 @@ class _TelemetryRow extends StatelessWidget {
           Text(
             '${event.eventId} · sha ${event.payloadHash.length > 10 ? event.payloadHash.substring(0, 10) : event.payloadHash}…',
             style: const TextStyle(fontSize: 11, color: AppTheme.inkFaint),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MlStatusCard extends StatelessWidget {
+  const _MlStatusCard({required this.status});
+
+  final SimulatorDeviceStatus? status;
+
+  Color _color(String value) {
+    switch (value) {
+      case 'HIGH_ATTENTION':
+      case 'SENSOR_FAULT':
+        return AppTheme.red;
+      case 'CHECK_HIVE':
+        return AppTheme.orangeDark;
+      case 'MONITOR':
+        return AppTheme.orange;
+      default:
+        return AppTheme.green;
+    }
+  }
+
+  String _label(String value) {
+    switch (value) {
+      case 'HIGH_ATTENTION': return 'HIGH ATTENTION';
+      case 'CHECK_HIVE': return 'CHECK HIVE';
+      case 'SENSOR_FAULT': return 'SENSOR FAULT';
+      case 'MONITOR': return 'MONITOR';
+      default: return 'NORMAL';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = status;
+    if (s == null) return const SizedBox.shrink();
+    final color = _color(s.mlStatus);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.auto_awesome_rounded, size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ML STATUS · ' + _label(s.mlStatus),
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: color),
+                ),
+                if (s.mlReason.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(s.mlReason, style: const TextStyle(fontSize: 12, color: AppTheme.inkSoft, height: 1.35)),
+                ],
+                if (s.mlEvidence.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text('Evidence: ' + s.mlEvidence.join(', '), style: const TextStyle(fontSize: 11, color: AppTheme.inkFaint)),
+                ],
+                if (s.mlRecommendation.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text('→ ' + s.mlRecommendation, style: const TextStyle(fontSize: 11, color: AppTheme.inkSoft)),
+                ],
+              ],
+            ),
           ),
         ],
       ),
