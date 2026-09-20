@@ -1655,6 +1655,8 @@ class AppStrings {
   };
 
   static const _ta = <String, String>{
+    'status.online': 'ஆன்லைன்',
+    'status.offline': 'ஆஃப்லைன்',
     'app.title': 'HoneyChain',
     'app.subtitle': 'உங்கள் டிஜிட்டல் விவசாய உதவியாளர்',
     'select.language': 'Select Language / மொழி / भाषा',
@@ -2760,6 +2762,8 @@ class AppStrings {
   };
 
   static const _hi = <String, String>{
+    'status.online': 'ऑनलाइन',
+    'status.offline': 'ऑफलाइन',
     'app.title': 'HoneyChain',
     'app.subtitle': 'आपका डिजिटल कृषि सहायक',
     'select.language': 'Select Language / மொழி / भाषा',
