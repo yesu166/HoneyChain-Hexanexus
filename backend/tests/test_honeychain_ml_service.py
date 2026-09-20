@@ -61,8 +61,8 @@ def test_real_model_inference_uses_production_threshold():
         "bee_activity": 50.0,
         "acoustic_frequency_hz": 220.0,
     }
-    for i in range(8):
-        result = engine.ingest(f"REAL-MODEL-{i}", payload)
-    result = engine.latest_for("REAL-MODEL-7")
+    for _ in range(8):
+        result = engine.ingest("REAL-MODEL", payload)
+    result = engine.latest_for("REAL-MODEL")
     assert engine.threshold == pytest.approx(-0.16589167633131208)
     assert result["score"] is not None
