@@ -70,7 +70,9 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: ProductivityScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text(store.tr('prod.no.data')), findsOneWidget);
+    // After completeLogin() the demo user's first hive is preselected, so the
+    // screen shows the telemetry outlook rather than the empty state.
+    expect(find.text(store.tr('prod.telemetry')), findsOneWidget);
     // The first hive is preselected; its recorded demo telemetry is real.
     final anyOutlook = find.text(store.tr('prod.outlook.growing'));
     final steady = find.text(store.tr('prod.outlook.steady'));
@@ -79,6 +81,8 @@ void main() {
         steady.evaluate().length +
         dropping.evaluate().length;
     expect(outlooks, 1, reason: 'exactly one outlook state is shown');
+    // No colony measurements have been entered yet, so the yield slot reports
+    // the insufficient-data state rather than a fabricated number.
     expect(find.text(store.tr('prod.yield.insufficient')), findsOneWidget);
     expect(find.text(store.tr('prod.inputs.title')), findsOneWidget);
     expect(find.text(store.tr('prod.refresh')), findsOneWidget);
