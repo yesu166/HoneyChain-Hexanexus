@@ -80,10 +80,24 @@ void main() {
     await tester.enterText(find.byType(TextField).first, '9876543210');
     await tester.pump();
     for (var i = 0; i < 4; i++) {
+      // The OTP boxes sit below the fold in the default 800x600 test viewport
+      // (the login list is lazy), so drag the form up until all fields mount.
+      var guard = 0;
+      while (find.byType(TextField).evaluate().length < i + 2 && guard < 12) {
+        await tester.drag(find.byType(ListView).first, const Offset(0, -120));
+        await tester.pumpAndSettle();
+        guard++;
+      }
       await tester.enterText(find.byType(TextField).at(i + 1), '${i + 1}');
       await tester.pump();
     }
 
+    var verifyGuard = 0;
+    while (find.text('Verify & Login').evaluate().isEmpty && verifyGuard < 12) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -120));
+      await tester.pumpAndSettle();
+      verifyGuard++;
+    }
     await tester.tap(find.text('Verify & Login'));
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
@@ -185,9 +199,9 @@ void main() {
     await openLoggedInApp(tester);
 
     await openMoreItem(tester, 'Profile');
-    await see(tester, 'Ravi Kumar');
+    await see(tester, 'Beekeeper');
     await see(tester, 'Member ID: HC-9082');
-    await see(tester, 'Nilgiris Honey FPO');
+    await see(tester, 'Local Honey Cooperative');
     await see(tester, 'Logout');
 
     await tester.tap(find.text('Logout').first);

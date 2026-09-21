@@ -56,12 +56,18 @@ void main() {
     ]);
   });
 
+  /// Keys whose value is a brand name / proper noun and is intentionally
+  /// identical across all supported languages. They must still exist in every
+  /// language table (key-echo check), but are exempt from the
+  /// "must differ from English" rule.
+  const universalKeys = {'app.title'};
+
   test('core UI strings are translated for every supported language', () {
     for (final language in requiredLanguages) {
       for (final key in coreKeys) {
         final localized = AppStrings.of(language, key);
         expect(localized, isNot(key), reason: '$language is missing $key');
-        if (language != 'en') {
+        if (language != 'en' && !universalKeys.contains(key)) {
           expect(
             localized,
             isNot(AppStrings.of('en', key)),
@@ -88,7 +94,7 @@ void main() {
       for (final entry in placeholders.entries) {
         final value = AppStrings.of(language, entry.key);
         for (final token in entry.value) {
-          expect(value, contains(token), reason: language + ' lost ' + token + ' in ' + entry.key);
+          expect(value, contains(token), reason: '$language lost $token in ${entry.key}');
         }
       }
     }

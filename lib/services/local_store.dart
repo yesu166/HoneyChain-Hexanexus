@@ -43,6 +43,11 @@ class LocalStore {
   static const _kSyncAttempts = 'honey.syncAttempts';
   static const _kSyncErrors = 'honey.syncErrors';
 
+  /// Productivity model inputs + last prediction per hive (JSON map keyed by
+  /// hive id). Kept locally so the screen reopens offline; predictions are
+  /// cached as *results received from the model service*, never recomputed.
+  static const _kProductivity = 'honey.productivityCache';
+
   SharedPreferences? _prefs;
 
   Future<void> init() async {
@@ -308,6 +313,13 @@ class LocalStore {
     if (decoded is! Map) return {};
     return {for (final e in decoded.entries) '${e.key}': '${e.value}'};
   }
+
+  /// Persists the per-hive productivity cache (productivity model inputs and
+  /// the last prediction received from the model service).
+  Future<void> saveProductivityCache(String json) =>
+      _set(_kProductivity, json);
+
+  String? loadProductivityCache() => _get(_kProductivity);
 
   String? _get(String key) => _prefs?.getString(key);
 

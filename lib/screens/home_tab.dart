@@ -5,6 +5,7 @@ import '../data/honeychain_store.dart';
 import '../models/domain.dart';
 import '../theme/app_theme.dart';
 import 'bee_alert_detail_screen.dart';
+import 'productivity_screen.dart';
 import 'record_harvest_screen.dart';
 
 /// Presentation-only beekeeper dashboard. Existing store/services remain the
@@ -67,6 +68,24 @@ class HomeTab extends StatelessWidget {
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const RecordHarvestScreen(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ActionTile(
+                      title: store.tr('home.productivity'),
+                      subtitle: store.tr('home.productivity.sub'),
+                      icon: Icons.insights_rounded,
+                      colors: const [AppTheme.honey, AppTheme.honeyDark],
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ProductivityScreen(),
                         ),
                       ),
                     ),
@@ -743,15 +762,19 @@ class _TelemetryCard extends StatelessWidget {
                   size: 14,
                 ),
                 const SizedBox(width: 5),
-                Text(
-                  'Updated ${_relative(r.recordedAt)}',
-                  style: const TextStyle(
-                    color: Color(0xB8FFFFFF),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                Flexible(
+                  child: Text(
+                    'Updated ${_relative(r.recordedAt)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xB8FFFFFF),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 6),
                 Text(
                   healthy ? 'Within range' : 'Needs review',
                   style: TextStyle(

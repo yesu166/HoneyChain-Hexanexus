@@ -108,7 +108,7 @@ void main() {
       await see(tester, 'Profile');
       await tapText(tester, 'Profile');
       await tester.pumpAndSettle();
-      await see(tester, 'Ravi Kumar');
+      await see(tester, 'Beekeeper');
       await see(tester, 'Edit Profile Details');
       await see(tester, 'Logout');
       expect(find.text('Purity Rating'), findsNothing);

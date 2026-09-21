@@ -21,7 +21,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _identifier = TextEditingController();
   final _password = TextEditingController();
   final _passwordFocus = FocusNode();
-  bool _showPassword = false;
 
   bool _validPhone = false;
   bool _validOtp = false;
@@ -518,7 +517,7 @@ class _BackendSignInFormState extends State<_BackendSignInForm> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  error!,
+                  error,
                   style: const TextStyle(
                     color: Colors.redAccent,
                     fontSize: 12.5,

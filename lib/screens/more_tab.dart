@@ -13,6 +13,7 @@ import 'honey_tab.dart';
 import 'lab_screen.dart';
 import 'org/org_portal_screen.dart';
 import 'platform/platform_shell.dart';
+import 'productivity_screen.dart';
 import 'profile_tab.dart';
 import 'settings_screen.dart';
 import '../theme/beekeeper_tokens.dart';
@@ -77,6 +78,15 @@ class MoreTab extends StatelessWidget {
                 title: store.tr('more.bee.health'),
                 subtitle: store.tr('more.bee.health.sub'),
                 onTap: () => _push(context, const BeeHealthHomeScreen()),
+              ),
+              const SizedBox(height: 12),
+              BeekeeperActionCard(
+                icon: Icons.insights_rounded,
+                iconColor: AppTheme.honeyDark,
+                iconTint: AppTheme.tint(AppTheme.honey),
+                title: store.tr('more.productivity'),
+                subtitle: store.tr('more.productivity.sub'),
+                onTap: () => _push(context, const ProductivityScreen()),
               ),
               const SizedBox(height: 12),
               BeekeeperActionCard(
