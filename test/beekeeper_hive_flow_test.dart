@@ -33,7 +33,7 @@ void main() {
       find.byKey(const ValueKey('create-hive-name')),
       'LSO',
     );
-    final save = find.byKey(const ValueKey('create-hive-save')));
+    final save = find.byKey(const ValueKey('create-hive-save'));
     await tester.scrollUntilVisible(
       save,
       200,
