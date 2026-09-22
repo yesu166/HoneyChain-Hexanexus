@@ -8,6 +8,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -43,3 +46,19 @@ jobs:
           name: honeychain-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
+
+      - name: Create GitHub Release with APK
+        if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'release:')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v3.0-build-${{ github.run_number }}
+          name: HoneyChain v3.0 APK Build ${{ github.run_number }}
+          body: |
+            HoneyChain v3.0 Android APK build.
+
+            Built from main after:
+            - flutter analyze
+            - flutter test
+            - flutter build apk --debug
+          files: build/app/outputs/flutter-apk/app-debug.apk
+          generate_release_notes: false
