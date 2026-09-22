@@ -61,7 +61,7 @@ class _CreateHiveScreenState extends State<CreateHiveScreen> {
       detail: detail,
     );
 
-    ServerHive? serverHive;
+    Object? serverHive;
     Object? backendError;
 
     if (store.backendModeActive) {
