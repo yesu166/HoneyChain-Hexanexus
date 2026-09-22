@@ -72,15 +72,19 @@ class BeeHealthQuestionEngine {
   }
 
   /// Starter (first-screen) choices. Real features are recorded as Yes;
-  /// `weak` just continues; `not sure` counts as an uncertainty and does not
-  /// pollute the answers map.
+  /// `__weak` just continues; `__not_sure` counts as uncertainty but is
+  /// deliberately kept out of the model answer map.
   BeeHealthProgress recordStarterChoice(String choice) {
-    if (!_started || choice == '__weak') return decide();
+    if (!_started) return decide();
+    if (choice == '__weak') return decide();
     if (choice == '__not_sure') {
       _notSureCount++;
       return decide();
     }
-    return recordAnswer(choice, BeeHealthValue.yes);
+    if (_starterOptionFeatures.contains(choice)) {
+      return recordAnswer(choice, BeeHealthValue.yes);
+    }
+    return decide();
   }
 
   BeeHealthProgress decide() {

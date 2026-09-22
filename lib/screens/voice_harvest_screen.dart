@@ -42,6 +42,11 @@ class _VoiceHarvestScreenState extends State<VoiceHarvestScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
+    final hives = HoneyChainStore.instance.hives;
+    if (hives.isNotEmpty) {
+      _hiveId = hives.first.id;
+      _hiveName = hives.first.name;
+    }
   }
 
   @override
@@ -75,13 +80,12 @@ class _VoiceHarvestScreenState extends State<VoiceHarvestScreen>
           const SizedBox(height: 24),
           _transcriptBox(),
           const SizedBox(height: 24),
-          if (_hiveId != null)
-            _recognizedSummary(store)
-          else
-            SectionLabel(store.tr('voice.choose.hive')),
-          if (_hiveId == null) ...[
-            const SizedBox(height: 10),
-            _hiveSelector(store),
+          SectionLabel(store.tr('voice.choose.hive')),
+          const SizedBox(height: 10),
+          _hiveSelector(store),
+          if (_hiveId != null) ...[
+            const SizedBox(height: 12),
+            _recognizedSummary(store),
           ],
           const SizedBox(height: 22),
           SectionLabel(store.tr('voice.qty.label')),

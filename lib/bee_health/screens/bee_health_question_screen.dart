@@ -31,7 +31,9 @@ class _BeeHealthQuestionScreenState extends State<BeeHealthQuestionScreen> {
 
   void _handleOption(String featureId, BeeHealthValue value) {
     setState(() {
-      _progress = _engine.recordAnswer(featureId, value);
+      _progress = _progress.question?.kind == QuestionKind.starter
+          ? _engine.recordStarterChoice(featureId)
+          : _engine.recordAnswer(featureId, value);
     });
     if (_progress.isDone && _progress.prediction != null) {
       Navigator.of(context).pushReplacement(
