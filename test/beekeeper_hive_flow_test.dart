@@ -33,7 +33,14 @@ void main() {
       find.byKey(const ValueKey('create-hive-name')),
       'LSO',
     );
-    await tester.tap(find.byKey(const ValueKey('create-hive-save')));
+    final save = find.byKey(const ValueKey('create-hive-save')));
+    await tester.scrollUntilVisible(
+      save,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(save);
     await tester.pumpAndSettle();
 
     final created = store.hives.where((h) => h.name == 'LSO').toList();
