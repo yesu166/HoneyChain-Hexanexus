@@ -188,6 +188,41 @@ The hive-health path has two distinct layers: the existing **offline Decision Tr
 
 ---
 
+## Hive Productivity Prediction
+
+HoneyChain now exposes the existing trained productivity model through the Flutter app without replacing the existing hive-health logic.
+
+### Current flow
+
+```
+Hive readings / model inputs
+        ↓
+Flutter ProductivityService
+        ↓
+FastAPI POST /predict-productivity
+        ↓
+honey_productivity_model.joblib
+        ↓
+Predicted honey yield
+        ↓
+Hive / Home / More productivity surfaces
+```
+
+The current client contract sends the four model inputs expected by the existing service:
+
+- `apiary`
+- `total_brood`
+- `varroa_2`
+- `hygiene_2`
+
+The trained artifact is documented in the repository as an **ExtraTreesRegressor**. The Flutter client does not invent or calculate the model yield locally; it displays the value returned by the model service and keeps the latest per-hive prediction data locally so the productivity screen can reopen offline.
+
+**Important limitation:** productivity prediction is an estimate from the trained model. It is not a guaranteed harvest quantity and should not be interpreted as a biological diagnosis or laboratory measurement.
+
+The feature is covered by dedicated Flutter tests for the service contract and productivity screen. The external model-serving artifact/service remains a separate runtime dependency and is not silently bundled into the Flutter application.
+
+---
+
 ## Offline-First Design
 
 ```
@@ -371,6 +406,8 @@ Scoping: beekeepers see only their own data; FPO/processor see their org's data;
 
 ## Technology Stack
 
+The repository remains a Flutter-first application. The current `pubspec.yaml` identifies Flutter/Dart, `shared_preferences`, HTTP/FastAPI integration, Supabase, QR generation/scanning, connectivity, and cryptographic hashing as the active mobile dependencies. The backend/blockchain stack documented below remains the intended/implemented integration boundary; individual live services still depend on deployment configuration.
+
 ### Verified Technologies
 
 | Layer | Technology | Version |
@@ -406,7 +443,7 @@ Scoping: beekeepers see only their own data; FPO/processor see their org's data;
 
 | Component | Status | Evidence |
 |---|---|---|
-| Flutter app (offline-first) | 🟡 VERIFIED IN TEST SUITE | Latest repository commit reports `flutter test` → 120 passed; physical-device E2E remains unverified |
+| Flutter app (offline-first) | 🟡 VERIFIED IN TEST SUITE | Latest GitHub CI repair commit reports `flutter test` → 141 passed; physical-device E2E remains unverified |
 | Flutter ↔ backend (beekeeper path) | ✅ INTEGRATED | `honey_api_service` — real login, server hives/harvests, evidence/Fabric status path |
 | FastAPI backend | 🟡 VERIFIED IN TEST SUITE | Latest repository commit reports 207 backend tests passing; checked-in `TEST_RESULTS.md` still contains the older 157/3 baseline, so this is a commit-reported count rather than a fresh audit execution |
 | Supabase schema (migrations 001–008) | ✅ APPLIED | Migrations documented as applied to the project |
@@ -422,6 +459,8 @@ Scoping: beekeepers see only their own data; FPO/processor see their org's data;
 | RBAC matrix | ✅ VERIFIED | 7 roles × ~24 actions, server-side |
 | Honey Passport | 🟡 REAL + ONLINE PATH | Server-backed PII-free passport; QR is still an unsigned identifier and the full QR→Merkle→Fabric proof loop is not yet complete |
 | Hive Intelligence risk engine | ✅ OFFLINE SCREENING | Flutter Decision Tree inference is implemented/exported from the synthetic prototype dataset; it is assistive screening, not disease diagnosis |
+| Hive productivity prediction | 🟡 INTEGRATED | Flutter Home/Hive/More surfaces call the existing `POST /predict-productivity` service; the trained `honey_productivity_model.joblib` is an ExtraTreesRegressor and predictions are cached locally per hive |
+| Localization | ✅ IMPLEMENTED | Centralized app strings support English, Hindi, Bengali, Punjabi, Tamil, Malayalam, and Marathi with local persistence |
 | ML artifacts / telemetry model | 🟡 PARTIAL | The backend 28-feature One-Class SVM inference service is wired into IoT ingestion/simulation, but `one_class_svm.joblib`, `scaler.joblib`, and `production_threshold.joblib` are not present in the repository checkout; the dedicated real-model test is therefore skipped when those artifacts are absent |
 | Admin / oversight routing | ✅ FIXED IN CURRENT SOURCE | `RootGate` routes the active platform workspace separately from the beekeeper workspace |
 
@@ -447,7 +486,7 @@ Scoping: beekeepers see only their own data; FPO/processor see their org's data;
 
 ### Backend — pytest
 
-**Test status:** the repository's earlier audit recorded **207 backend tests passing** and **120 Flutter tests passing**. Since that audit, the latest commits add dedicated HoneyChain ML service tests and extend the IoT simulator/telemetry path. This README update is source/commit inspection only; it does not claim a fresh local test execution.
+**Test status:** the repository's earlier audit recorded **207 backend tests passing** and the latest beekeeper-flow repair CI run reports **141 Flutter tests passing**. Since that audit, the repository also includes dedicated HoneyChain productivity model contract/UI tests, localization regression coverage, and the repaired Create Hive / Bee Health flows. This README update is a source/commit/CI inspection; it does not claim a fresh local test execution from this documentation edit.
 
 | Test File | Coverage |
 |---|---|
@@ -473,7 +512,7 @@ The 3 skipped tests are `LIVE_RUNTIME` tests gated by `FABRIC_GATEWAY_URL`.
 
 ### Flutter — flutter test
 
-**120 passing — latest repository commit report.** Coverage includes beekeeper portal, recording harvests, hive details/alerts, honey passport drilldown, rule-based disease screening, IoT simulation warnings, responsive smoke tests, backend API service, offline queue + restart durability, no-duplicate sync, backend-mode guards, API config policy, auth/session state machine, workspace switching, and online passport verification client.
+**141 passing — latest CI report on the current repaired main line.** Coverage includes beekeeper portal, recording harvests, hive details/alerts, honey passport drilldown, rule-based disease screening, IoT simulation warnings, responsive smoke tests, backend API service, offline queue + restart durability, no-duplicate sync, backend-mode guards, API config policy, auth/session state machine, workspace switching, and online passport verification client.
 
 **One session, many workspaces:** a signed-in account can switch between the Beekeeper, Organization / FPO, Buyer and Consumer experiences from the More tab without logging out and without re-entering a persona login. The active workspace is persisted, a backend-backed account is narrowed to the workspaces its role is actually allowed to enter, and `logout` never deletes local domain records or the pending-sync queue.
 
@@ -483,8 +522,9 @@ The 3 skipped tests are `LIVE_RUNTIME` tests gated by `FABRIC_GATEWAY_URL`.
 
 ### Android builds
 
-- **Debug APK** — previously built and verified on the audit machine: `releases/honeychain-2.0.2+4-debug.apk`.
-- **Release APK** — `releases/honeychain-2.0.2+4-release.apk` (74.7 MB) builds, but uses the **debug signing key**, so it is NOT Play-Store-ready. A real release keystore must be provisioned before distribution.
+- **Debug APK** — GitHub Actions now builds `flutter build apk --debug` and uploads `app-debug.apk` as the `honeychain-debug-apk` workflow artifact.
+- **GitHub Release APK** — the current `.github/workflows/dart.yml` creates a GitHub Release only for a `main` push whose commit message starts with `release:`. The current release-triggering run is Run #94 and was still `in_progress` at audit time, so no release was claimed as available yet.
+- **Signing** — the CI APK is debug-signed and is not Play-Store-ready. A production keystore is still required for a distributable release build.
 - **Real-device E2E** — NOT TESTED in the audit environment: no Android device/emulator was available.
 
 ### Test Integrity
