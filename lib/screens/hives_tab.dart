@@ -19,60 +19,93 @@ class HivesTab extends StatefulWidget {
 class _HivesTabState extends State<HivesTab> {
   bool _needsCareOnly = false;
 
+  Future<void> _openCreateHive() async {
+    final created = await Navigator.of(context).push<Hive>(
+      MaterialPageRoute(builder: (_) => const CreateHiveScreen()),
+    );
+
+    if (!mounted || created == null) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('${created.name} is ready to use'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppTheme.greenDark,
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = HoneyChainStore.instance;
+
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
-        final allRaw = store.backendModeActive
+        // Never hide a locally-created hive just because the server collection
+        // is temporarily stale. If the same id exists on the server, the
+        // server representation wins; otherwise both local and server rows
+        // remain visible until sync reconciles them.
+        final local = store.hives;
+        final server = store.backendModeActive
             ? store.serverHives.map(store.hiveFromServer).toList()
             : const <Hive>[];
-        final all = allRaw.isNotEmpty ? allRaw : store.hives;
-        final needsCare =
-            all.where((h) => store.insightFor(h).riskLevel != RiskLevel.healthy);
+
+        final byId = <String, Hive>{
+          for (final hive in local) hive.id: hive,
+        };
+        for (final hive in server) {
+          byId[hive.id] = hive;
+        }
+
+        final all = byId.values.toList();
+        final needsCare = all.where(
+          (h) => store.insightFor(h).riskLevel != RiskLevel.healthy,
+        );
         final shown = _needsCareOnly ? needsCare.toList() : all;
+
         return SafeArea(
           child: ListView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: BeeTokens.spaceGutter,
-              vertical: BeeTokens.spaceMd,
+            padding: const EdgeInsets.fromLTRB(
+              BeeTokens.spaceGutter,
+              10,
+              BeeTokens.spaceGutter,
+              BeeTokens.spaceMd,
             ),
             children: [
+              // MainShell already supplies the "My Hives" app bar. Keeping
+              // only the supporting copy here prevents the duplicate title
+              // visible in the previous UI.
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: Text(
-                      store.tr('my.hives.title'),
-                      maxLines: 1,
+                      store.tr('my.hives.subtitle').replaceFirst(
+                            '{count}',
+                            '${all.length}',
+                          ),
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.ink,
+                        color: AppTheme.inkSoft,
+                        fontSize: 14,
+                        height: 1.3,
                       ),
                     ),
                   ),
-                  _AddHiveAction(onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const CreateHiveScreen(),
-                      ),
-                    );
-                  }),
+                  const SizedBox(width: 12),
+                  _AddHiveAction(onPressed: _openCreateHive),
                 ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                store.tr('my.hives.subtitle').replaceFirst('{count}', '${all.length}'),
-                style: const TextStyle(color: AppTheme.inkSoft, fontSize: 14),
               ),
               const SizedBox(height: 12),
               if (store.backendModeActive)
                 _BackendHivesBanner(
                   store: store,
-                  showingServer: allRaw.isNotEmpty,
+                  showingServer: server.isNotEmpty,
+                  localCount: local.length,
                   onRefresh: () => store.refreshServerCollections(),
                 ),
               const SyncStatusBadge(),
@@ -87,8 +120,8 @@ class _HivesTabState extends State<HivesTab> {
                       onTap: () => setState(() => _needsCareOnly = false),
                     ),
                     _FilterChip(
-                      label: '${store.tr('filter.needs.care')} '
-                          '(${needsCare.length})',
+                      label:
+                          '${store.tr('filter.needs.care')} (${needsCare.length})',
                       selected: _needsCareOnly,
                       onTap: () => setState(() => _needsCareOnly = true),
                     ),
@@ -97,68 +130,93 @@ class _HivesTabState extends State<HivesTab> {
                 const SizedBox(height: 14),
               ],
               if (all.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 40),
-                  child: Column(
-                    children: [
-                      const Icon(Icons.hive_outlined,
-                          color: AppTheme.inkFaint, size: 48),
-                      const SizedBox(height: 12),
-                      Text(
-                        store.tr('hive.empty.title'),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AppTheme.ink,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        store.tr('hive.empty.sub'),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AppTheme.inkSoft,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        height: 48,
-                        child: FilledButton.icon(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const CreateHiveScreen(),
-                            ),
-                          ),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppTheme.green,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                          ),
-                          icon: const Icon(Icons.add_rounded, size: 20),
-                          label: Text(
-                            store.tr('hive.list.add'),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              for (final hive in shown) ...[
-                _HiveRow(store: store, hive: hive),
-                const SizedBox(height: 12),
-              ],
+                _EmptyHives(onAdd: _openCreateHive)
+              else
+                for (final hive in shown) ...[
+                  _HiveRow(store: store, hive: hive),
+                  const SizedBox(height: 12),
+                ],
               const SizedBox(height: 8),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _EmptyHives extends StatelessWidget {
+  const _EmptyHives({required this.onAdd});
+
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = HoneyChainStore.instance;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 28),
+      child: BeekeeperCard(
+        padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
+        child: Column(
+          children: [
+            Container(
+              width: 68,
+              height: 68,
+              decoration: const BoxDecoration(
+                color: AppTheme.greenSoft,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.hive_outlined,
+                color: AppTheme.greenDark,
+                size: 34,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              store.tr('hive.empty.title'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppTheme.ink,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              store.tr('hive.empty.sub'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppTheme.inkSoft,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              height: 48,
+              child: FilledButton.icon(
+                onPressed: onAdd,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                icon: const Icon(Icons.add_rounded, size: 20),
+                label: Text(
+                  store.tr('hive.list.add'),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -173,12 +231,10 @@ class _HiveRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final insight = store.insightFor(hive);
     final healthy = insight.riskLevel == RiskLevel.healthy;
-    final level = healthy
-        ? BeeStatusLevel.healthy
-        : BeeStatusLevel.attention;
-    final label = healthy
-        ? store.tr('hive.status.healthy')
-        : store.tr('hive.status.attention');
+    final level =
+        healthy ? BeeStatusLevel.healthy : BeeStatusLevel.attention;
+    final label =
+        healthy ? store.tr('hive.status.healthy') : store.tr('hive.status.attention');
 
     final detailParts = [
       if (hive.detail.isNotEmpty) hive.detail,
@@ -187,6 +243,7 @@ class _HiveRow extends StatelessWidget {
     final subtitle = detailParts.join(' · ');
 
     return BeekeeperHiveStatusCard(
+      key: ValueKey('hive-card-${hive.id}'),
       title: hive.name.isEmpty ? hive.id : hive.name,
       code: hiveCode(hive),
       level: level,
@@ -219,7 +276,9 @@ class _FilterChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? AppTheme.orange : AppTheme.card,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: selected ? AppTheme.orange : AppTheme.border),
+          border: Border.all(
+            color: selected ? AppTheme.orange : AppTheme.border,
+          ),
         ),
         child: Text(
           label,
@@ -234,8 +293,6 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-/// Compact "Add Hive" pill shown beside the My Hives title so it stays visible
-/// without consuming vertical space ahead of the hive list.
 class _AddHiveAction extends StatelessWidget {
   const _AddHiveAction({required this.onPressed});
 
@@ -251,11 +308,15 @@ class _AddHiveAction extends StatelessWidget {
         onTap: onPressed,
         borderRadius: BorderRadius.circular(999),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.add_rounded, color: AppTheme.greenDark, size: 18),
+              const Icon(
+                Icons.add_rounded,
+                color: AppTheme.greenDark,
+                size: 18,
+              ),
               const SizedBox(width: 4),
               Text(
                 store.tr('hive.list.add'),
@@ -273,17 +334,19 @@ class _AddHiveAction extends StatelessWidget {
   }
 }
 
-/// Green banner shown when the beekeeper is signed into the live backend.
-/// Reports which collections are live and offers a one-tap refresh.
+/// Green backend status banner. It describes the data source without hiding
+/// local-first records when the server collection is temporarily incomplete.
 class _BackendHivesBanner extends StatelessWidget {
   const _BackendHivesBanner({
     required this.store,
     required this.showingServer,
+    required this.localCount,
     required this.onRefresh,
   });
 
   final HoneyChainStore store;
   final bool showingServer;
+  final int localCount;
   final VoidCallback onRefresh;
 
   @override
@@ -296,18 +359,24 @@ class _BackendHivesBanner extends StatelessWidget {
     final chain = status?.isConnected == true
         ? '${status?.channel ?? ''} · ${status?.chaincode ?? ''}'
         : 'Fabric offline';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       decoration: BoxDecoration(
         color: AppTheme.green.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(BeeTokens.radiusLg),
-        border: Border.all(color: AppTheme.green.withValues(alpha: 0.35)),
+        border: Border.all(
+          color: AppTheme.green.withValues(alpha: 0.35),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.cloud_done_outlined,
-              color: AppTheme.greenDark, size: 20),
+          const Icon(
+            Icons.cloud_done_outlined,
+            color: AppTheme.greenDark,
+            size: 20,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -324,15 +393,21 @@ class _BackendHivesBanner extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   email.isNotEmpty ? email : store.backendError ?? '',
-                  style: const TextStyle(fontSize: 11.5, color: AppTheme.inkSoft),
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: AppTheme.inkSoft,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   showingServer
-                      ? 'Showing $serverCount hives from backend'
+                      ? 'Backend: $serverCount · Local: $localCount'
                       : chain,
-                  style: const TextStyle(fontSize: 11.5, color: AppTheme.inkSoft),
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: AppTheme.inkSoft,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
