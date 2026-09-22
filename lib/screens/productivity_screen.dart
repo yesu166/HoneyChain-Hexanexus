@@ -73,7 +73,13 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
   /// service previously returned; it is never recomputed locally.
   void _restoreCached(String hiveId) {
     final cached = ProductivityCache.load(hiveId);
-    if (cached == null) return;
+    if (cached == null) {
+      // Nothing has been recorded for this hive yet, so every model input is
+      // still required. Reporting exactly which ones keeps the yield slot
+      // honest instead of leaving it in an ambiguous state.
+      _missing = _measurementsFromForm().missing;
+      return;
+    }
     final m = cached.measurements;
     _apiary.text = m.apiary ?? '';
     _brood.text = m.totalBrood?.toString() ?? '';
@@ -83,16 +89,20 @@ class _ProductivityScreenState extends State<ProductivityScreen> {
     _missing = m.missing;
   }
 
+  /// The measurements currently typed into the form. Blank entries stay null so
+  /// they are reported as still-required model inputs, never invented.
+  ColonyMeasurements _measurementsFromForm() => ColonyMeasurements.fromText(
+        apiary: _apiary.text,
+        totalBrood: _brood.text,
+        varroa2: _varroa.text,
+        hygiene2: _hygiene.text,
+      );
+
   /// Sends the recorded measurements to the existing productivity model service
   /// and shows exactly what it returns. When a measurement is missing nothing
   /// is sent — the screen reports which model input is still required.
   Future<void> _predict(Hive hive) async {
-    final measurements = ColonyMeasurements.fromText(
-      apiary: _apiary.text,
-      totalBrood: _brood.text,
-      varroa2: _varroa.text,
-      hygiene2: _hygiene.text,
-    );
+    final measurements = _measurementsFromForm();
     final inputs = measurements.toInputs();
 
     setState(() {

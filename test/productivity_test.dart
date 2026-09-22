@@ -71,8 +71,46 @@ void main() {
     await tester.pumpAndSettle();
 
     // After completeLogin() the demo user's first hive is preselected, so the
-    // screen shows the telemetry outlook rather than the empty state.
+    // screen shows the real telemetry outlook rather than the empty state.
+    // The page is a scrollable list, so every card is scrolled into view
+    // before asserting: find.text does not match off-screen widgets, and a
+    // beekeeper scrolls the page the same way to see these cards.
+    final page = find.byType(Scrollable).first;
+
+    // No colony measurements have been entered yet, so the yield slot reports
+    // the insufficient-data state rather than a fabricated number.
+    await tester.scrollUntilVisible(
+      find.text(store.tr('prod.yield.insufficient')),
+      200,
+      scrollable: page,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(store.tr('prod.yield.insufficient')), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text(store.tr('prod.inputs.title')),
+      200,
+      scrollable: page,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(store.tr('prod.inputs.title')), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text(store.tr('prod.refresh')),
+      200,
+      scrollable: page,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(store.tr('prod.refresh')), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text(store.tr('prod.telemetry')),
+      200,
+      scrollable: page,
+    );
+    await tester.pumpAndSettle();
     expect(find.text(store.tr('prod.telemetry')), findsOneWidget);
+
     // The first hive is preselected; its recorded demo telemetry is real.
     final anyOutlook = find.text(store.tr('prod.outlook.growing'));
     final steady = find.text(store.tr('prod.outlook.steady'));
@@ -81,11 +119,6 @@ void main() {
         steady.evaluate().length +
         dropping.evaluate().length;
     expect(outlooks, 1, reason: 'exactly one outlook state is shown');
-    // No colony measurements have been entered yet, so the yield slot reports
-    // the insufficient-data state rather than a fabricated number.
-    expect(find.text(store.tr('prod.yield.insufficient')), findsOneWidget);
-    expect(find.text(store.tr('prod.inputs.title')), findsOneWidget);
-    expect(find.text(store.tr('prod.refresh')), findsOneWidget);
   });
 
   testWidgets('navigation: More tab reaches Productivity Prediction',
