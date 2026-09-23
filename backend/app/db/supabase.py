@@ -1235,21 +1235,44 @@ class SupabaseRepository(Repository):
         out.setdefault("org_id", out.get("organization_id") or "")
         return out
 
+    @staticmethod
+    def _with_client_id(row):
+        """Translate a NULL `client_id` to the empty string the application
+        contract expects.
+
+        `client_id` is nullable in PostgreSQL by design: the partial unique
+        indexes are declared `where client_id is not null`, so NULL is the
+        canonical representation of "no client-supplied id" and several rows may
+        share it. The domain schemas, however, type `client_id` as `str`
+        (`HiveRead`, `HarvestRead`) because `InMemoryRepository` always stores a
+        string. Normalizing on read keeps both repositories shaped identically
+        without writing '' to a uniquely-indexed column.
+        """
+        if row is None:
+            return None
+        if row.get("client_id") is None:
+            return {**row, "client_id": ""}
+        return row
+
+    @classmethod
+    def _with_client_id_list(cls, rows):
+        return [cls._with_client_id(r) for r in rows]
+
     # -- hives --
     def create_hive(self, hive, *, client_id=""):
         if client_id:
             hive["client_id"] = client_id
         row = self._clip(hive, self._HIVE_COLS, iso=())
-        return self._upsert("hives", row, key="client_id")
+        return self._with_client_id(self._upsert("hives", row, key="client_id"))
 
     def get_hive(self, hive_id):
-        return self._get_by("hives", "id", hive_id)
+        return self._with_client_id(self._get_by("hives", "id", hive_id))
 
     def list_hives(self, beekeeper_id):
         q = self._table("hives").select("*")
         if beekeeper_id:
             q = q.eq("beekeeper_id", beekeeper_id)
-        return q.execute().data
+        return self._with_client_id_list(q.execute().data)
 
     def update_hive(self, hive_id, updates):
         row = self._clip(updates, self._HIVE_COLS, iso=())
@@ -1299,20 +1322,21 @@ class SupabaseRepository(Repository):
         if client_id:
             harvest["client_id"] = client_id
         row = self._clip(harvest, self._HARVEST_COLS, iso=("harvested_at",))
-        return self._upsert("harvests", row, key="client_id")
+        return self._with_client_id(self._upsert("harvests", row, key="client_id"))
 
     def get_harvest(self, harvest_id):
-        return self._get_by("harvests", "id", harvest_id)
+        return self._with_client_id(self._get_by("harvests", "id", harvest_id))
 
     def list_harvests(self, beekeeper_id, org_id=""):
         if beekeeper_id:
-            return (
+            rows = (
                 self._table("harvests")
                 .select("*")
                 .eq("beekeeper_id", beekeeper_id)
                 .order("harvested_at", desc=True)
                 .execute().data
             )
+            return self._with_client_id_list(rows)
         q = self._table("harvests").select("*")
         if org_id:
             ids = [
@@ -1323,7 +1347,9 @@ class SupabaseRepository(Repository):
             if not ids:
                 return []
             q = q.in_("beekeeper_id", ids)
-        return q.order("harvested_at", desc=True).execute().data
+        return self._with_client_id_list(
+            q.order("harvested_at", desc=True).execute().data
+        )
 
     # -- batches --
     def create_batch(self, batch, *, client_id=""):

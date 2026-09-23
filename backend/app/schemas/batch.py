@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 TrustTier = Literal[
     "self_declared",
@@ -51,6 +51,15 @@ class BatchRead(BaseModel):
     trust_tier: TrustTier = "self_declared"
     created_at: Optional[datetime] = None
     client_id: str = ""
+
+    @field_validator("organization_id", "client_id", mode="before")
+    @classmethod
+    def _null_strings_become_empty(cls, v: object) -> object:
+        # Legacy rows (and batches written by org-less service accounts) can
+        # carry NULL organization_id / client_id. An empty string is the
+        # honest representation — dropping those rows from listings would
+        # hide real supply-chain state.
+        return "" if v is None else v
 
 
 class BatchUpdate(BaseModel):
