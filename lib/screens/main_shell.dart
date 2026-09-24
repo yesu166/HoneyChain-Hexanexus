@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../data/honeychain_store.dart';
 import '../theme/app_theme.dart';
+import 'ask_my_bee_screen.dart';
 import 'home_tab.dart';
 import 'hives_tab.dart';
 import 'more_tab.dart';
-import 'voice_harvest_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -49,7 +49,7 @@ class _MainShellState extends State<MainShell> {
                 ),
               ),
             ),
-            const VoiceHarvestScreen(),
+            const AskMyBeeScreen(),
             const MoreTab(),
           ],
         ),
@@ -73,9 +73,9 @@ class _MainShellState extends State<MainShell> {
                   label: store.tr('nav.home'),
                 ),
                 NavigationDestination(
-                  icon: _AskButton(selected: false),
-                  selectedIcon: _AskButton(selected: true),
-                  label: store.tr('voice.ask'),
+                  icon: const Icon(Icons.mic_outlined),
+                  selectedIcon: const Icon(Icons.mic_rounded),
+                  label: store.tr('ask.title'),
                 ),
                 NavigationDestination(
                   icon: const Icon(Icons.more_horiz_rounded),
@@ -91,45 +91,4 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
-class _AskButton extends StatelessWidget {
-  const _AskButton({required this.selected});
 
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      width: selected ? 52 : 46,
-      height: selected ? 52 : 46,
-      decoration: BoxDecoration(
-        gradient: selected
-            ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFFFD76A), Color(0xFFE9A52D)],
-              )
-            : null,
-        color: selected ? null : AppTheme.orangeSoft,
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: AppTheme.honeyGold.withValues(alpha: selected ? 0.0 : 0.35),
-        ),
-        boxShadow: selected
-            ? [
-                BoxShadow(
-                  color: AppTheme.honeyGold.withValues(alpha: 0.30),
-                  blurRadius: 12,
-                  offset: const Offset(0, 5),
-                ),
-              ]
-            : null,
-      ),
-      child: Icon(
-        Icons.mic_rounded,
-        color: selected ? AppTheme.ink : AppTheme.honeyDark,
-        size: 23,
-      ),
-    );
-  }
-}

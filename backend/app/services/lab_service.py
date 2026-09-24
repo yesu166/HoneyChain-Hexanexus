@@ -61,6 +61,32 @@ class LabService:
             return
         if latest.get("status") == "passed":
             self._repo.update_batch(batch_id, {"trust_tier": "lab_verified"})
+        elif latest.get("status") == "failed":
+            # A later failed test supersedes an earlier pass. Keep the test and
+            # custody history, but never leave the batch advertising stale lab
+            # verification. If it has already moved downstream, reject the
+            # canonical batch while genealogy/history remain intact.
+            pending: list[str] = [batch_id]
+            visited: set[str] = set()
+            while pending:
+                current = pending.pop()
+                if current in visited:
+                    continue
+                visited.add(current)
+                current_batch = self._repo.get_batch(current) or {}
+                current_updates: dict[str, Any] = {"trust_tier": "self_declared"}
+                if current_batch.get("status") in {
+                    "processing", "packaged", "in_qa", "distribution", "retail"
+                }:
+                    current_updates["status"] = "rejected"
+                self._repo.update_batch(current, current_updates)
+                pending.extend(
+                    str(rel.get("child_batch_id") or "")
+                    for rel in self._repo.list_batch_relations(
+                        current, direction="children"
+                    )
+                    if rel.get("child_batch_id")
+                )
 
     def for_batch(self, batch_id: str) -> list[dict[str, Any]]:
         return self._repo.list_lab_tests(batch_id)

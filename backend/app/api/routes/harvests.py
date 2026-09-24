@@ -23,9 +23,14 @@ def create_harvest(
     request: Request,
     user=Depends(require_roles(*CREATE_ROLES)),
 ) -> dict:
-    return request.app.state.services["harvests"].create(
-        beekeeper_id=user.user_id, data=payload.model_dump()
-    )
+    try:
+        return request.app.state.services["harvests"].create(
+            beekeeper_id=user.user_id, data=payload.model_dump(), user=user
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/harvests/{harvest_id}", response_model=harvest_schemas.HarvestRead)

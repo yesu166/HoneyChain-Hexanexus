@@ -8,7 +8,13 @@ class UnsupportedSpeechRecognitionService implements SpeechRecognitionService {
   @override
   String? get lastResult => null;
   @override
-  Stream<String> listen() => const Stream.empty();
+  Future<SpeechProbe> probe({String? localeId}) async => const SpeechProbe(
+        permission: SpeechPermissionStatus.denied,
+        available: false,
+        serviceUnavailableReason: 'speech recognition is not available off-device',
+      );
+  @override
+  Stream<String> listen({String? localeId}) => const Stream.empty();
   @override
   void cancel() {}
 }

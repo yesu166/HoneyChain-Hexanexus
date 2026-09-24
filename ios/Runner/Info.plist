@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>HoneyChain uses the microphone for the Ask My Bee voice assistant and voice harvest entry.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>HoneyChain uses speech recognition to turn your voice question into text for Ask My Bee.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

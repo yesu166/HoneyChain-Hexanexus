@@ -33,7 +33,7 @@ class WebTextToSpeechService implements TextToSpeechService {
   bool get isSupported => _detect();
 
   @override
-  bool speak(String text) {
+  bool speak(String text, {String? languageCode}) {
     if (!_detect() || text.isEmpty) return false;
     try {
       final window = globalContext;
@@ -55,7 +55,10 @@ class WebTextToSpeechService implements TextToSpeechService {
       }
       final utterance = ssu.callAsConstructor<JSObject>();
       utterance['text'] = text.toJS;
-      utterance['lang'] = 'en-IN'.toJS;
+      utterance['lang'] = (languageCode == null || languageCode.isEmpty
+              ? 'en-IN'
+              : ttsLanguageId(languageCode))
+          .toJS;
       utterance['rate'] = 0.95.toJS;
       _pendingUtterance = utterance;
       synthObj.callMethod('speak'.toJS, utterance);
@@ -81,3 +84,6 @@ class WebTextToSpeechService implements TextToSpeechService {
 }
 
 TextToSpeechService webTextToSpeech() => WebTextToSpeechService();
+
+/// Platform factory name used by [textToSpeechFactory].
+TextToSpeechService platformTextToSpeech() => WebTextToSpeechService();

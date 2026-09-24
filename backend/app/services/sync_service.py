@@ -10,6 +10,8 @@ from .event_ledger import EventLedger
 from .evidence_service import HarvestEvidenceService
 from .harvest_service import HarvestService
 from .hive_service import HiveService
+from .inspection_service import InspectionService
+from .treatment_service import TreatmentService
 from .lab_certificate import LabCertificateService
 from .lab_service import LabService
 from .lineage_service import LineageService
@@ -142,6 +144,8 @@ def build_services(
         gateway = build_blockchain_gateway()
     hive_service = HiveService(repo)
     harvest_service = HarvestService(repo)
+    inspection_service = InspectionService(repo)
+    treatment_service = TreatmentService(repo)
     batch_service = BatchService(repo)
     custody_service = CustodyService(repo)
     lab_service = LabService(repo)
@@ -187,6 +191,8 @@ def build_services(
         "repo": repo,
         "hives": hive_service,
         "harvests": harvest_service,
+        "inspections": inspection_service,
+        "treatments": treatment_service,
         "batches": batch_service,
         "custody": custody_service,
         "labs": lab_service,

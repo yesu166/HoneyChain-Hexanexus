@@ -882,56 +882,6 @@ class BeekeeperMetricRow extends StatelessWidget {
   }
 }
 
-/// Extra-large full-width voice entry button (mic icon + two lines of text).
-/// Opens the existing voice harvest flow — text always stays on screen too.
-class BeekeeperVoiceButton extends StatelessWidget {
-  const BeekeeperVoiceButton({
-    super.key,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: BeeTokens.touchPrimary + 12,
-      child: FilledButton.icon(
-        onPressed: onTap,
-        style: FilledButton.styleFrom(
-          backgroundColor: AppTheme.orangeDark,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(BeeTokens.radiusPill),
-          ),
-        ),
-        icon: const Icon(Icons.mic_rounded, size: 26),
-        label: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            Text(
-              subtitle,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// Full-width "hear this aloud" button. Reads the localized [text] through
 /// platform TTS when available, degrading gracefully (text always visible).
 class BeekeeperListenButton extends StatelessWidget {

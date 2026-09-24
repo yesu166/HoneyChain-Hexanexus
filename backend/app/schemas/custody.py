@@ -29,6 +29,9 @@ class CustodyEventCreate(BaseModel):
     # the batch's organization_id ever being rewritten.
     to_actor: str = ""
     to_org: str = ""
+    quantity_kg: float | None = Field(default=None, gt=0)
+    # Stable browser/mobile retry key, persisted in custody metadata.
+    client_id: str = ""
 
 
 class CustodyEventRead(BaseModel):
@@ -40,3 +43,5 @@ class CustodyEventRead(BaseModel):
     event_at: datetime
     to_actor: str = ""
     to_org: str = ""
+    quantity_kg: float | None = None
+    client_id: str = ""

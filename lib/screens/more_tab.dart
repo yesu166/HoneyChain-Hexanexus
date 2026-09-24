@@ -23,9 +23,10 @@ import '../widgets/beekeeper_widgets.dart';
 /// beekeeper feature reachable (My Honey/Batches, Bee Health, Alerts, Guides,
 /// Profile, Language, Settings, Developer) without crowding the Home dashboard.
 ///
-/// Also the workspace switcher: switching to the Organization / FPO portal,
-/// Buyer or Consumer opens that experience directly — no separate persona
-/// login, because it is the same session.
+/// The user's role comes from their authenticated session only — there is no
+/// manual "switch role" control here. The current workspace (set at sign-in) is
+/// shown as context, and a single portal entry opens that workspace's portal
+/// (FPO / Lab / Buyer / Consumer / Platform) when the account is entitled to it.
 class MoreTab extends StatelessWidget {
   const MoreTab({super.key});
 
@@ -60,7 +61,7 @@ class MoreTab extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 20),
-              _WorkspaceSwitcher(),
+              _CurrentWorkspaceCard(),
               const SizedBox(height: 20),
               BeekeeperActionCard(
                 icon: Icons.pending_actions_rounded,
@@ -173,11 +174,28 @@ class MoreTab extends StatelessWidget {
     );
   }
 
-  /// Opens the selected workspace's portal in place of a persona login. Same
-  /// session, no re-authentication: switching only changes the screen.
+  /// The portal screen modeled for a workspace, or null when the app has no
+  /// dedicated portal for it (the beekeeper experience IS this shell).
+  static Widget? _portalFor(Workspace workspace) {
+    return switch (workspace) {
+      Workspace.organization => const OrgPortalScreen(),
+      Workspace.lab => const LabScreen(),
+      Workspace.buyer => const BuyerPortalScreen(),
+      Workspace.consumer => const ConsumerScreen(),
+      Workspace.platform => const PlatformShell(),
+      Workspace.beekeeper ||
+      Workspace.processor ||
+      Workspace.institution =>
+        null,
+    };
+  }
+
+  /// Opens the current workspace's portal in place of a persona login. Same
+  /// session, no re-authentication: switching only changes the screen. If the
+  /// workspace has no modeled portal we say so honestly instead of pretending.
   static void _openWorkspace(BuildContext context, Workspace workspace) {
-    if (workspace == Workspace.beekeeper) return;
-    if (workspace == Workspace.processor || workspace == Workspace.institution) {
+    final portal = _portalFor(workspace);
+    if (portal == null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
@@ -193,110 +211,78 @@ class MoreTab extends StatelessWidget {
     }
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => switch (workspace) {
-          Workspace.organization => const OrgPortalScreen(),
-          Workspace.lab => const LabScreen(),
-          Workspace.buyer => const BuyerPortalScreen(),
-          Workspace.consumer => const ConsumerScreen(),
-          Workspace.platform => const PlatformShell(),
-          Workspace.beekeeper => const SizedBox.shrink(),
-          Workspace.processor => const SizedBox.shrink(),
-          Workspace.institution => const SizedBox.shrink(),
-        },
+        builder: (_) => _wrap('${workspace.title} portal', portal),
       ),
     );
   }
 }
 
-/// One-tap workspace switching. Shows every workspace the current account can
-/// actually enter; switching never ends the session and never re-prompts for a
-/// persona login.
-class _WorkspaceSwitcher extends StatelessWidget {
+/// The user's workspace as derived from the authenticated session — shown as
+/// context, never as a role picker. If the current workspace has a modeled
+/// portal, a single button opens it; otherwise the card is informational.
+class _CurrentWorkspaceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = HoneyChainStore.instance;
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
-        final available = store.availableWorkspaces;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  'Workspace',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.inkSoft,
-                    letterSpacing: 0.6,
-                  ),
+        final workspace = store.activeWorkspace;
+        final portal = MoreTab._portalFor(workspace);
+        if (portal != null) {
+          return BeekeeperActionCard(
+            icon: workspace.icon,
+            iconColor: AppTheme.orangeDark,
+            iconTint: AppTheme.orangeSoft,
+            title: workspace.title,
+            subtitle: workspace.subtitle,
+            onTap: () => MoreTab._openWorkspace(context, workspace),
+          );
+        }
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppTheme.card,
+            borderRadius: AppTheme.radiusCard,
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                decoration: const BoxDecoration(
+                  color: AppTheme.orangeSoft,
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    store.authStateLabel,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.inkFaint,
+                padding: const EdgeInsets.all(8),
+                child: Icon(workspace.icon,
+                    size: 20, color: AppTheme.honeyDark),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      workspace.title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.ink,
+                      ),
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${store.authStateLabel} · ${workspace.subtitle}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.inkSoft,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final workspace in available)
-                  ChoiceChip(
-                    label: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          workspace.icon,
-                          size: 16,
-                          color: workspace == store.activeWorkspace
-                              ? AppTheme.ink
-                              : AppTheme.inkSoft,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(workspace.title),
-                      ],
-                    ),
-                    selected: workspace == store.activeWorkspace,
-                    showCheckmark: false,
-                    selectedColor: const Color(0x1FE8A33D),
-                    backgroundColor: AppTheme.card,
-                    side: BorderSide(
-                      color: workspace == store.activeWorkspace
-                          ? AppTheme.honeyGold
-                          : AppTheme.border,
-                    ),
-                    labelStyle: TextStyle(
-                      fontSize: 12,
-                      fontWeight:
-                          workspace == store.activeWorkspace
-                              ? FontWeight.w800
-                              : FontWeight.w600,
-                      color: workspace == store.activeWorkspace
-                          ? AppTheme.ink
-                          : AppTheme.inkSoft,
-                    ),
-                    onSelected: (_) {
-                      final switched = store.switchWorkspace(workspace);
-                      if (!switched || workspace == store.activeWorkspace) {
-                        return;
-                      }
-                      MoreTab._openWorkspace(context, workspace);
-                    },
-                  ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         );
       },
     );

@@ -161,6 +161,39 @@ class Repository(ABC):
         self, beekeeper_id: str | None, org_id: str = ""
     ) -> list[dict[str, Any]]: ...
 
+    # ---- inspections & treatments (Ask My Bee) --------------------------------
+    @abstractmethod
+    def create_inspection(
+        self, inspection: dict[str, Any], *, client_id: str = ""
+    ) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def get_inspection(self, inspection_id: str) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def list_inspections(
+        self,
+        beekeeper_id: str | None,
+        hive_id: str = "",
+        org_id: str = "",
+    ) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def create_treatment(
+        self, treatment: dict[str, Any], *, client_id: str = ""
+    ) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def get_treatment(self, treatment_id: str) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def list_treatments(
+        self,
+        beekeeper_id: str | None,
+        hive_id: str = "",
+        org_id: str = "",
+    ) -> list[dict[str, Any]]: ...
+
     # ---- batches ------------------------------------------------------------
     @abstractmethod
     def create_batch(
@@ -339,6 +372,8 @@ class InMemoryRepository(Repository):
             "hives": [],
             "readings": [],
             "harvests": [],
+            "inspections": [],
+            "treatments": [],
             "batch_harvests": [],
             "batches": [],
             "relations": [],
@@ -611,6 +646,49 @@ class InMemoryRepository(Repository):
             scope = {b["id"] for b in self._data["beekeepers"] if b.get("org_id") == org_id}
             rows = [h for h in rows if h.get("beekeeper_id") in scope]
         return sorted(rows, key=lambda r: str(r.get("harvested_at", "")), reverse=True)
+
+    # -- inspections & treatments (Ask My Bee) --
+    def create_inspection(self, inspection, *, client_id=""):
+        row = {"id": new_id(), "client_id": client_id, **inspection}
+        self._data["inspections"].append(row)
+        return row
+
+    def get_inspection(self, inspection_id):
+        return next(
+            (r for r in self._data["inspections"] if r["id"] == inspection_id), None
+        )
+
+    def list_inspections(self, beekeeper_id, hive_id="", org_id=""):
+        rows = list(self._data["inspections"])
+        if beekeeper_id is not None:
+            rows = [r for r in rows if r.get("beekeeper_id") == beekeeper_id]
+        if hive_id:
+            rows = [r for r in rows if r.get("hive_id") == hive_id]
+        if org_id:
+            scope = {b["id"] for b in self._data["beekeepers"] if b.get("org_id") == org_id}
+            rows = [r for r in rows if r.get("beekeeper_id") in scope]
+        return sorted(rows, key=lambda r: str(r.get("inspected_at", "")), reverse=True)
+
+    def create_treatment(self, treatment, *, client_id=""):
+        row = {"id": new_id(), "client_id": client_id, **treatment}
+        self._data["treatments"].append(row)
+        return row
+
+    def get_treatment(self, treatment_id):
+        return next(
+            (r for r in self._data["treatments"] if r["id"] == treatment_id), None
+        )
+
+    def list_treatments(self, beekeeper_id, hive_id="", org_id=""):
+        rows = list(self._data["treatments"])
+        if beekeeper_id is not None:
+            rows = [r for r in rows if r.get("beekeeper_id") == beekeeper_id]
+        if hive_id:
+            rows = [r for r in rows if r.get("hive_id") == hive_id]
+        if org_id:
+            scope = {b["id"] for b in self._data["beekeepers"] if b.get("org_id") == org_id}
+            rows = [r for r in rows if r.get("beekeeper_id") in scope]
+        return sorted(rows, key=lambda r: str(r.get("treated_at", "")), reverse=True)
 
     # -- batches --
     def create_batch(self, batch, *, client_id=""):
@@ -916,6 +994,8 @@ class SupabaseRepository(Repository):
         "hives": "hives",
         "readings": "hive_readings",
         "harvests": "harvest_events",
+        "inspections": "hive_inspections",
+        "treatments": "hive_treatments",
         "batch_harvests": "batch_harvest_links",
         "batches": "batches",
         "relations": "batch_genealogy",
@@ -954,6 +1034,15 @@ class SupabaseRepository(Repository):
     _HARVEST_COLS = (
         "id", "hive_id", "beekeeper_id", "harvested_at", "quantity_kg",
         "honey_type", "location", "notes", "collected", "client_id",
+    )
+    _INSPECTION_COLS = (
+        "id", "hive_id", "beekeeper_id", "inspected_at", "activity_level",
+        "queen_seen", "brood_seen", "food_stores", "pests_seen",
+        "dead_bees_seen", "hive_condition", "observations", "client_id",
+    )
+    _TREATMENT_COLS = (
+        "id", "hive_id", "beekeeper_id", "treated_at", "treatment_name",
+        "active_ingredient", "dosage", "observation", "status", "client_id",
     )
     _BATCH_COLS = (
         "id", "batch_code", "status", "honey_type", "quantity_kg", "beekeeper_id",
@@ -1351,6 +1440,58 @@ class SupabaseRepository(Repository):
             q.order("harvested_at", desc=True).execute().data
         )
 
+    # -- inspections & treatments (Ask My Bee) --
+    def _scope_beekeepers(self, org_id, rows):
+        if not org_id:
+            return rows
+        ids = [
+            r["id"]
+            for r in self._table("beekeepers").select("id")
+            .eq("organization_id", org_id).execute().data
+        ]
+        if not ids:
+            return []
+        return [r for r in rows if r.get("beekeeper_id") in ids]
+
+    def create_inspection(self, inspection, *, client_id=""):
+        if client_id:
+            inspection["client_id"] = client_id
+        row = self._clip(inspection, self._INSPECTION_COLS, iso=("inspected_at",))
+        return self._with_client_id(self._upsert("inspections", row, key="client_id"))
+
+    def get_inspection(self, inspection_id):
+        return self._with_client_id(self._get_by("inspections", "id", inspection_id))
+
+    def list_inspections(self, beekeeper_id, hive_id="", org_id=""):
+        rows = []
+        q = self._table("inspections").select("*")
+        if beekeeper_id:
+            q = q.eq("beekeeper_id", beekeeper_id)
+        if hive_id:
+            q = q.eq("hive_id", hive_id)
+        rows = q.order("inspected_at", desc=True).execute().data
+        rows = self._scope_beekeepers(org_id, rows)
+        return self._with_client_id_list(rows)
+
+    def create_treatment(self, treatment, *, client_id=""):
+        if client_id:
+            treatment["client_id"] = client_id
+        row = self._clip(treatment, self._TREATMENT_COLS, iso=("treated_at",))
+        return self._with_client_id(self._upsert("treatments", row, key="client_id"))
+
+    def get_treatment(self, treatment_id):
+        return self._with_client_id(self._get_by("treatments", "id", treatment_id))
+
+    def list_treatments(self, beekeeper_id, hive_id="", org_id=""):
+        q = self._table("treatments").select("*")
+        if beekeeper_id:
+            q = q.eq("beekeeper_id", beekeeper_id)
+        if hive_id:
+            q = q.eq("hive_id", hive_id)
+        rows = q.order("treated_at", desc=True).execute().data
+        rows = self._scope_beekeepers(org_id, rows)
+        return self._with_client_id_list(rows)
+
     # -- batches --
     def create_batch(self, batch, *, client_id=""):
         if client_id:
@@ -1510,6 +1651,8 @@ class SupabaseRepository(Repository):
             metadata["to_actor"] = event["to_actor"]
         if event.get("to_org"):
             metadata["to_org"] = event["to_org"]
+        if event.get("client_id"):
+            metadata["client_id"] = event["client_id"]
         row = {
             "batch_id": event.get("batch_id"),
             "actor_id": None,
@@ -1517,7 +1660,7 @@ class SupabaseRepository(Repository):
             "event_type": event.get("action"),
             "timestamp": self._iso(event.get("event_at")),
             "location": None,
-            "quantity_kg": None,
+            "quantity_kg": event.get("quantity_kg"),
             "metadata": metadata,
         }
         data = self._table("custody").insert(row).execute().data
@@ -1545,6 +1688,8 @@ class SupabaseRepository(Repository):
             "event_at": row.get("timestamp"),
             "to_actor": meta.get("to_actor", "") if isinstance(meta, dict) else "",
             "to_org": meta.get("to_org", "") if isinstance(meta, dict) else "",
+            "quantity_kg": row.get("quantity_kg"),
+            "client_id": meta.get("client_id", "") if isinstance(meta, dict) else "",
         }
 
     # -- anchors --

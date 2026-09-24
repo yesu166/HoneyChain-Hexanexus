@@ -47,3 +47,12 @@ def test_harvest_idempotent_client_id(client, demo_token):
     first = _make_harvest(client, demo_token, hive["id"], client_id="client-hv-1").json()
     second = _make_harvest(client, demo_token, hive["id"], client_id="client-hv-1").json()
     assert first["id"] == second["id"]
+
+
+def test_harvest_rejects_foreign_hive(client, demo_token):
+    from tests.conftest import make_token
+
+    hive = _make_hive(client, demo_token, code="HIVE-FOREIGN")
+    foreign = make_token("another-beekeeper", "beekeeper", "ORG-TN-001")
+    resp = _make_harvest(client, foreign, hive["id"])
+    assert resp.status_code == 403

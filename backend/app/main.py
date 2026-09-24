@@ -8,9 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .adapters.ai.base import build_risk_engine
+from .adapters.ai.gemini import build_gemini_provider
 from .adapters.blockchain.gateway import build_blockchain_gateway
 from .api.deps import build_services_live
+from .services.ai_chat_service import AIChatService
 from .api.routes import (
+    ai,
     auth,
     assertions,
     batches,
@@ -79,6 +82,12 @@ def _startup() -> None:
     app.state.blockchain = gateway
     app.state.risk_engine = build_risk_engine(settings.ai_adapter)
     app.state.settings = settings
+    app.state.ai_service = AIChatService(
+        provider=build_gemini_provider(settings),
+        services=app.state.services,
+        risk_engine=app.state.risk_engine,
+        settings=settings,
+    )
     log.info(
         "HoneyChain API started | env=%s | db=%s | ledger=%s | ai=%s",
         settings.api_env,
@@ -101,6 +110,7 @@ if settings.cors_origins:
 for router in (
     health.router,
     auth.router,
+    ai.router,
     hives.router,
     harvests.router,
     batches.router,

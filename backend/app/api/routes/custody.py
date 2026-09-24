@@ -22,10 +22,16 @@ def add_custody_event(
     batch = request.app.state.services["batches"].get_for_user(batch_id, user=user)
     if batch is None:
         raise HTTPException(status_code=404, detail="Batch not found")
-    return request.app.state.services["custody"].add(
-        batch_id=batch_id,
-        data={**payload.model_dump(), "actor": payload.actor or user.user_id},
-    )
+    if payload.batch_id != batch_id:
+        raise HTTPException(status_code=409, detail="Custody batch_id does not match route")
+    try:
+        return request.app.state.services["custody"].add(
+            batch_id=batch_id,
+            # The authenticated user is the only authoritative actor.
+            data={**payload.model_dump(), "actor": user.user_id},
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/{batch_id}/custody-events", response_model=list[custody_schemas.CustodyEventRead])

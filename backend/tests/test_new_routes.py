@@ -117,11 +117,35 @@ def test_batch_evidence_requires_batch_in_scope(client, fpo_token, demo_token):
 
 
 def test_lab_certificate_lifecycle_via_api(client, lab_token, fpo_token, admin_token):
+    hive = client.post(
+        "/api/v1/hives", headers=auth(fpo_token),
+        json={"hive_code": "HIVE-CERT-API"},
+    ).json()
+    harvest = client.post(
+        "/api/v1/harvests", headers=auth(fpo_token),
+        json={"hive_id": hive["id"], "quantity_kg": 4},
+    ).json()
+    batch = client.post(
+        "/api/v1/batches", headers=auth(fpo_token),
+        json={
+            "batch_code": "BATCH-CERT-API",
+            "quantity_kg": 4,
+            "harvest_ids": [harvest["id"]],
+        },
+    ).json()
+    test = client.post(
+        f"/api/v1/batches/{batch['id']}/lab-test", headers=auth(fpo_token),
+        json={"batch_id": batch["id"], "lab_id": "LAB-TN-001"},
+    ).json()
+    assert client.post(
+        f"/api/v1/labs/tests/{test['id']}/result", headers=auth(lab_token),
+        json={"result": "PASS"},
+    ).status_code == 200
     issued = client.post(
         "/api/v1/certificates/issue",
         headers=auth(lab_token),
         json={
-            "batch_id": "BATCH-CERT-1",
+            "batch_id": batch["id"],
             "lab_id": "LAB-TN-001",
             "certificate_type": "analysis",
             "issuer_name": "Lab One",

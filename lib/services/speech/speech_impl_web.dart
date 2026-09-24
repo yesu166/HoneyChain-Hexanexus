@@ -74,7 +74,26 @@ class WebSpeechRecognitionService implements SpeechRecognitionService {
   String? get lastResult => _last;
 
   @override
-  Stream<String> listen() {
+  Future<SpeechProbe> probe({String? localeId}) async {
+    // The browser always prompts on first `start()`. Probe stays prompt-free:
+    // report the engine presence and the locale that would be used.
+    final requested = (localeId ?? '').trim();
+    if (!_detect()) {
+      return const SpeechProbe(
+        available: false,
+        serviceUnavailableReason: 'SpeechRecognition not exposed by this browser',
+      );
+    }
+    return SpeechProbe(
+      permission: SpeechPermissionStatus.unknown,
+      available: true,
+      requestedLocale: requested,
+      effectiveLocale: requested.isEmpty ? 'en-IN' : requested,
+    );
+  }
+
+  @override
+  Stream<String> listen({String? localeId}) {
     _last = null;
     final controller = StreamController<String>();
     _controller = controller;
@@ -88,7 +107,7 @@ class WebSpeechRecognitionService implements SpeechRecognitionService {
       final rec = ctor.callAsConstructor<JSObject>();
       gActiveRec = rec;
       rec['interimResults'] = true.toJS;
-      rec['lang'] = 'en-IN'.toJS;
+      rec['lang'] = (localeId ?? 'en-IN').toJS;
       rec['onresult'] = _onSpeechResult.toJS;
       rec['onerror'] = _onSpeechError.toJS;
       rec['onend'] = _onSpeechEnd.toJS;
@@ -124,4 +143,8 @@ class WebSpeechRecognitionService implements SpeechRecognitionService {
 }
 
 SpeechRecognitionService webSpeechRecognition() =>
+    WebSpeechRecognitionService();
+
+/// Platform factory name used by [speechRecognitionFactory].
+SpeechRecognitionService platformSpeechRecognition() =>
     WebSpeechRecognitionService();

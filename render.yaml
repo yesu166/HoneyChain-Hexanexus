@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: honeychain-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    healthCheckPath: /health
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: API_ENV
+        value: production
+      - key: AI_ADAPTER
+        value: risk_engine
+      - key: BLOCKCHAIN_ADAPTER
+        value: simulated
+      - key: GEMINI_MODEL
+        value: gemini-3.6-flash
+      - key: GOOGLE_AI_API_BASE
+        value: https://generativelanguage.googleapis.com
+      - key: AI_ASSISTANT_ENABLED
+        value: "true"
+      - key: AI_RATE_LIMIT_PER_MINUTE
+        value: "40"
+      - key: PASSPORT_RATE_LIMIT_PER_MINUTE
+        value: "60"
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "10080"
+      # Secrets below are marked sync:false — they are set ONLY in the Render
+      # dashboard (Service > Environment). Nothing secret is committed.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY_2
+        sync: false
+      - key: GEMINI_API_KEY_3
+        sync: false

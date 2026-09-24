@@ -77,9 +77,9 @@ class PassportService:
         verification = None
         if latest:
             verification = {
-                "lab_id": latest.get("lab_id", ""),
-                "result": latest.get("result", ""),
-                "tested_by": latest.get("tested_by", ""),
+                "lab_id": latest.get("lab_id") or "",
+                "result": latest.get("result") or "",
+                "tested_by": latest.get("tested_by") or "",
                 "tested_at": latest.get("tested_at"),
             }
             if latest.get("status") == "passed":
@@ -95,13 +95,18 @@ class PassportService:
         anchor = self._repo.get_anchor(batch_id)
         anchor_payload = (
             {
-                "data_hash": anchor.get("data_hash", ""),
-                "tx_hash": anchor.get("tx_hash", ""),
-                "chain_status": anchor.get("chain_status", "none"),
+                "data_hash": anchor.get("data_hash") or "",
+                "tx_hash": anchor.get("tx_hash") or "",
+                "chain_status": anchor.get("chain_status") or "none",
                 "anchored_at": anchor.get("anchored_at"),
             }
             if anchor
-            else {"chain_status": "none"}
+            else {
+                "data_hash": "",
+                "tx_hash": "",
+                "chain_status": "none",
+                "anchored_at": None,
+            }
         )
         if anchor and anchor.get("chain_status") == "anchored":
             events.append(

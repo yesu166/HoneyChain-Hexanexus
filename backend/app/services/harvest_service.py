@@ -11,16 +11,28 @@ class HarvestService:
         self._repo = repo
 
     def create(
-        self, *, beekeeper_id: str, data: dict[str, Any]
+        self, *, beekeeper_id: str, data: dict[str, Any], user: Any = None
     ) -> dict[str, Any]:
+        hive = self._repo.get_hive(data.get("hive_id", ""))
+        if hive is None:
+            raise ValueError("hive not found")
+        owner_id = str(hive.get("beekeeper_id") or "")
+        if user is not None and user.role == "beekeeper" and owner_id != user.user_id:
+            raise PermissionError("hive is not owned by this beekeeper")
+        if user is not None and user.role == "fpo" and owner_id != user.user_id:
+            owner = self._repo.get_beekeeper(owner_id)
+            if not owner or str(owner.get("org_id") or "") != str(user.org_id or ""):
+                raise PermissionError("hive is not in this organization")
         client_id = data.get("client_id") or ""
         if client_id:
             existing = self._repo.find_by_client_id("harvests", client_id)
             if existing:
                 return existing
         harvest = {
-            "hive_id": data["hive_id"],
-            "beekeeper_id": data.get("beekeeper_id") or beekeeper_id,
+            "hive_id": hive["id"],
+            # The hive is the canonical ownership source. Never trust a
+            # browser-supplied beekeeper_id to relabel a harvest.
+            "beekeeper_id": owner_id or beekeeper_id,
             "harvested_at": data.get("harvested_at")
             or datetime.now(timezone.utc),
             "quantity_kg": data["quantity_kg"],

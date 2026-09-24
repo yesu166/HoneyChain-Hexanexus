@@ -94,3 +94,40 @@ def test_submit_unknown_test(client, lab_token):
         json={"result": "PASS"},
     )
     assert resp.status_code == 404
+
+
+def test_later_failure_rejects_processed_batch(client, fpo_token, lab_token):
+    batch = _seed_batch(client, fpo_token, code="HC-LAB-LATE-FAIL")
+    first = client.post(
+        f"/api/v1/batches/{batch['id']}/lab-test",
+        headers=auth(fpo_token), json={"batch_id": batch["id"]},
+    ).json()
+    assert client.post(
+        f"/api/v1/labs/tests/{first['id']}/result",
+        headers=auth(lab_token), json={"result": "PASS"},
+    ).status_code == 200
+    assert client.post(
+        "/api/v1/batches/transition", headers=auth(fpo_token),
+        json={"batch_id": batch["id"], "to_state": "processing"},
+    ).status_code == 200
+    assert client.post(
+        "/api/v1/batches/transition", headers=auth(fpo_token),
+        json={"batch_id": batch["id"], "to_state": "packaged"},
+    ).status_code == 200
+    second = client.post(
+        f"/api/v1/batches/{batch['id']}/lab-test",
+        headers=auth(fpo_token), json={"batch_id": batch["id"]},
+    ).json()
+    assert client.post(
+        f"/api/v1/labs/tests/{second['id']}/result",
+        headers=auth(lab_token), json={"result": "FAIL"},
+    ).status_code == 200
+    refreshed = client.get(
+        f"/api/v1/batches/{batch['id']}", headers=auth(fpo_token)
+    ).json()
+    assert refreshed["trust_tier"] == "self_declared"
+    assert refreshed["status"] == "rejected"
+    tests = client.get(
+        f"/api/v1/batches/{batch['id']}/lab-tests", headers=auth(fpo_token)
+    ).json()
+    assert len(tests) == 2

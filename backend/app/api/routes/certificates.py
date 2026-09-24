@@ -18,10 +18,21 @@ def issue_certificate(
     user=Depends(require_roles("lab", "admin")),
 ) -> dict:
     services = request.app.state.services
+    batch = request.app.state.repository.get_batch(payload.batch_id)
+    if batch is None:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    lab_id = payload.lab_id or user.org_id
+    if user.role == "lab" and lab_id != user.org_id:
+        raise HTTPException(status_code=403, detail="lab not in your scope")
+    tests = services["labs"].for_batch(payload.batch_id)
+    if not tests or tests[-1].get("status") != "passed":
+        raise HTTPException(status_code=409, detail="A passed laboratory result is required")
+    if user.role == "lab" and tests[-1].get("lab_id") != user.org_id:
+        raise HTTPException(status_code=403, detail="lab test is not in your scope")
     try:
         certificate = services["certificates"].issue(
             batch_id=payload.batch_id,
-            lab_id=payload.lab_id,
+            lab_id=lab_id,
             certificate_type=payload.certificate_type,
             issued_at=payload.issued_at,
             valid_until=payload.valid_until,

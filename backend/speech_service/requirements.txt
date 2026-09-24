@@ -1,0 +1,9 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+httpx>=0.27
+# Real IndicConformer / IndicF5 inference additionally requires:
+#   torch>=2.1 (CUDA available), transformers>=4.44, accelerate
+# These are intentionally NOT pinned here: on this dev machine (Python 3.14,
+# no torch, no GPU) they cannot install, and the service must stay honest
+# (503 + /health model_loaded:false) rather than fake inference.

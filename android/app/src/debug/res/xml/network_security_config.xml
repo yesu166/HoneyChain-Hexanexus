@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only: allow cleartext (HTTP) to the LAN dev backend for the
+     physical-device Ask My Bee smoke tests. Domain scoped to 192.168.25.5. -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">192.168.25.5</domain>
+        <domain includeSubdomains="false">100.123.222.109</domain>
+    </domain-config>
+</network-security-config>
