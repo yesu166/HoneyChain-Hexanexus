@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 from typing import Any
 
@@ -71,9 +72,37 @@ async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
+def _enforce_render_production(settings: Any) -> None:
+    """Refuse to serve in development mode on the public Render host.
+
+    Someone must set the non-secret env var API_ENV=production in the Render
+    service's Environment (render.yaml only applies its `value:` entries when a
+    service is created via Blueprint — a manually-created Web Service does not
+    receive them). Without this guard the app would silently expose /docs and
+    run with dev defaults behind a public HTTPS host.
+    """
+    if settings.is_production:
+        return
+    if isinstance(settings.api_env, str) and settings.api_env.lower() != "production":
+        marker = any(
+            os.getenv(name)
+            for name in (
+                "RENDER_INSTANCE_ID",
+                "RENDER_SERVICE_ID",
+                "RENDER_EXTERNAL_URL",
+            )
+        )
+        if marker:
+            raise RuntimeError(
+                "Refusing to start in %r on Render. Set API_ENV=production in "
+                "the Render service Environment (non-secret) and redeploy." % settings.api_env
+            )
+
+
 @app.on_event("startup")
 def _startup() -> None:
     settings = get_settings()
+    _enforce_render_production(settings)
     repo = build_repository()
     bootstrap_identities(repo)
     gateway = build_blockchain_gateway(settings)
