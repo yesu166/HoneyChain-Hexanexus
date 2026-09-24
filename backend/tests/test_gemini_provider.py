@@ -195,113 +195,22 @@ def _pool(*first_steps, second_steps) -> GeminiProviderPool:
     return GeminiProviderPool([p1, p2]), c1, c2
 
 
-def test_pool_rotates_to_fallback_on_rate_limit():
-    pool, primary_calls, fallback_calls = _pool(
-        _error(429, "Quota exceeded ... limit: 20", "1"),
+def test_pool_round_robin_starts_on_key1_then_key2():
+    pool, c1, c2 = _pool(
+        _success_text(),
         second_steps=[_success_text()],
     )
-    turn = _run(pool)
-    assert turn.text == "Vanakkam!"
-    assert primary_calls["n"] == 1
-    assert fallback_calls["n"] == 1
-
-
-def test_pool_does_not_rotate_on_auth_error():
-    pool, primary_calls, fallback_calls = _pool(
-        _error(403, "API key not valid."),
-        second_steps=[_success_text()],
-    )
-    turn = _run(pool)
-    assert turn.kind == CAT_AUTH
-    assert primary_calls["n"] == 1
-    assert fallback_calls["n"] == 0
-
-
-def test_pool_does_not_rotate_on_daily_quota():
-    pool, primary_calls, fallback_calls = _pool(
-        _error(429, "You exceeded your daily quota of 100 requests per day."),
-        second_steps=[_success_text()],
-    )
-    turn = _run(pool)
-    assert turn.kind == CAT_QUOTA
-    assert fallback_calls["n"] == 0
-
-
-def test_pool_returns_retryable_error_when_all_keys_throttled():
-    pool, primary_calls, fallback_calls = _pool(
-        _error(429, "Quota exceeded ... limit: 20", "0"),
-        second_steps=[_error(429, "Quota exceeded ... limit: 20", "0")],
-    )
-    turn = _run(pool)
-    assert turn.kind == CAT_RATE_LIMIT
-    assert turn.error
-    # One initial pass + one bounded retry pass, preserving key order.
-    assert primary_calls["n"] == 2
-    assert fallback_calls["n"] == 2
-
-
-def test_pool_recovers_from_google_503_storm_on_retry_pass():
-    pool, primary_calls, fallback_calls = _pool(
-        _error(503, "model high demand", "0"),
-        second_steps=[_success_text()],
-    )
-    turn = _run(pool)
-    # Round 1: key-1 hits the Google-wide 503, key-2 succeeds -> returns ok.
-    assert turn.text == "Vanakkam!"
-    assert primary_calls["n"] == 1
-    assert fallback_calls["n"] == 1
-
-
-def test_pool_retries_all_keys_once_when_every_key_503s_then_first_recovers():
-    def _mk(steps, base):
-        steps = list(steps)
-        calls = {"n": 0}
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            i = min(calls["n"], len(steps) - 1)
-            calls["n"] += 1
-            return steps[i]
-
-        return GoogleGeminiProvider(
-            api_key=base,
-            model="gemini-3.6-flash",
-            transport=httpx.MockTransport(handler),
-            max_retries=0,
-        ), calls
-
-    p1, c1 = _mk([_error(503, "model high demand", "0"), _success_text()], "key-1")
-    p2, c2 = _mk([_error(503, "model high demand", "0"), _error(503, "model high demand", "0")], "key-2")
-    pool = GeminiProviderPool([p1, p2])
-    turn = _run(pool)
-    assert turn.text == "Vanakkam!"
-    # Path: pass 1 key-1(503) key-2(503) -> sleep -> pass 2 key-1(ok).
-    assert c1["n"] == 2
+    first = _run(pool)
+    assert first.text == "Vanakkam!"
+    assert c1["n"] == 1
+    assert c2["n"] == 0
+    second = _run(pool)
+    assert second.text == "Vanakkam!"
+    assert c1["n"] == 1
     assert c2["n"] == 1
 
 
-def test_pool_retry_preserves_key_order_key1_then_key2_then_key3():
-    order: list[str] = []
-
-    def _mk(base: str) -> GoogleGeminiProvider:
-        def handler(request: httpx.Request) -> httpx.Response:
-            order.append(base)
-            return _error(503, "model high demand", "0")
-
-        return GoogleGeminiProvider(
-            api_key=base,
-            model="gemini-3.6-flash",
-            transport=httpx.MockTransport(handler),
-            max_retries=0,
-        )
-
-    pool = GeminiProviderPool([_mk("key-1"), _mk("key-2"), _mk("key-3")])
-    turn = _run(pool)
-    assert turn.kind == CAT_UNAVAILABLE
-    # Deterministic 1 -> 2 -> 3, never shuffled, across BOTH rounds.
-    assert order == ["key-1", "key-2", "key-3", "key-1", "key-2", "key-3"]
-
-
-def test_pool_does_not_retry_when_first_key_succeeds():
+def test_pool_round_robin_cycles_three_keys():
     order: list[str] = []
 
     def _mk(base: str) -> GoogleGeminiProvider:
@@ -317,9 +226,86 @@ def test_pool_does_not_retry_when_first_key_succeeds():
         )
 
     pool = GeminiProviderPool([_mk("key-1"), _mk("key-2"), _mk("key-3")])
+    for _ in range(4):
+        _run(pool)
+    assert order == ["key-1", "key-2", "key-3", "key-1"]
+
+
+def test_pool_uses_only_one_key_per_request_on_retryable_error():
+    pool, c1, c2 = _pool(
+        _error(503, "model high demand", "0"),
+        second_steps=[_success_text()],
+    )
+    turn = _run(pool)
+    # One request, ONE key: key-1 fails transiently and the request returns the
+    # error — key-2 is never called within the same request.
+    assert turn.kind == CAT_UNAVAILABLE
+    assert c1["n"] == 1
+    assert c2["n"] == 0
+    # The NEXT request lands on key-2.
+    turn2 = _run(pool)
+    assert turn2.text == "Vanakkam!"
+    assert c2["n"] == 1
+
+
+def test_pool_one_key_per_request_on_auth_error():
+    pool, c1, c2 = _pool(
+        _error(403, "API key not valid."),
+        second_steps=[_success_text()],
+    )
+    turn = _run(pool)
+    assert turn.kind == CAT_AUTH
+    assert c1["n"] == 1
+    assert c2["n"] == 0
+
+
+def test_pool_one_key_per_request_on_daily_quota():
+    pool, c1, c2 = _pool(
+        _error(429, "You exceeded your daily quota of 100 requests per day."),
+        second_steps=[_success_text()],
+    )
+    turn = _run(pool)
+    assert turn.kind == CAT_QUOTA
+    assert c1["n"] == 1
+    assert c2["n"] == 0
+
+
+def test_pool_keeps_exhausting_keys_round_robin():
+    pool, c1, c2 = _pool(
+        _error(429, "Quota exceeded ... limit: 20", "0"),
+        second_steps=[_error(429, "Quota exceeded ... limit: 20", "0")],
+    )
+    t1 = _run(pool)
+    assert t1.kind == CAT_RATE_LIMIT
+    t2 = _run(pool)
+    assert t2.kind == CAT_RATE_LIMIT
+    assert c1["n"] == 1
+    assert c2["n"] == 1
+    t3 = _run(pool)
+    assert t3.kind == CAT_RATE_LIMIT
+    assert c1["n"] == 2  # wrapped back to key-1
+
+
+def test_pool_provider_keeps_its_bounded_backoff():
+    counter = {"calls": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        counter["calls"] += 1
+        if counter["calls"] <= 2:
+            return _error(503, "model high demand", "0")
+        return _success_text()
+
+    provider = GoogleGeminiProvider(
+        api_key="key-1",
+        model="gemini-3.6-flash",
+        transport=httpx.MockTransport(handler),
+        max_retries=2,
+    )
+    pool = GeminiProviderPool([provider])
     turn = _run(pool)
     assert turn.text == "Vanakkam!"
-    assert order == ["key-1"]
+    assert counter["calls"] == 3
+    assert turn.retries == 2
 
 
 def test_pool_single_provider_delegates_query():
