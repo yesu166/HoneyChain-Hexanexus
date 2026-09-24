@@ -229,14 +229,97 @@ def test_pool_does_not_rotate_on_daily_quota():
 
 def test_pool_returns_retryable_error_when_all_keys_throttled():
     pool, primary_calls, fallback_calls = _pool(
-        _error(429, "Quota exceeded ... limit: 20", "1"),
-        second_steps=[_error(429, "Quota exceeded ... limit: 20", "1")],
+        _error(429, "Quota exceeded ... limit: 20", "0"),
+        second_steps=[_error(429, "Quota exceeded ... limit: 20", "0")],
     )
     turn = _run(pool)
     assert turn.kind == CAT_RATE_LIMIT
     assert turn.error
+    # One initial pass + one bounded retry pass, preserving key order.
+    assert primary_calls["n"] == 2
+    assert fallback_calls["n"] == 2
+
+
+def test_pool_recovers_from_google_503_storm_on_retry_pass():
+    pool, primary_calls, fallback_calls = _pool(
+        _error(503, "model high demand", "0"),
+        second_steps=[_success_text()],
+    )
+    turn = _run(pool)
+    # Round 1: key-1 hits the Google-wide 503, key-2 succeeds -> returns ok.
+    assert turn.text == "Vanakkam!"
     assert primary_calls["n"] == 1
     assert fallback_calls["n"] == 1
+
+
+def test_pool_retries_all_keys_once_when_every_key_503s_then_first_recovers():
+    def _mk(steps, base):
+        steps = list(steps)
+        calls = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            i = min(calls["n"], len(steps) - 1)
+            calls["n"] += 1
+            return steps[i]
+
+        return GoogleGeminiProvider(
+            api_key=base,
+            model="gemini-3.6-flash",
+            transport=httpx.MockTransport(handler),
+            max_retries=0,
+        ), calls
+
+    p1, c1 = _mk([_error(503, "model high demand", "0"), _success_text()], "key-1")
+    p2, c2 = _mk([_error(503, "model high demand", "0"), _error(503, "model high demand", "0")], "key-2")
+    pool = GeminiProviderPool([p1, p2])
+    turn = _run(pool)
+    assert turn.text == "Vanakkam!"
+    # Path: pass 1 key-1(503) key-2(503) -> sleep -> pass 2 key-1(ok).
+    assert c1["n"] == 2
+    assert c2["n"] == 1
+
+
+def test_pool_retry_preserves_key_order_key1_then_key2_then_key3():
+    order: list[str] = []
+
+    def _mk(base: str) -> GoogleGeminiProvider:
+        def handler(request: httpx.Request) -> httpx.Response:
+            order.append(base)
+            return _error(503, "model high demand", "0")
+
+        return GoogleGeminiProvider(
+            api_key=base,
+            model="gemini-3.6-flash",
+            transport=httpx.MockTransport(handler),
+            max_retries=0,
+        )
+
+    pool = GeminiProviderPool([_mk("key-1"), _mk("key-2"), _mk("key-3")])
+    turn = _run(pool)
+    assert turn.kind == CAT_UNAVAILABLE
+    # Deterministic 1 -> 2 -> 3, never shuffled, across BOTH rounds.
+    assert order == ["key-1", "key-2", "key-3", "key-1", "key-2", "key-3"]
+
+
+def test_pool_does_not_retry_when_first_key_succeeds():
+    order: list[str] = []
+
+    def _mk(base: str) -> GoogleGeminiProvider:
+        def handler(request: httpx.Request) -> httpx.Response:
+            order.append(base)
+            return _success_text()
+
+        return GoogleGeminiProvider(
+            api_key=base,
+            model="gemini-3.6-flash",
+            transport=httpx.MockTransport(handler),
+            max_retries=0,
+        )
+
+    pool = GeminiProviderPool([_mk("key-1"), _mk("key-2"), _mk("key-3")])
+    turn = _run(pool)
+    assert turn.text == "Vanakkam!"
+    assert order == ["key-1"]
 
 
 def test_pool_single_provider_delegates_query():

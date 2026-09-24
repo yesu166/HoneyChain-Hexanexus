@@ -54,6 +54,14 @@ MAX_AUTOMATIC_RETRIES = 2
 _RETRY_AFTER_CAP_SECONDS = 45.0
 _RETRYABLE_KINDS = {CAT_RATE_LIMIT, CAT_UNAVAILABLE, CAT_NETWORK}
 
+# The pool normally tries each key once per request. When EVERY configured key
+# fails with a retryable/transient error (e.g. Google "model high demand" 503
+# spikes that hit the whole model, not one key), we pause briefly and run ONE
+# more pass over the same deterministic key order before giving up. The wait is
+# bounded (Retry-After honored, capped) so a single request never storms.
+_POOL_RETRY_ROUNDS = 2
+_POOL_RETRY_WAIT_CAP_SECONDS = 5.0
+
 
 # A single function call the model decided to make (tool registry name + args).
 @dataclass(frozen=True)
@@ -154,6 +162,19 @@ def _backoff_delay(attempt: int) -> float:
     if attempt <= 1:
         return round(random.uniform(1.0, 2.0), 2)
     return round(random.uniform(3.0, 5.0), 2)
+
+
+def _pool_retry_delay(last: GeminiTurn) -> float:
+    """Pool-level pause before the bounded retry pass over all keys.
+
+    Prefers the API's ``Retry-After`` hint (capped so a single chat request
+    never stalls), otherwise falls back to a short 1-2s backoff — enough to
+    ride out a transient Google "model high demand" spike.
+    """
+    from_headers = _retry_after_seconds(last.retry_after, last.error)
+    if from_headers is not None:
+        return round(min(from_headers, _POOL_RETRY_WAIT_CAP_SECONDS), 2)
+    return round(random.uniform(1.0, 2.0), 2)
 
 
 class GeminiProvider(ABC):
@@ -374,21 +395,34 @@ class GeminiProviderPool(GeminiProvider):
                 tool_declarations=tool_declarations,
             )
         last_retryable: GeminiTurn | None = None
-        for index, provider in enumerate(self._providers):
-            turn = await provider.generate(
-                system=system,
-                contents=contents,
-                tool_declarations=tool_declarations,
-            )
-            if turn.kind == "" or turn.kind not in _RETRYABLE_KINDS:
-                if index > 0:
-                    logger.info("gemini rotated to provider #%d (ok)", index)
-                return turn
-            last_retryable = turn
-            logger.warning(
-                "gemini provider #%d failed kind=%s (rotating)", index, turn.kind,
-            )
-        # Every configured provider failed with a retryable/transient error.
+        for round_index in range(_POOL_RETRY_ROUNDS):
+            for index, provider in enumerate(self._providers):
+                turn = await provider.generate(
+                    system=system,
+                    contents=contents,
+                    tool_declarations=tool_declarations,
+                )
+                if turn.kind == "" or turn.kind not in _RETRYABLE_KINDS:
+                    if index > 0:
+                        logger.info("gemini rotated to provider #%d (ok)", index)
+                    return turn
+                last_retryable = turn
+                logger.warning(
+                    "gemini provider #%d failed kind=%s (rotating)",
+                    index, turn.kind,
+                )
+            # Every configured key failed with a retryable/transient error
+            # (Google "model high demand" 503 hits the whole model, so rotating
+            # keys can't help). Pause briefly, then retry the SAME deterministic
+            # key order once, exactly like the error asks ("try again later").
+            if round_index + 1 < _POOL_RETRY_ROUNDS and last_retryable is not None:
+                delay = _pool_retry_delay(last_retryable)
+                logger.warning(
+                    "all %d providers failed kind=%s; pausing %.1fs then retrying",
+                    len(self._providers), last_retryable.kind, delay,
+                )
+                await asyncio.sleep(delay)
+        # Still failing after the bounded retry pass.
         return last_retryable or GeminiTurn(
             finish_reason="error", error="all Gemini providers failed", kind=CAT_NETWORK
         )
