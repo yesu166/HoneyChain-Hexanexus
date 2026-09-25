@@ -158,22 +158,29 @@ app.post('/submit', async (req, res) => {
     const stringArgs = args.map(String);
 
     const startSubmit = Date.now();
-    // newProposal + submit + commitStatus gives us the REAL transaction id
-    // (the txid the proposal was signed with) before we report anything.
-    // submitTransaction() alone returns only the chaincode result bytes, so
-    // the gateway used to answer with tx_id: null and the backend stored an
-    // empty tx_hash on the anchor. No id is ever fabricated here.
-    const proposal = contract.newProposal(fn, ...stringArgs);
+    // Fine-grained submit flow (@hyperledger/fabric-gateway 1.12.1 API,
+    // verified against the installed SDK typings):
+    //   contract.newProposal(name, { arguments })  -> Proposal
+    //   proposal.getTransactionId()                -> the REAL txid
+    //   proposal.endorse()                         -> Transaction
+    //   transaction.submit()                       -> SubmittedTransaction
+    //   commit.getStatus()                         -> Status (authoritative commit)
+    // The previous code called contract.newProposal(fn, ...stringArgs); the
+    // SDK's second parameter is ProposalOptions, NOT a chaincode argument, so
+    // every argument was silently dropped and the live chaincode aborted with
+    // "Expected 1 parameters, but 0 have been supplied". Arguments must be
+    // passed as options.arguments.
+    const proposal = contract.newProposal(fn, { arguments: stringArgs });
     const txId = proposal.getTransactionId();
-    const signedProposal = await proposal.endorse();
-    const submittedTx = await contract.submit(signedProposal);
-    const commitStatus = await contract.commitStatus(submittedTx);
+    const transaction = await proposal.endorse();
+    const submittedTx = await transaction.submit();
+    const commitStatus = await submittedTx.getStatus();
     const commitMs = Date.now() - startSubmit;
 
     // Truth rules: submission success is distinct from commit confirmation.
     // Only report committed when the commit status says so.
     const commitCode = commitStatus.code; // 0 = OK (NOT_COMMITTED is 10)
-    const committed = commitCode === 0;
+    const committed = commitStatus.successful === true && commitCode === 0;
     if (!committed) {
       return res.status(502).json({
         status: 'FABRIC_NOT_COMMITTED',
@@ -188,10 +195,11 @@ app.post('/submit', async (req, res) => {
       });
     }
 
-    // The chaincode result bytes (what submitTransaction would have returned).
+    // The chaincode result bytes from the endorsement (available immediately;
+    // commit confirmation is reported separately above via getStatus()).
     let resultPayload = null;
     try {
-      const raw = Buffer.from(submittedTx.getResult()).toString('utf-8');
+      const raw = Buffer.from(transaction.getResult()).toString('utf-8');
       try {
         resultPayload = JSON.parse(raw);
       } catch (_) {
