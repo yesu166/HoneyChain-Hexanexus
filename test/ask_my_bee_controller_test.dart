@@ -19,7 +19,8 @@ class _FakeApi implements AskMyBeeApi {
   int calls = 0;
 
   @override
-  Future<AskChatReply> sendChat(List<AskChatMessage> messages) async {
+  Future<AskChatReply> sendChat(List<AskChatMessage> messages,
+      {String? language}) async {
     calls++;
     sent.add(messages);
     final err = nextError;
@@ -39,7 +40,9 @@ class _GatedApi implements AskMyBeeApi {
   Completer<AskChatReply>? next = Completer<AskChatReply>();
 
   @override
-  Future<AskChatReply> sendChat(List<AskChatMessage> messages) => next!.future;
+  Future<AskChatReply> sendChat(List<AskChatMessage> messages,
+      {String? language}) =>
+      next!.future;
 
   @override
   Future<AskBackendStatus> fetchStatus() async =>
@@ -48,7 +51,8 @@ class _GatedApi implements AskMyBeeApi {
 
 class _OffApi implements AskMyBeeApi {
   @override
-  Future<AskChatReply> sendChat(List<AskChatMessage> messages) async =>
+  Future<AskChatReply> sendChat(List<AskChatMessage> messages,
+      {String? language}) async =>
       const AskChatReply(reply: 'x', toolCount: 0);
 
   @override
@@ -140,6 +144,26 @@ void main() {
       expect(await c.send('hello'), isFalse);
       expect(c.state, AskMyBeeState.error);
       expect(c.lastError, 'ask.rate.limited');
+    });
+
+    test('timeout maps to ask.timeout, not ask.offline', () async {
+      final api = _FakeApi()
+        ..nextError = const ApiException(
+            ApiExceptionKind.timeout, 'Request timed out');
+      final c = AskMyBeeController(api,
+          tr: _identity, offlineCheck: () => false);
+      await c.send('hello');
+      expect(c.lastError, 'ask.timeout');
+    });
+
+    test('network maps to ask.offline', () async {
+      final api = _FakeApi()
+        ..nextError = const ApiException(
+            ApiExceptionKind.network, 'No connection');
+      final c = AskMyBeeController(api,
+          tr: _identity, offlineCheck: () => false);
+      await c.send('hello');
+      expect(c.lastError, 'ask.offline');
     });
 
     test('401/403 map to ask.unauthorized', () async {

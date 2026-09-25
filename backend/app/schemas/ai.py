@@ -16,6 +16,11 @@ class AIChatMessage(BaseModel):
 class AIChatRequest(BaseModel):
     messages: list[AIChatMessage] = Field(..., min_length=1, max_length=40)
     request_id: Optional[str] = None
+    language: Optional[str] = Field(
+        default=None,
+        description="App-selected language code (en/hi/ta/bn/pa/ml/mr). When set, "
+        "Ask My Bee replies in that language.",
+    )
 
     @property
     def latest(self) -> str:
@@ -62,10 +67,40 @@ class STTResponse(BaseModel):
     provider: str = "indic_conformer"
 
 
+SUPPORTED_TTS_LANGUAGES = {
+    "en": "english",
+    "ta": "tamil",
+    "hi": "hindi",
+    "bn": "bengali",
+    "pa": "punjabi",
+    "ml": "malayalam",
+    "mr": "marathi",
+}
+
+# Server-side voice selection per app language. The speech service (IndicF5)
+# receives both, so the app does not need to know service-specific voice ids.
+TTS_VOICE_BY_LANGUAGE = {
+    "en": "en-IN-SwaraNeural",
+    "ta": "ta-IN-Valluvar",
+    "hi": "hi-IN-Madhur",
+    "bn": "bn-IN-Dipannita",
+    "pa": "pa-IN-Simran",
+    "ml": "ml-IN-Sobhana",
+    "mr": "mr-IN-Aarohi",
+}
+
+
 class TTSRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=2000)
-    language: Optional[str] = None
-    voice: Optional[str] = None
+    language: Optional[str] = Field(
+        default=None,
+        description="App language code (en/hi/ta/bn/pa/ml/mr). When set it drives "
+        "server-side voice selection and per-language failure messaging.",
+    )
+    voice: Optional[str] = Field(
+        default=None,
+        description="Explicit voice id; overrides the language default.",
+    )
 
 
 class TTSResponse(BaseModel):

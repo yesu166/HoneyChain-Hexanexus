@@ -29,6 +29,26 @@ _HEALTH_TIMEOUT = 6.0
 _HEALTH_CACHE_TTL_SECONDS = 15.0
 _MAX_AUDIO_BYTES = 30 * 1024 * 1024  # 30 MB
 
+_LANGUAGE_NAMES = {
+    "en": "English",
+    "ta": "Tamil",
+    "hi": "Hindi",
+    "bn": "Bengali",
+    "pa": "Punjabi",
+    "ml": "Malayalam",
+    "mr": "Marathi",
+}
+
+
+def _tts_unavailable_detail(language: str | None) -> str:
+    """Honest, per-language failure message for an unreachable TTS service."""
+    if language and language in _LANGUAGE_NAMES:
+        return (
+            f"{_LANGUAGE_NAMES[language]} voice playback is temporarily unavailable. "
+            "Please try again in a moment."
+        )
+    return "Voice playback is temporarily unavailable. Please try again in a moment."
+
 
 def _audio_error(detail: str) -> HTTPException:
     return HTTPException(
@@ -187,6 +207,7 @@ async def ai_chat(
         user=user,
         messages=payload.messages,
         request_id=payload.request_id,
+        language=payload.language,
     )
 
 
@@ -235,7 +256,8 @@ async def ai_speech_to_text(
     )
 
 
-@router.post("/ai/text-to-speech", response_model=ai_schemas.TTSResponse)
+@router.post("/ai/text-to-speech", response_model=ai_schemas.TTSResponse, name="tts")
+@router.post("/ai/tts", response_model=ai_schemas.TTSResponse)
 async def ai_text_to_speech(
     payload: ai_schemas.TTSRequest,
     request: Request,
@@ -243,8 +265,11 @@ async def ai_text_to_speech(
 ) -> ai_schemas.TTSResponse:
     """Server-side voice rendering (AI4Bharat IndicF5 behind a speech service).
     Returns 503 truthfully when the service is not configured or unreachable —
-    the client then falls back to on-device TTS without pretending otherwise."""
+    the client then falls back to on-device TTS without pretending otherwise.
+    The app language drives the voice selection and the failure message."""
     settings = request.app.state.settings
+    language = (payload.language or "").strip().lower()
+    voice = ai_schemas.TTS_VOICE_BY_LANGUAGE.get(language, "") or payload.voice
     if not (settings.ai_tts_enabled and settings.ai_tts_base_url):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -263,8 +288,8 @@ async def ai_text_to_speech(
                 f"{settings.ai_tts_base_url.rstrip('/')}/synthesize",
                 json={
                     "text": payload.text,
-                    "language": payload.language,
-                    "voice": payload.voice,
+                    "language": language or None,
+                    "voice": voice or None,
                 },
             )
             response.raise_for_status()
@@ -273,7 +298,7 @@ async def ai_text_to_speech(
     except Exception as exc:  # noqa: BLE001 — surfaced as an honest 503
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Text-to-speech service unreachable: {exc}",
+            detail=_tts_unavailable_detail(language or None),
         ) from exc
     return ai_schemas.TTSResponse(
         audio_base64=base64.b64encode(audio).decode("ascii"),

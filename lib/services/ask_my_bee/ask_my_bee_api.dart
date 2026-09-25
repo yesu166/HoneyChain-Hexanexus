@@ -77,7 +77,10 @@ class AskBackendStatus {
 /// Abstract so tests can fake it; production code uses [AskMyBeeHttpApi].
 abstract class AskMyBeeApi {
   /// Sends the transcript to `POST /api/v1/ai/chat` and returns the reply.
-  Future<AskChatReply> sendChat(List<AskChatMessage> messages);
+  ///
+  /// [language] is the app-selected language code (en/hi/ta/bn/pa/ml/mr);
+  /// the backend uses it to make the assistant reply in that language.
+  Future<AskChatReply> sendChat(List<AskChatMessage> messages, {String? language});
 
   /// Reads `GET /api/v1/ai/status` (enabled / configured / model name).
   Future<AskBackendStatus> fetchStatus();
@@ -94,11 +97,12 @@ class AskMyBeeHttpApi implements AskMyBeeApi {
   final ApiClient _client;
 
   @override
-  Future<AskChatReply> sendChat(List<AskChatMessage> messages) async {
+  Future<AskChatReply> sendChat(List<AskChatMessage> messages, {String? language}) async {
     final body = await _client.postJson(
       '/api/v1/ai/chat',
       body: {
         'messages': messages.map((m) => m.toJson()).toList(),
+        if (language != null && language.isNotEmpty) 'language': language,
       },
     );
     return AskChatReply.fromJson(body);

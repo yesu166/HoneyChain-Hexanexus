@@ -133,6 +133,7 @@ class AIChatService:
         user: Any,
         messages: list[AIChatMessage],
         request_id: str | None = None,
+        language: str | None = None,
     ) -> AIChatResponse:
         started = perf_counter()
         tool_count = 0
@@ -186,6 +187,11 @@ class AIChatService:
             settings=self._settings,
         )
         system_prompt = (SYSTEM_PROMPT.strip() + f"\n\nToday: {_today()}")
+        if language:
+            system_prompt += (
+                f"\nThe app is set to {language}. Answer in that language "
+                "(the same script), even if the user wrote something else."
+            )
 
         for _ in range(_MAX_TOOL_ROUNDS + 1):
             turn = await self._provider.generate(

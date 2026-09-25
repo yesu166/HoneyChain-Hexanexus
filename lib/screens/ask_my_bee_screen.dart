@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../core/api/api_client.dart';
 import '../core/api/api_config.dart';
 import '../data/honeychain_store.dart';
+import '../l10n/app_strings.dart';
 import '../services/api_token_store.dart';
 import '../services/ask_my_bee/ask_my_bee_api.dart';
 import '../services/ask_my_bee/ask_my_bee_controller.dart';
@@ -138,6 +139,9 @@ class _AskMyBeeScreenState extends State<AskMyBeeScreen> {
           store.tr('ask.title'),
           style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.ink),
         ),
+        actions: [
+          _languageButton(store),
+        ],
       ),
       body: ListenableBuilder(
         listenable: _controller,
@@ -162,6 +166,46 @@ class _AskMyBeeScreenState extends State<AskMyBeeScreen> {
           );
         },
       ),
+    );
+  }
+
+  Widget _languageButton(HoneyChainStore store) {
+    return PopupMenuButton<String>(
+      tooltip: store.tr('prompt.language'),
+      icon: const Icon(Icons.translate_rounded, color: AppTheme.orangeDark),
+      onSelected: (code) {
+        store.setLanguage(code);
+        // Re-render UI text and switch the chat/TTS target language now.
+        if (mounted) setState(() {});
+      },
+      itemBuilder: (context) => [
+        for (final lang in AppLanguages.all)
+          PopupMenuItem(
+            value: lang.code,
+            child: Row(
+              children: [
+                Icon(
+                  store.currentLang == lang
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  size: 18,
+                  color: store.currentLang == lang
+                      ? AppTheme.orangeDark
+                      : AppTheme.inkFaint,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  lang.nativeName,
+                  style: TextStyle(
+                    fontWeight:
+                        store.currentLang == lang ? FontWeight.w800 : FontWeight.w600,
+                    color: AppTheme.ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 

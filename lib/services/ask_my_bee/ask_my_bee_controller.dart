@@ -160,6 +160,7 @@ class AskMyBeeController extends ChangeNotifier {
     try {
       final reply = await _api!.sendChat(
         _entries.map((e) => AskChatMessage(role: e.role, content: e.content)).toList(),
+        language: HoneyChainStore.instance.language,
       );
       if (seq != _requestSeq) return false; // cancelled while in flight
 
@@ -250,8 +251,9 @@ class AskMyBeeController extends ChangeNotifier {
       case ApiExceptionKind.forbidden:
         return _tr('ask.unauthorized');
       case ApiExceptionKind.network:
-      case ApiExceptionKind.timeout:
         return _tr('ask.offline');
+      case ApiExceptionKind.timeout:
+        return _tr('ask.timeout');
       case ApiExceptionKind.validation:
         return e.message.isEmpty ? _tr('ask.error') : e.message;
       case ApiExceptionKind.conflict:

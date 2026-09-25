@@ -628,7 +628,16 @@ def test_stt_and_tts_unreachable_return_503(client, demo_token):
 
     tts = client.post("/api/v1/ai/text-to-speech", headers=headers, json=_tts_payload())
     assert tts.status_code == 503
-    assert "unreachable" in tts.json()["detail"]
+    # Per-language failure wording (language "ta" => "Tamil voice playback ...").
+    assert "Tamil voice playback is temporarily unavailable." in tts.json()["detail"]
+
+    tts_hi = client.post(
+        "/api/v1/ai/text-to-speech",
+        headers=headers,
+        json={"text": "नमस्ते", "language": "hi"},
+    )
+    assert tts_hi.status_code == 503
+    assert "Hindi voice playback is temporarily unavailable." in tts_hi.json()["detail"]
 
 
 def test_chat_notifications_tool_returns_real_alerts(client, demo_token, chat_service):

@@ -16,7 +16,8 @@ class _ChatApi implements AskMyBeeApi {
   int calls = 0;
 
   @override
-  Future<AskChatReply> sendChat(List<AskChatMessage> messages) async {
+  Future<AskChatReply> sendChat(List<AskChatMessage> messages,
+      {String? language}) async {
     calls++;
     sent.add(messages);
     if (calls <= replies.length) return replies[calls - 1];
