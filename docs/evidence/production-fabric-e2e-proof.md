@@ -8,7 +8,7 @@ back independently from the ledger and from a decoded orderer block.
 **Instance:** i-06063debd27c12e51 / ap-south-1 / 13.127.118.165 (host ip-172-31-8-236)
 **Host user:** `ubuntu` (SSH key `honeychain-key.pem`)
 **Proof artifact:** `docs/evidence/live-e2e-proof-2026-09-25.json` (captured by the run below)
-**Script used:** `/tmp/e2e_fabric_proof.py` on the EC2 host (kept out of the repo on purpose)
+**Script used:** `backend/scripts/live_fabric_e2e_proof.py` (copied to `/tmp/e2e_fabric_proof.py` on the EC2 host and executed there with the deployed venv)
 
 ---
 
