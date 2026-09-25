@@ -26,6 +26,7 @@ from .api.routes import (
     health,
     hives,
     iot,
+    internal_fabric,
     labs,
     lineage,
     notifications,
@@ -157,6 +158,11 @@ for router in (
     org.router,
     platform_orgs.router,
     assertions.router,
+    # Fabric bridge endpoints. These are mounted on every deployment for code
+    # symmetry, but only the EC2 host can actually serve them: the router
+    # refuses unless the Fabric adapter is active there, and Caddy proxies only
+    # the three /internal/fabric/* paths.
+    internal_fabric.router,
 ):
     app.include_router(router)
 

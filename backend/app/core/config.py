@@ -61,6 +61,16 @@ class Settings:
         self.fabric_channel: str = os.getenv("FABRIC_CHANNEL", "")
         self.fabric_chaincode: str = os.getenv("FABRIC_CHAINCODE", "")
         self.fabric_gateway_url: str = os.getenv("FABRIC_GATEWAY_URL", "")
+        # Remote Fabric bridge. Used when this deployment is NOT the Fabric host:
+        # the public API forwards hashed commitments to the internal Fabric
+        # service on EC2, which holds the signing identity. `fabric_bridge_token`
+        # is a server-side shared secret — it must never be a VITE_ variable, must
+        # never reach the browser or the Flutter app, and must never be logged.
+        self.fabric_bridge_url: str = os.getenv("FABRIC_BRIDGE_URL", "")
+        self.fabric_bridge_token: str = os.getenv("FABRIC_BRIDGE_TOKEN", "")
+        self.fabric_bridge_timeout: int = int(
+            os.getenv("FABRIC_BRIDGE_TIMEOUT", "30") or 30
+        )
         self.ai_adapter: str = os.getenv("AI_ADAPTER", "risk_engine")
 
         # Ask My Bee — Gemini voice assistant (server-side only; the Gemini key

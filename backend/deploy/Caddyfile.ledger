@@ -1,0 +1,78 @@
+# Caddy configuration for ledger.honeychain.in
+#
+# Purpose
+# -------
+# This host is the Fabric bridge endpoint. It is NOT a second public entry point
+# for the HoneyChain API. Caddy terminates TLS with an HTTP-01 certificate and
+# forwards exactly three internal Fabric paths to the local FastAPI service.
+#
+# Everything else returns 404. That rejection is the security control that keeps
+# the general API (auth, users, hives, batches, passports) unreachable through
+# this hostname, so the portal keeps using honeychain-api.onrender.com as the
+# single write path.
+#
+# Install: /etc/caddy/Caddyfile   (owned by root, mode 0644)
+# Reload:  systemctl reload caddy
+
+{
+	email admin@honeychain.in
+	# Explicitly no admin API on a public interface.
+	admin off
+}
+
+ledger.honeychain.in {
+	# Explicit TLS + HTTP-01 challenge on :80 for certificate issuance.
+	tls {
+		protocols tls1.2 tls1.3
+	}
+
+	encode zstd gzip
+
+	# --- Reject everything that is not an allowed bridge path -----------------
+	# A named matcher keeps the allowlist visible in one place. Matching on the
+	# exact path (no wildcard) is what makes the deny rule authoritative.
+	@allowed {
+		path /internal/fabric/health /internal/fabric/anchor /internal/fabric/query
+	}
+	@denied {
+		not path /internal/fabric/health /internal/fabric/anchor /internal/fabric/query
+	}
+
+	# The general HoneyChain API must never be reachable here, including
+	# /api/v1/* and any auth or user routes.
+	handle @denied {
+		respond "Not found" 404
+	}
+
+	handle @allowed {
+		reverse_proxy 127.0.0.1:8000 {
+			# Keep the original Host so FastAPI sees the expected hostname.
+			header_up Host {host}
+
+			# The service authenticates every call with a shared secret in an
+			# Authorization header. Caddy passes headers through untouched and
+			# never logs them, so the credential is not written to the access log.
+			header_up X-Forwarded-Proto https
+
+			# Fabric transactions can take longer than a default proxy timeout.
+			transport http {
+				read_timeout 60s
+				write_timeout 60s
+			}
+		}
+	}
+
+	# Access logging stays OFF by default: request paths are safe, but enabling
+	# logs on a credentialed endpoint is an unnecessary risk. Turn on only if
+	# needed for incident response, and never log the Authorization header.
+	log {
+		output discard
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		# The bridge returns JSON only; no third-party origins need access.
+		-Server
+	}
+}
