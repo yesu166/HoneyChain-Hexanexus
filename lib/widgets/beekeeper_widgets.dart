@@ -902,7 +902,7 @@ class BeekeeperListenButton extends StatelessWidget {
       height: BeeTokens.touchPrimary + 8,
       child: FilledButton.icon(
         onPressed: () {
-          if (!tts.speak(text)) {
+          if (!tts.speak(text, languageCode: store.language)) {
             ScaffoldMessenger.of(context)
               ..hideCurrentSnackBar()
               ..showSnackBar(

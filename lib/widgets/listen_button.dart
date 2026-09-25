@@ -56,7 +56,7 @@ class ListenButton extends StatelessWidget {
 
   void _speak(BuildContext context, TextToSpeechService tts) {
     final store = HoneyChainStore.instance;
-    if (!tts.speak(text)) {
+    if (!tts.speak(text, languageCode: store.language)) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(

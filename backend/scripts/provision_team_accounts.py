@@ -38,7 +38,7 @@ TEAM_ACCOUNTS = [
     "adni71845@gmail.com",
     "rakshanthimal@gmail.com",
     "yesuraja166@gmail.com",
-    "amirdavarshini28@gmail.com",
+    "amirdavarshinid28@gmail.com",
     "srvijayaragavan2008@gmail.com",
 ]
 
