@@ -46,7 +46,10 @@ void main() {
     expect(ApiConfig.isAllowedBaseUrl(''), isFalse);
     expect(ApiConfig.isAllowedBaseUrl('http://evil.in'), isFalse);
     expect(ApiConfig.isAllowedBaseUrl('http://localhost:8000'), isTrue);
-    expect(ApiConfig.isAllowedBaseUrl('https://api.honeychain.in'), isTrue);
+    expect(
+      ApiConfig.isAllowedBaseUrl('https://honeychain-api.onrender.com'),
+      isTrue,
+    );
   });
 
   test('HTTP_DEV_HOSTS allows only explicitly enumerated prototype hosts', () {

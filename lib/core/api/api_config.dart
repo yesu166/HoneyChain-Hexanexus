@@ -1,12 +1,12 @@
 /// Build-time backend configuration injected via `--dart-define`:
 ///
 /// ```sh
-/// flutter run --dart-define=API_BASE_URL=https://api.honeychain.in
+/// flutter run --dart-define=API_BASE_URL=https://honeychain-api.onrender.com
 /// flutter run --dart-define=API_BASE_URL=http://localhost:8000
 /// flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000  (Android emulator -> host)
 /// flutter run --dart-define=API_BASE_URL=http://13.127.118.165:8000 \
 ///   --dart-define=HTTP_DEV_HOSTS=13.127.118.165              (prototype build)
-/// flutter build apk --dart-define=API_BASE_URL=https://api.honeychain.in
+/// flutter build apk --dart-define=API_BASE_URL=https://honeychain-api.onrender.com
 /// ```
 ///
 /// Policy: production/staging URLs must be HTTPS. A plain-HTTP base is only

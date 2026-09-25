@@ -46,8 +46,8 @@ Verified this session: 001–006 all applied to
 
 ```bash
 flutter pub get
-flutter run            # or flutter build apk
-flutter test           # 112 tests
+flutter run --dart-define=API_BASE_URL=https://honeychain-api.onrender.com
+flutter test
 ```
 
 ### Backend URL policy (build flags)
@@ -56,7 +56,7 @@ The app never hardcodes a backend or secrets. `API_BASE_URL` is injected at buil
 time; production/staging must be `https://`:
 
 ```bash
-flutter build apk --dart-define=API_BASE_URL=https://api.honeychain.in
+flutter build apk --dart-define=API_BASE_URL=https://honeychain-api.onrender.com
 ```
 
 Plain `http://` is accepted only for local development — `localhost`,
@@ -73,9 +73,10 @@ running without a backend. With no flag, the app runs standalone offline/demo mo
 
 ### Android builds (2026-09-11)
 
-- Debug: `flutter build apk --debug` → copy from
-  `build/app/outputs/flutter-apk/app-debug.apk`.
-- Release: `flutter build apk --release` builds, but the template still signs
+- Debug: `flutter build apk --debug --dart-define=API_BASE_URL=https://honeychain-api.onrender.com`
+  → copy from `build/app/outputs/flutter-apk/app-debug.apk`.
+- Release: `flutter build apk --release --dart-define=API_BASE_URL=https://honeychain-api.onrender.com`
+  builds, but the template still signs
   with the **debug key** — provision a real keystore + Play signing before
   distribution.
 
