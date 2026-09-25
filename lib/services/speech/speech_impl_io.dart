@@ -77,7 +77,13 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
 
   /// Resolves the recognizer locale to use: exact match first, then a prefix
   /// match on the language (ta-IN requested -> ta-IN/ta installed), then the
-  /// lang alone, then English, then the first supported locale.
+  /// requested locale pass-through, then English, then the first supported
+  /// locale.
+  ///
+  /// The pass-through matters on Android 13+ where the plugin's `locales()`
+  /// only lists on-device packs while the recognizer also serves online
+  /// languages (Tamil/Hindi/etc.). Refusing anything not in that short list
+  /// would make every non-on-device language fall back to English.
   Future<({String effective, String fallbackMessage})> _resolveLocale(
     String? requested,
   ) async {
@@ -120,6 +126,11 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
         }
       }
     }
+    if (pick == null && _isSupportedLanguage(req)) {
+      // Known HoneyChain language that happens to lack an on-device pack:
+      // forward it — online recognition still understands the language.
+      pick = req;
+    }
     if (pick == null) {
       final english = ids.where((l) => _normalized(l).startsWith('en')).firstOrNull;
       pick = english ?? ids.first;
@@ -128,6 +139,11 @@ class NativeSpeechRecognitionService implements SpeechRecognitionService {
       return (effective: pick, fallbackMessage: '$req → $pick');
     }
     return (effective: pick, fallbackMessage: '');
+  }
+
+  static bool _isSupportedLanguage(String locale) {
+    final lang = locale.split('-').first.toLowerCase();
+    return const {'en', 'ta', 'hi', 'bn', 'pa', 'ml', 'mr'}.contains(lang);
   }
 
   // ------------------------------------------------------------------ probe

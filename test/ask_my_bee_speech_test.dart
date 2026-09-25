@@ -100,6 +100,14 @@ void main() {
       expect(ttsLanguageId('mr'), 'mr-IN');
       expect(ttsLanguageId('en'), 'en-IN');
     });
+
+    test('speechLocaleId/ttsLanguageId cover all 7 app languages', () {
+      for (final lang in ['en', 'ta', 'hi', 'bn', 'pa', 'ml', 'mr']) {
+        final id = speechLocaleId(lang);
+        expect(id.split('-').first, lang, reason: '$lang => $id');
+        expect(ttsLanguageId(lang), id);
+      }
+    });
   });
 
   group('Ask My Bee speech', () {
