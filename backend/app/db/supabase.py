@@ -1158,7 +1158,7 @@ class SupabaseRepository(Repository):
 
     # -- organizations / beekeepers --
     def _next_organization_key(self) -> str:
-        data = self._client.rpc("next_organization_key").execute().data
+        data = self._supabase().rpc("next_organization_key").execute().data
         if isinstance(data, str):
             return data
         if not data:
@@ -1207,6 +1207,12 @@ class SupabaseRepository(Repository):
             row.pop("id")
         if not row.get("organization_key"):
             row["organization_key"] = self._next_organization_key()
+        # client_id is the app-side idempotency key (partial unique index on
+        # NON-NULL values). Platform-created orgs often have none: store NULL
+        # — never "" — so the second/third organization can be created
+        # without colliding on the same empty-string "unique" value.
+        if row.get("client_id") in (None, ""):
+            row.pop("client_id", None)
         return self._upsert("organizations", row, key="client_id")
 
     def update_organization_status(self, org_key, status):
@@ -1263,7 +1269,8 @@ class SupabaseRepository(Repository):
 
     def set_beekeeper_org(self, beekeeper_id, organization_id):
         self._table("beekeepers").update(
-            {"organization_id": organization_id}
+            # uuid FK: translate the public org code, or NULL when revoked/unknown
+            {"organization_id": self._org_uuid(organization_id)}
         ).eq("id", beekeeper_id).execute()
 
     def list_users(self, *, role=None, org_id=None):
@@ -1299,12 +1306,11 @@ class SupabaseRepository(Repository):
 
     def ensure_beekeeper(self, beekeeper):
         row = self._clip(beekeeper, self._BEEKEEPER_COLS, iso=())
-        if "org_id" in beekeeper and "organization_id" not in row:
-            org_id = beekeeper.get("org_id")
-            if org_id and self._is_uuid(str(org_id)):
-                row["organization_id"] = org_id
-        if not row.get("organization_id"):
-            row["organization_id"] = None
+        # beekeepers.organization_id is a uuid FK. Accept either the public
+        # org code (org_id, what users/org membership carry) or an existing
+        # uuid, and always store the canonical UUID (None when unknown).
+        raw_org = row.get("organization_id") or beekeeper.get("org_id")
+        row["organization_id"] = self._org_uuid(raw_org)
         return self._upsert("beekeepers", row, key="id")
 
     def get_beekeeper(self, beekeeper_id):
@@ -1313,7 +1319,10 @@ class SupabaseRepository(Repository):
     def list_beekeepers(self, org_id=None):
         q = self._table("beekeepers").select("*")
         if org_id:
-            q = q.eq("organization_id", org_id)
+            ouuid = self._org_filter_value(org_id)
+            if not ouuid:
+                return []
+            q = q.eq("organization_id", ouuid)
         return [self._beekeeper(r) for r in q.execute().data]
 
     @staticmethod
@@ -1428,10 +1437,13 @@ class SupabaseRepository(Repository):
             return self._with_client_id_list(rows)
         q = self._table("harvests").select("*")
         if org_id:
+            ouuid = self._org_filter_value(org_id)
+            if not ouuid:
+                return []
             ids = [
                 r["id"]
                 for r in self._table("beekeepers").select("id")
-                .eq("organization_id", org_id).execute().data
+                .eq("organization_id", ouuid).execute().data
             ]
             if not ids:
                 return []
@@ -1444,10 +1456,13 @@ class SupabaseRepository(Repository):
     def _scope_beekeepers(self, org_id, rows):
         if not org_id:
             return rows
+        ouuid = self._org_filter_value(org_id)
+        if not ouuid:
+            return []
         ids = [
             r["id"]
             for r in self._table("beekeepers").select("id")
-            .eq("organization_id", org_id).execute().data
+            .eq("organization_id", ouuid).execute().data
         ]
         if not ids:
             return []
@@ -1497,8 +1512,10 @@ class SupabaseRepository(Repository):
         if client_id:
             batch["client_id"] = client_id
         row = self._clip(batch, self._BATCH_COLS, iso=("created_at",))
-        if not row.get("organization_id"):
-            row["organization_id"] = None
+        # batches.organization_id is a uuid FK: translate the public org code
+        # (ORG-0000NN) users carry around to organizations.id. Unknown/blank
+        # orgs store NULL — never a text code (22P02).
+        row["organization_id"] = self._org_uuid(row.get("organization_id"))
         return self._upsert("batches", row, key="client_id")
 
     def get_batch(self, batch_id):
@@ -1518,7 +1535,10 @@ class SupabaseRepository(Repository):
             )
         q = self._table("batches").select("*")
         if org_id:
-            q = q.eq("organization_id", org_id)
+            ouuid = self._org_filter_value(org_id)
+            if not ouuid:
+                return []
+            q = q.eq("organization_id", ouuid)
         return q.order("created_at", desc=True).execute().data
 
     def update_batch(self, batch_id, updates):
@@ -1903,6 +1923,37 @@ class SupabaseRepository(Repository):
     @staticmethod
     def _is_uuid(value: str) -> bool:
         return isinstance(value, str) and len(value) == 36
+
+    def _org_uuid(self, org_ref):
+        """Canonical UUID for UUID FK columns (batches, beekeepers).
+
+        `users.org_id` and invite `organization_key` hold the PUBLIC business
+        code (e.g. ORG-000016); uuid FK columns must hold `organizations.id`.
+        Passing the code into a uuid column raises Postgres 22P02, which is
+        exactly the batch-creation failure this resolves. Unknown codes map to
+        None so inserts stay valid and queries can scope to zero rows instead
+        of leaking the whole table.
+        """
+        ref = str(org_ref or "").strip()
+        if not ref:
+            return None
+        if self._is_uuid(ref):
+            return ref
+        row = self._get_by("organizations", "organization_key", ref)
+        return str(row["id"]) if row else None
+
+    def _org_filter_value(self, org_ref):
+        """Resolve an org ref for a .eq(organization_id=...) query.
+
+        Returns None when the ref identifies no organization; callers must
+        then return an empty result (the org exists nowhere => owns nothing).
+        """
+        ref = str(org_ref or "").strip()
+        if not ref:
+            return None
+        if self._is_uuid(ref):
+            return ref
+        return self._org_uuid(ref)
 
     def _get_by(self, table, column, value):
         data = (

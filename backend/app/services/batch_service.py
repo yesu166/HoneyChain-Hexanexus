@@ -165,6 +165,28 @@ class BatchService:
         return created
 
     # ------------------------------------------------------------------ read
+    def _org_matches(self, left: Any, right: Any) -> bool:
+        """Compare org references that may be a UUID or the public org code.
+
+        `batches.organization_id` holds a UUID while `user.org_id` holds the
+        public code (ORG-000016) — direct == would silently put every
+        org-bound user out of scope of their own batches. Match on canonical
+        organization identity instead, resolving either side when needed.
+        """
+        lref = str(left or "").strip()
+        rref = str(right or "").strip()
+        if not lref or not rref:
+            return False
+        if lref == rref:
+            return True
+        lorg = self._repo.get_organization(lref)
+        rorg = self._repo.get_organization(rref)
+        if not lorg or not rorg:
+            return False
+        lid = str(lorg.get("id") or lorg.get("organization_key") or "")
+        rid = str(rorg.get("id") or rorg.get("organization_key") or "")
+        return bool(lid) and lid == rid
+
     def in_user_scope(self, batch: dict[str, Any], *, user: Any) -> bool:
         """Boolean scope check matching [get_for_user] without 404 semantics.
 
@@ -175,7 +197,9 @@ class BatchService:
         """
         if user.role in ("admin", "institution", "lab", "buyer"):
             return True
-        if user.role == "processor" and batch.get("organization_id") == user.org_id:
+        if user.role == "processor" and self._org_matches(
+            batch.get("organization_id"), user.org_id
+        ):
             return True
         if user.role != "beekeeper":
             to_actor = str(getattr(user, "user_id", "") or "")
@@ -198,7 +222,7 @@ class BatchService:
             }
             return bool(mine)
         # FPO / org users
-        return batch.get("organization_id") == user.org_id
+        return self._org_matches(batch.get("organization_id"), user.org_id)
 
     def get_for_user(self, batch_id: str, *, user: Any) -> dict[str, Any] | None:
         batch = self._repo.get_batch(batch_id)
