@@ -43,7 +43,12 @@ class Settings:
         )
 
         # CORS.
-        self.cors_origins: list[str] = _split_csv(os.getenv("CORS_ORIGINS", ""))
+        # Production browser clients must send an explicit Origin. Keep the
+        # known deployed portal origin as a safe fallback when an older Render
+        # service has not yet received CORS_ORIGINS in its dashboard settings.
+        self.cors_origins: list[str] = _split_csv(os.getenv("CORS_ORIGINS", "")) or (
+            ["https://hc-web-portal.onrender.com"] if self.is_production else []
+        )
 
         # Blockchain + AI adapters.
         self.blockchain_adapter: str = os.getenv(
