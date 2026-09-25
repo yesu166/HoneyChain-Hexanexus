@@ -146,13 +146,13 @@ def build_services(
     harvest_service = HarvestService(repo)
     inspection_service = InspectionService(repo)
     treatment_service = TreatmentService(repo)
-    batch_service = BatchService(repo)
-    custody_service = CustodyService(repo)
+    batch_service = BatchService(repo, gateway)
+    custody_service = CustodyService(repo, gateway)
     lab_service = LabService(repo)
     ledger = EventLedger(repo)
     evidence_service = HarvestEvidenceService(repo, gateway)
     lab_certificate_service = LabCertificateService(repo, gateway, ledger)
-    lineage_service = LineageService(repo, ledger)
+    lineage_service = LineageService(repo, ledger, gateway)
     # Evidence-linked assertions / reconciliation / impact analysis all build on
     # the SAME ledger and batch genealogy — no parallel provenance system.
     assertion_service = AssertionService(repo, ledger, gateway, batch_service)

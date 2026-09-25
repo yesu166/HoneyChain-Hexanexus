@@ -43,8 +43,27 @@ def weakest_tier(tiers: list[str]) -> str:
 
 
 class BatchService:
-    def __init__(self, repo: Repository) -> None:
+    def __init__(self, repo: Repository, gateway: Any = None) -> None:
         self._repo = repo
+        # BlockchainGateway facade; optional for tests. When present, every
+        # real parent->child genealogy relation (split/merge) is anchored.
+        self._gateway = gateway
+
+    def _anchor_lineage(
+        self, *, input_batch_id: str, output_batch_id: str,
+        operation: str, quantity_kg: float,
+    ) -> dict[str, Any] | None:
+        if self._gateway is None:
+            return None
+        try:
+            return self._gateway.submit_lineage_event(
+                input_batch_id=input_batch_id,
+                output_batch_id=output_batch_id,
+                operation=operation,
+                quantity_kg=float(quantity_kg or 0),
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            return {"state": "UNKNOWN", "error": str(exc)}
 
     # ------------------------------------------------------------------ create
     def create(self, *, data: dict[str, Any], user: Any = None) -> dict[str, Any]:
@@ -319,6 +338,13 @@ class BatchService:
                     "quantity_kg": qty,
                 }
             )
+            # Anchor the real parent->child relation after it is persisted.
+            self._anchor_lineage(
+                input_batch_id=parent_id,
+                output_batch_id=child["id"],
+                operation="SPLIT_FROM",
+                quantity_kg=qty,
+            )
             self._propagate_harvest_quantity(
                 source_batch_id=parent_id,
                 target_batch_id=child["id"],
@@ -377,6 +403,13 @@ class BatchService:
                     "relation_type": "AGGREGATED_FROM",
                     "quantity_kg": source.get("quantity_kg"),
                 }
+            )
+            # Anchor each real source->merged relation after it is persisted.
+            self._anchor_lineage(
+                input_batch_id=source["id"],
+                output_batch_id=merged["id"],
+                operation="AGGREGATED_FROM",
+                quantity_kg=float(source.get("quantity_kg") or 0),
             )
         # Mass conservation: the merged batch consumes exactly what its sources
         # consumed. Link each harvest with the quantity that came from it —

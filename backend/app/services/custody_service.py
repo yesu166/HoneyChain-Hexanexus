@@ -8,8 +8,25 @@ from .batch_service import VALID_CUSTODY_ACTIONS
 
 
 class CustodyService:
-    def __init__(self, repo: Repository) -> None:
+    def __init__(self, repo: Repository, gateway: Any = None) -> None:
         self._repo = repo
+        # BlockchainGateway facade; optional for tests. When present, an
+        # accepted custody event is anchored to the ledger AFTER the DB write.
+        self._gateway = gateway
+
+    def _anchor_transfer(self, *, batch_id: str, data: dict[str, Any], quantity_kg) -> dict[str, Any] | None:
+        if self._gateway is None:
+            return None
+        try:
+            return self._gateway.submit_custody_transfer(
+                batch_id=batch_id,
+                sender_ref=str(data.get("actor") or ""),
+                receiver_ref=str(data.get("to_org") or data.get("to_actor") or ""),
+                quantity_kg=float(quantity_kg or 0),
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            # Honest reporting only: never fake success, never fail the DB row.
+            return {"state": "UNKNOWN", "error": str(exc)}
 
     def add(self, *, batch_id: str, data: dict[str, Any]) -> dict[str, Any]:
         action = data["action"]
@@ -40,7 +57,16 @@ class CustodyService:
             "quantity_kg": quantity_kg,
             "client_id": client_id,
         }
-        return self._repo.add_custody_event(event)
+        row = self._repo.add_custody_event(event)
+        # Anchored only after the DB event was accepted. tx_ref is a content
+        # hash, so a repeated identical request resolves to the same
+        # transaction (tracker short-circuits) — no duplicate provenance.
+        tx = self._anchor_transfer(
+            batch_id=batch_id, data=data, quantity_kg=quantity_kg
+        )
+        if tx is not None and isinstance(row, dict):
+            row = {**row, "blockchain": tx}
+        return row
 
     def list(self, batch_id: str) -> list[dict[str, Any]]:
         return self._repo.list_custody_events(batch_id)

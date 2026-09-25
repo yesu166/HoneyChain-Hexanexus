@@ -54,9 +54,30 @@ def validate_transition(from_state: str, to_state: str) -> bool:
 class LineageService:
     """Records state transitions + lineage (split/merge/transfer) events."""
 
-    def __init__(self, repo: Repository, ledger: EventLedger | None = None) -> None:
+    def __init__(
+        self,
+        repo: Repository,
+        ledger: EventLedger | None = None,
+        gateway: Any = None,
+    ) -> None:
         self._repo = repo
         self._ledger = ledger
+        # BlockchainGateway facade (Fabric in production). Optional so unit
+        # tests keep working without a ledger; when present, every persisted
+        # transition/custody event is anchored through it. The gateway never
+        # raises on an unavailable ledger — it returns an honest
+        # PENDING/FAILED/UNKNOWN snapshot we store alongside the DB event.
+        self._gateway = gateway
+
+    def _anchor(self, submit) -> dict[str, Any] | None:
+        """Run a gateway submit, returning the honest tx snapshot or None."""
+        if self._gateway is None:
+            return None
+        try:
+            return submit()
+        except Exception as exc:  # pragma: no cover - defensive
+            # Never fail the DB write because of the ledger; record the truth.
+            return {"state": "UNKNOWN", "error": str(exc)}
 
     def transition(
         self,
@@ -78,25 +99,41 @@ class LineageService:
             )
 
         self._repo.update_batch(batch_id, {"status": to_state})
+        # DB state is persisted first; only then is the blockchain event
+        # submitted. Confirmation is reported exactly as the ledger returns it.
+        tx = self._anchor(
+            lambda: self._gateway.submit_batch_state_transition(
+                batch_id=batch_id,
+                from_state=current,
+                to_state=to_state,
+                organization_ref=str(batch.get("organization_id") or ""),
+            )
+        )
         if self._ledger is not None:
+            payload = {
+                "from_state": current,
+                "to_state": to_state,
+                "note": note,
+                "actor_ref": actor_ref,
+            }
+            if tx is not None:
+                payload["blockchain"] = tx
             self._ledger.append(
                 chain_id=batch_id,
                 event_type="batch_state_transition",
                 entity_ref=batch_id,
-                payload={
-                    "from_state": current,
-                    "to_state": to_state,
-                    "note": note,
-                    "actor_ref": actor_ref,
-                },
+                payload=payload,
                 device_id=actor_ref,
             )
-        return {
+        result = {
             "batch_id": batch_id,
             "from_state": current,
             "status": to_state,
             "changed": True,
         }
+        if tx is not None:
+            result["blockchain"] = tx
+        return result
 
     def custody(
         self,
@@ -118,14 +155,30 @@ class LineageService:
             "actor_ref": actor_ref or sender_ref,
         }
         row = self._repo.add_custody_event(event)
+        # Anchored only after the DB event exists. tx_ref is a content hash,
+        # so retries of the same event resolve to the same transaction and can
+        # never create duplicate provenance records.
+        tx = self._anchor(
+            lambda: self._gateway.submit_custody_transfer(
+                batch_id=batch_id,
+                sender_ref=sender_ref,
+                receiver_ref=receiver_ref,
+                quantity_kg=float(quantity_kg or 0),
+            )
+        )
         if self._ledger is not None:
+            payload = dict(event)
+            if tx is not None:
+                payload["blockchain"] = tx
             self._ledger.append(
                 chain_id=batch_id,
                 event_type="custody_transfer",
                 entity_ref=batch_id,
-                payload=event,
+                payload=payload,
                 device_id=actor_ref,
             )
+        if tx is not None and isinstance(row, dict):
+            row = {**row, "blockchain": tx}
         return row
 
     def current_holder(self, batch_id: str) -> dict[str, Any]:
