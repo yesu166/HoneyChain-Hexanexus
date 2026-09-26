@@ -31,12 +31,12 @@ DEMO_PASSWORD = "HoneyChainDemo!1"
 
 
 def make_token(
-    user_id: str, role: str, org_id: str = "", minutes: int = 30
+    user_id: str, role: str, org_id: str = "", roles: list[str] | None = None, minutes: int = 30
 ) -> str:
     from datetime import timedelta
 
     return create_access_token(
-        user_id, role, org_id=org_id, expires_delta=timedelta(minutes=minutes)
+        user_id, role, roles=roles, org_id=org_id, expires_delta=timedelta(minutes=minutes)
     )
 
 
