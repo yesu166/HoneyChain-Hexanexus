@@ -10,8 +10,10 @@ import '../services/api_token_store.dart';
 import '../services/ask_my_bee/ask_my_bee_api.dart';
 import '../services/ask_my_bee/ask_my_bee_controller.dart';
 import '../services/speech/speech_service.dart';
+import '../services/speech/speech_text.dart';
 import '../services/speech/text_to_speech_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/markdown_text.dart';
 import '../widgets/section_label.dart';
 
 /// Ask My Bee — the single voice/text assistant for HoneyChain.
@@ -99,14 +101,19 @@ class _AskMyBeeScreenState extends State<AskMyBeeScreen> {
     super.dispose();
   }
 
-  /// Speaks new assistant replies and keeps the chat scrolled to the bottom.
+  /// Speaks the reply (with Markdown markers stripped so asterisks and hashes
+  /// are never read aloud) and keeps the chat scrolled to the bottom.
   void _onAssistantChange() {
     final entries = _controller.entries;
     if (entries.isNotEmpty) {
       final last = entries.last;
       if (!last.isUser && last.content != _lastSpoken && _tts.isSupported) {
         _lastSpoken = last.content;
-        _tts.speak(last.content, languageCode: HoneyChainStore.instance.language);
+        final spoken = sanitizeForSpeech(last.content).trim();
+        _tts.speak(
+          spoken.isEmpty ? last.content : spoken,
+          languageCode: HoneyChainStore.instance.language,
+        );
       }
       _scrollToBottom();
     }
@@ -457,9 +464,10 @@ class _AskMyBeeScreenState extends State<AskMyBeeScreen> {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
+            MarkdownText(
               entry.content,
-              style: const TextStyle(fontSize: 14, color: AppTheme.ink, height: 1.4),
+              style:
+                  const TextStyle(fontSize: 14, color: AppTheme.ink, height: 1.4),
             ),
             if (entry.toolCount > 0) ...[
               const SizedBox(height: 6),

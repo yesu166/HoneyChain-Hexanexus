@@ -69,6 +69,7 @@ class _CreateHiveScreenState extends State<CreateHiveScreen> {
         serverHive = await store.addHiveToBackend(
           name: name,
           location: location.isEmpty ? null : location,
+          localHiveId: created.id,
         );
       } catch (error) {
         // Never discard a successfully persisted local hive because the

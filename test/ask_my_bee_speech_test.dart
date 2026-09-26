@@ -9,6 +9,7 @@ import 'package:honeychain/services/ask_my_bee/ask_my_bee_api.dart';
 import 'package:honeychain/services/ask_my_bee/ask_my_bee_controller.dart';
 import 'package:honeychain/services/speech/speech_service.dart';
 import 'package:honeychain/services/speech/text_to_speech_service.dart';
+import 'package:honeychain/widgets/markdown_text.dart';
 
 class _ChatApi implements AskMyBeeApi {
   final List<AskChatReply> replies = const [];
@@ -77,6 +78,38 @@ class _QuietTts implements TextToSpeechService {
 
   @override
   void stop() {}
+}
+
+class _RecordingTts implements TextToSpeechService {
+  final List<String> spoken = [];
+
+  @override
+  bool get isSupported => true;
+
+  @override
+  bool speak(String text, {String? languageCode}) {
+    spoken.add(text);
+    return true;
+  }
+
+  @override
+  void stop() {}
+}
+
+/// Replies with a Markdown-formatted assistant message.
+class _MarkdownApi implements AskMyBeeApi {
+  @override
+  Future<AskChatReply> sendChat(List<AskChatMessage> messages,
+      {String? language}) async {
+    return const AskChatReply(
+      reply: '**Great!** *Hive 3* looks fine.\n- Weight is **12.6 kg**',
+      toolCount: 1,
+    );
+  }
+
+  @override
+  Future<AskBackendStatus> fetchStatus() async =>
+      const AskBackendStatus(enabled: true, configured: true);
 }
 
 Widget _wrap(Widget child) => MaterialApp(home: child);
@@ -197,6 +230,39 @@ void main() {
           findsOneWidget);
       expect(api.sent, isEmpty);
       expect(controller.state, AskMyBeeState.idle);
+    });
+
+    testWidgets("assistant bubble renders Markdown while TTS speaks sanitized "
+        'text (no asterisks, numbers intact)', (tester) async {
+      final api = _MarkdownApi();
+      final tts = _RecordingTts();
+      final controller = AskMyBeeController(api, offlineCheck: () => false);
+
+      await tester.pumpWidget(_wrap(AskMyBeeScreen(
+        controller: controller,
+        tts: tts,
+      )));
+      await tester.pumpAndSettle();
+
+      await controller.send('check my hive');
+      await tester.pumpAndSettle();
+
+      // The conversation keeps the raw Markdown unchanged.
+      expect(controller.entries.last.content,
+          '**Great!** *Hive 3* looks fine.\n- Weight is **12.6 kg**');
+
+      // The assistant bubble uses MarkdownText to render the reply.
+      final markdown = tester.widget<MarkdownText>(find.byType(MarkdownText));
+      expect(markdown.text,
+          '**Great!** *Hive 3* looks fine.\n- Weight is **12.6 kg**');
+
+      // TTS heard the sanitized text: words and numbers intact, no markup.
+      expect(tts.spoken, isNotEmpty);
+      final spoken = tts.spoken.first;
+      expect(spoken, contains('Great!'));
+      expect(spoken, contains('12.6 kg'));
+      expect(spoken, isNot(contains('**')));
+      expect(spoken, isNot(contains('*')));
     });
   });
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../bee_health/screens/bee_health_home_screen.dart';
 import '../data/honeychain_store.dart';
 import '../models/domain.dart';
+import '../models/iot.dart';
 import '../theme/app_theme.dart';
 import 'bee_alert_detail_screen.dart';
 import 'productivity_screen.dart';
@@ -11,9 +12,10 @@ import 'record_harvest_screen.dart';
 /// Presentation-only beekeeper dashboard. Existing store/services remain the
 /// source of truth; this screen does not introduce new API or domain logic.
 class HomeTab extends StatelessWidget {
-  const HomeTab({super.key, this.onGoToHives});
+  const HomeTab({super.key, this.onGoToHives, this.onGoToAlerts});
 
   final VoidCallback? onGoToHives;
+  final VoidCallback? onGoToAlerts;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +45,11 @@ class HomeTab extends StatelessWidget {
               const SizedBox(height: 16),
               _SectionTitle(title: store.tr('home.alerts.title')),
               const SizedBox(height: 9),
-              _AlertSurface(store: store, attention: attention),
+              _AlertSurface(
+                store: store,
+                attention: attention,
+                onGoToAlerts: onGoToAlerts,
+              ),
               const SizedBox(height: 18),
               _SectionTitle(title: store.tr('home.quick.actions')),
               const SizedBox(height: 10),
@@ -423,17 +429,121 @@ class _AlertSurface extends StatelessWidget {
   const _AlertSurface({
     required this.store,
     required this.attention,
+    this.onGoToAlerts,
   });
 
   final HoneyChainStore store;
   final int attention;
+  final VoidCallback? onGoToAlerts;
+
+  /// The most relevant unread backend notification (highest severity, newest
+  /// first). Severity ordering matches the server's critical/error/warning
+  /// semantics; a simulator event therefore surfaces on Home immediately after
+  /// [HoneyChainStore.refreshBackendIoT] runs.
+  BackendNotification? get _backendPriority {
+    BackendNotification? best;
+    for (final note in store.apiNotifications) {
+      if (note.read) continue;
+      final rank = _severityRank(note.severity);
+      final bestRank = best == null ? -1 : _severityRank(best.severity);
+      if (best == null || rank > bestRank) best = note;
+    }
+    return best;
+  }
+
+  static int _severityRank(String severity) => switch (severity) {
+        'critical' || 'error' => 3,
+        'warning' => 2,
+        'info' => 1,
+        _ => 0,
+      };
 
   @override
   Widget build(BuildContext context) {
-    final hive = _mostRelevantHive(store);
-    final alert = hive == null ? null : _newestAlert(store, hive.id);
+    final backendAlert = _backendPriority;
 
-    if (attention == 0 || hive == null) {
+    if (backendAlert != null) {
+      final accent = _severityRank(backendAlert.severity) >= 3
+          ? AppTheme.red
+          : AppTheme.orange;
+      return Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onGoToAlerts,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(15, 14, 12, 14),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: accent.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _severityRank(backendAlert.severity) >= 3
+                        ? Icons.priority_high_rounded
+                        : Icons.warning_amber_rounded,
+                    color: accent,
+                    size: 23,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        backendAlert.title.isEmpty
+                            ? store.tr('home.hive.attention.one')
+                            : backendAlert.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.ink,
+                        ),
+                      ),
+                      if (backendAlert.recommendedAction.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          '→ ${backendAlert.recommendedAction}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.35,
+                            color: accent,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 15,
+                  color: AppTheme.inkFaint,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (attention == 0 || _mostRelevantHive(store) == null) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         decoration: BoxDecoration(
@@ -466,6 +576,9 @@ class _AlertSurface extends StatelessWidget {
         ),
       );
     }
+
+    final hive = _mostRelevantHive(store);
+    final alert = _newestAlert(store, hive!.id);
 
     final detail = switch (alert?.type) {
       AlertType.disease => store.tr('alert.disease.note'),

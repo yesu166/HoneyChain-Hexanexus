@@ -841,6 +841,18 @@ def build_blockchain_gateway(settings: Any = None) -> BlockchainGateway:
             chaincode=getattr(settings, "fabric_chaincode", ""),
             gateway_url=getattr(settings, "fabric_gateway_url", ""),
         )
+    elif adapter_name.lower() in ("remote_fabric", "fabric_bridge", "fabric_remote"):
+        # Public API deployment that forwards to the internal Fabric service on
+        # EC2. Same real chain, same honest FABRIC_* states, no local fallback.
+        from .bridge import RemoteFabricAdapter
+
+        adapter = RemoteFabricAdapter(
+            bridge_url=getattr(settings, "fabric_bridge_url", ""),
+            service_token=getattr(settings, "fabric_bridge_token", ""),
+            timeout=getattr(settings, "fabric_bridge_timeout", 30),
+            channel=getattr(settings, "fabric_channel", ""),
+            chaincode=getattr(settings, "fabric_chaincode", ""),
+        )
     else:
         adapter = LocalLedgerAdapter()
     return BlockchainGateway(adapter)

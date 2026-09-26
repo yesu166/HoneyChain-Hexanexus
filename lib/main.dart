@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
 
 import 'core/api/api_config.dart';
 import 'core/supabase/supabase_client.dart';
@@ -118,10 +120,30 @@ class _RootGateState extends State<_RootGate> {
       return const Scaffold(
         backgroundColor: AppTheme.bg,
         body: Center(
-          child: SizedBox(
-            width: 32,
-            height: 32,
-            child: CircularProgressIndicator(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _HoneycombMark(),
+              SizedBox(height: 18),
+              Text(
+                'HONEYCHAIN',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                  color: AppTheme.honeyDark,
+                ),
+              ),
+              SizedBox(height: 10),
+              SizedBox(
+                width: 26,
+                height: 26,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: AppTheme.honeyGold,
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -155,4 +177,64 @@ class _RootGateState extends State<_RootGate> {
       },
     );
   }
+}
+
+/// The six-hexagon honeycomb flower built in code. Kept dependency-free so the
+/// mark renders identically everywhere (launch screen, login, share cards).
+class _HoneycombMark extends StatelessWidget {
+  const _HoneycombMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size.square(96),
+      painter: _HoneycombPainter(),
+    );
+  }
+}
+
+/// Draws a center hexagon plus six neighbors wound into a honeycomb flower.
+class _HoneycombPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.shortestSide * 0.11;
+    final neighborGap = radius * 2 * 0.866 * 2;
+
+    final centerPaint = Paint()..color = AppTheme.honeyGold;
+    final neighborPaint = Paint()
+      ..color = AppTheme.honeyDark.withValues(alpha: 0.55)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = radius * 0.32
+      ..strokeJoin = StrokeJoin.round;
+
+    canvas.drawPath(_hexagonPath(center, radius), centerPaint);
+    for (var i = 0; i < 6; i++) {
+      final angle = math.pi / 6 + i * math.pi / 3;
+      final offset = Offset(
+        math.cos(angle) * neighborGap,
+        math.sin(angle) * neighborGap,
+      );
+      canvas.drawPath(_hexagonPath(center + offset, radius), neighborPaint);
+    }
+  }
+
+  static Path _hexagonPath(Offset center, double radius) {
+    final path = Path();
+    for (var i = 0; i < 6; i++) {
+      final angle = math.pi / 6 + i * math.pi / 3;
+      final point = center +
+          Offset(math.cos(angle) * radius, math.sin(angle) * radius);
+      if (i == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldRepaint(covariant _HoneycombPainter oldDelegate) => false;
 }
