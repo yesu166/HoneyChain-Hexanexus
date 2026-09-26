@@ -18,17 +18,28 @@ class OrgService:
     def __init__(self, repo: Repository) -> None:
         self._repo = repo
 
-    def dashboard(self, org_id: str) -> dict[str, Any]:
-        org = self._repo.get_organization(org_id) or {}
-        beekeepers = self._repo.list_beekeepers(org_id)
+    def dashboard(self, org_id: str, *, response_org_id: str | None = None) -> dict[str, Any]:
+        # Repository FK columns use the organization UUID, while users and
+        # invites may carry the public ORG-xxxxxx key. Normalize once at the
+        # service boundary so all dashboard aggregates query the same tenant.
+        org = self._repo.get_organization(org_id)
+        if org is None:
+            for candidate in self._repo.list_organizations():
+                if str(candidate.get("organization_key") or "") == str(org_id):
+                    org = candidate
+                    break
+        org = org or {}
+        canonical_org_id = str(org.get("id") or org_id)
+
+        beekeepers = self._repo.list_beekeepers(canonical_org_id)
         beekeeper_ids = {b["id"] for b in beekeepers}
 
-        batches = self._repo.list_batches(org_id)
+        batches = self._repo.list_batches(canonical_org_id)
         batch_ids = {b["id"] for b in batches}
 
         # Harvests owned by the org's beekeepers, plus harvests linked into the
         # org's batches (an FPO-recorded harvest is counted through its batch).
-        harvest_rows = self._repo.list_harvests(None, org_id=org_id)
+        harvest_rows = self._repo.list_harvests(None, org_id=canonical_org_id)
         harvest_by_id: dict[str, dict[str, Any]] = {
             h.get("id"): h for h in harvest_rows if h.get("id")
         }
@@ -100,7 +111,7 @@ class OrgService:
         )
 
         return {
-            "org_id": org_id,
+            "org_id": response_org_id or org_id,
             "org_name": org.get("name", ""),
             "active_beekeepers": len(beekeepers),
             "hives": len(hives),
