@@ -99,6 +99,19 @@ class Repository(ABC):
     @abstractmethod
     def list_users(self, *, role: str | None = None, org_id: str | None = None) -> list[dict[str, Any]]: ...
 
+    # ---- user roles (multi-role membership) ---------------------------------
+    @abstractmethod
+    def get_user_roles(self, user_id: str) -> list[str]: ...
+
+    @abstractmethod
+    def set_user_roles(self, user_id: str, roles: list[str]) -> None: ...
+
+    @abstractmethod
+    def add_user_role(self, user_id: str, role: str) -> None: ...
+
+    @abstractmethod
+    def remove_user_role(self, user_id: str, role: str) -> None: ...
+
     # ---- governance audit ----------------------------------------------------
     @abstractmethod
     def append_audit_event(
@@ -544,6 +557,32 @@ class InMemoryRepository(Repository):
         if org_id:
             rows = [u for u in rows if u.get("org_id") == org_id]
         return [dict(u) for u in rows]
+
+    # -- user roles (multi-role membership) --
+    def get_user_roles(self, user_id):
+        roles = [r["role"] for r in self._data.get("user_roles", []) if r["user_id"] == user_id]
+        # Fallback to primary role from users table for backward compatibility
+        user = self.get_user(user_id)
+        if user and user.get("role") and user["role"] not in roles:
+            roles.insert(0, user["role"])
+        return roles
+
+    def set_user_roles(self, user_id, roles):
+        self._data.setdefault("user_roles", [])
+        # Remove existing roles for this user
+        self._data["user_roles"] = [r for r in self._data["user_roles"] if r["user_id"] != user_id]
+        # Add new roles
+        for role in roles:
+            self._data["user_roles"].append({"user_id": user_id, "role": role})
+
+    def add_user_role(self, user_id, role):
+        self._data.setdefault("user_roles", [])
+        if not any(r["user_id"] == user_id and r["role"] == role for r in self._data["user_roles"]):
+            self._data["user_roles"].append({"user_id": user_id, "role": role})
+
+    def remove_user_role(self, user_id, role):
+        if "user_roles" in self._data:
+            self._data["user_roles"] = [r for r in self._data["user_roles"] if not (r["user_id"] == user_id and r["role"] == role)]
 
     # -- governance audit --
     def append_audit_event(self, *, action, actor_user_id, actor_role, target_type, target_key, detail=None):
@@ -1280,6 +1319,36 @@ class SupabaseRepository(Repository):
         if org_id:
             q = q.eq("org_id", org_id)
         return q.execute().data
+
+    # -- user roles (multi-role membership) --
+    def get_user_roles(self, user_id: str) -> list[str]:
+        """Fetch all roles for a user from the user_roles table, with primary role fallback."""
+        roles_data = self._table("user_roles").select("role").eq("user_id", user_id).execute().data
+        roles = [r["role"] for r in roles_data] if roles_data else []
+        # Fallback to primary role from users table for backward compatibility
+        user = self.get_user(user_id)
+        if user and user.get("role") and user["role"] not in roles:
+            roles.insert(0, user["role"])
+        return roles
+
+    def set_user_roles(self, user_id: str, roles: list[str]) -> None:
+        """Replace all roles for a user."""
+        # Delete existing roles
+        self._table("user_roles").delete().eq("user_id", user_id).execute()
+        # Insert new roles
+        if roles:
+            rows = [{"user_id": user_id, "role": role} for role in roles]
+            self._table("user_roles").insert(rows).execute()
+
+    def add_user_role(self, user_id: str, role: str) -> None:
+        """Add a single role to a user (idempotent)."""
+        existing = self._table("user_roles").select("role").eq("user_id", user_id).eq("role", role).execute().data
+        if not existing:
+            self._table("user_roles").insert({"user_id": user_id, "role": role}).execute()
+
+    def remove_user_role(self, user_id: str, role: str) -> None:
+        """Remove a single role from a user."""
+        self._table("user_roles").delete().eq("user_id", user_id).eq("role", role).execute()
 
     # -- governance audit --
     def append_audit_event(self, *, action, actor_user_id, actor_role, target_type, target_key, detail=None):

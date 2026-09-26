@@ -50,9 +50,13 @@ class AuthService:
             return {"error": "invalid credentials"}
         if str(user.get("status") or "ACTIVE") == "SUSPENDED":
             return {"error": "account is suspended"}
+        # Fetch all roles for the user (multi-role support)
+        roles = self._repo.get_user_roles(user["id"])
+        primary_role = roles[0] if roles else user.get("role", "")
         token = create_access_token(
             subject=user["id"],
-            role=user.get("role", ""),
+            role=primary_role,
+            roles=roles,
             org_id=user.get("org_id", ""),
         )
         return {
@@ -65,8 +69,10 @@ class AuthService:
         user = self._repo.get_user(user_id)
         if user is None:
             return None
+        roles = self._repo.get_user_roles(user_id)
+        primary_role = roles[0] if roles else user.get("role", "")
         producer_id = ""
-        if user.get("role") == "beekeeper":
+        if primary_role == "beekeeper":
             beekeeper = self._repo.get_beekeeper(user_id)
             producer_id = str((beekeeper or {}).get("producer_id") or "")
         org = self._repo.get_organization(user.get("org_id", "")) or {}
@@ -75,7 +81,8 @@ class AuthService:
             "email": user.get("email", ""),
             "name": user.get("name", ""),
             "phone": user.get("phone", ""),
-            "role": user.get("role", ""),
+            "role": primary_role,
+            "roles": roles,
             "org_id": user.get("org_id", ""),
             "producer_id": producer_id,
             "org_name": org.get("name", ""),

@@ -57,6 +57,7 @@ def verify_password(password: str, stored: str) -> bool:
 def create_access_token(
     subject: str,
     role: str,
+    roles: list[str] | None = None,
     org_id: str = "",
     expires_delta: timedelta | None = None,
 ) -> str:
@@ -65,9 +66,11 @@ def create_access_token(
     delta = expires_delta or timedelta(
         minutes=settings.access_token_expire_minutes
     )
+    all_roles = roles or [role]
     payload: dict[str, Any] = {
         "sub": subject,
-        "role": role,
+        "role": role,  # primary role for backward compatibility
+        "roles": all_roles,
         "iat": now,
         "exp": now + delta,
     }
@@ -103,13 +106,17 @@ def decode_token(token: str) -> dict[str, Any]:
 class CurrentUser:
     """Authenticated caller, resolved from the JWT subject."""
 
-    def __init__(self, *, user_id: str, role: str, org_id: str = "") -> None:
+    def __init__(self, *, user_id: str, role: str, roles: list[str] | None = None, org_id: str = "") -> None:
         self.user_id = user_id
-        self.role = role
+        self.role = role  # primary role (first in roles list)
+        self.roles = roles or [role]
         self.org_id = org_id
 
     def bare_dict(self) -> dict[str, Any]:
-        return {"id": self.user_id, "role": self.role, "org_id": self.org_id}
+        return {"id": self.user_id, "role": self.role, "roles": self.roles, "org_id": self.org_id}
+
+    def has_role(self, role: str) -> bool:
+        return role in self.roles
 
 
 def get_current_user(
@@ -133,6 +140,9 @@ def get_current_user(
     # only a fallback for pre-provisioned tokens (e.g. the local test client) and
     # are never authoritative when the user exists in the database.
     role = str(payload.get("role", ""))
+    roles = payload.get("roles")
+    if not isinstance(roles, list):
+        roles = [role] if role else []
     org_id = str(payload.get("org_id", ""))
     # Only subjects that look like real record ids can be looked up in the
     # repository (users.id is uuid in Supabase). Non-uuid subjects are
@@ -149,6 +159,10 @@ def get_current_user(
         row = repo.get_user(str(subject))
         if row is not None:
             role = str(row.get("role") or role)
+            # Fetch all roles from repository for authoritative multi-role
+            repo_roles = repo.get_user_roles(str(subject))
+            if repo_roles:
+                roles = repo_roles
             org_id = str(row.get("org_id") or org_id)
             if str(row.get("status") or "ACTIVE") == "SUSPENDED":
                 raise HTTPException(
@@ -158,6 +172,7 @@ def get_current_user(
     return CurrentUser(
         user_id=str(subject),
         role=role,
+        roles=roles,
         org_id=org_id,
     )
 

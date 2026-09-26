@@ -40,7 +40,7 @@ class RegisterUserRequest(BaseModel):
     name: str = Field(..., min_length=1)
     phone: str = ""
     password: str = Field(..., min_length=8)
-    role: str = Field(..., pattern="^(beekeeper|fpo|lab|processor|buyer)$")
+    role: str = Field(..., pattern="^(beekeeper|fpo|lab|processor|buyer|retailer)$")
     org_id: str = ""
     org_name: str = ""
     invite_code: str = ""

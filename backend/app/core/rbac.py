@@ -215,6 +215,18 @@ PERMISSION_MATRIX: dict[str, dict[str, set[str]]] = {
         "allowed": set(ACTIONS) - PLATFORM_ORGANIZATION_ACTIONS,
         "scope": "any",
     },
+    "retailer": {
+        "allowed": {
+            "batch.read",
+            "harvest.read",
+            "passport.read",
+            "assertion.read",
+            "provenance.impact.read",
+            "org.dashboard",
+            "notification.read",
+        },
+        "scope": "read_org",
+    },
 }
 
 
@@ -227,13 +239,16 @@ def scope_label(role: str) -> str:
 
 
 def require_permission(action: str):
-    """Dependency factory: require the authenticated user to hold [action]."""
+    """Dependency factory: require the authenticated user to hold [action].
+
+    Multi-role: user has access if ANY of their roles has the permission.
+    """
 
     def _check(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
-        if not has_permission(user.role, action):
+        if not any(has_permission(r, action) for r in user.roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Role '{user.role}' is not permitted to {action}",
+                detail=f"None of your roles {user.roles} are permitted to {action}",
             )
         return user
 
@@ -245,11 +260,12 @@ def require_permission(action: str):
 # ---------------------------------------------------------------------------
 
 def in_scope(user: CurrentUser, *, owner_org_id: str = "", owner_user_id: str = "") -> bool:
-    if user.role in ("admin", "institution", "platform_oversight"):
-        return True
-    scope = scope_label(user.role)
-    if scope == "any":
-        return True
+    # Check if any role has "any" scope or is admin/institution/platform_oversight
+    for r in user.roles:
+        if r in ("admin", "institution", "platform_oversight"):
+            return True
+        if scope_label(r) == "any":
+            return True
     if owner_user_id and owner_user_id == user.user_id:
         return True
     if owner_org_id and owner_org_id == user.org_id:
