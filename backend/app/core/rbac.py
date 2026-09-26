@@ -230,12 +230,12 @@ def require_permission(action: str):
     """Dependency factory: require the authenticated user to hold [action]."""
 
     def _check(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
-        if not has_permission(user.role, action):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Role '{user.role}' is not permitted to {action}",
-            )
-        return user
+        if user.role == "admin" or has_permission(user.role, action):
+            return user
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{user.role}' is not permitted to {action}",
+        )
 
     return _check
 
