@@ -167,6 +167,14 @@ class _IotSimulatorScreenState extends State<IotSimulatorScreen> {
             if (_selectedDevice == null && devices.isNotEmpty) {
               _selectedDevice = devices.first.deviceId;
             }
+            // Mirrors the backend RBAC: only the admin role holds
+            // `iot.simulator.control` (see backend/app/core/rbac.py). A
+            // beekeeper account is allowed to READ devices/telemetry but must
+            // not be able to drive the simulator; the backend already rejects
+            // those calls, so the UI hides the controls up front instead of
+            // letting the user hit a 403.
+            final canControl = store.backendSignedIn &&
+                store.backendRole.toLowerCase() == 'admin';
             if (!store.backendChecked && !store.backendConfigured) {
               return _centeredHint(
                 'Compiled without API_BASE_URL.\n\n'
@@ -192,6 +200,10 @@ class _IotSimulatorScreenState extends State<IotSimulatorScreen> {
                 if (store.backendSignedIn) ...[
                   const SizedBox(height: 12),
                   _SignedInCard(store: store),
+                  if (!canControl) ...[
+                    const SizedBox(height: 12),
+                    _RoleGateNotice(store: store),
+                  ],
                 ],
                 const SizedBox(height: 18),
                 Row(
@@ -206,7 +218,7 @@ class _IotSimulatorScreenState extends State<IotSimulatorScreen> {
                         ),
                       ),
                     ),
-                    if (store.backendSignedIn && store.backendOnline)
+                    if (canControl && store.backendOnline)
                       TextButton.icon(
                         onPressed: () => _registerDevice(store),
                         icon: const Icon(Icons.add_rounded, size: 18),
@@ -233,6 +245,7 @@ class _IotSimulatorScreenState extends State<IotSimulatorScreen> {
                     _DeviceCard(
                       store: store,
                       device: device,
+                      canControl: canControl,
                       selected: _selectedDevice == device.deviceId,
                       onSelect: () => setState(() {
                         _selectedDevice = device.deviceId;
@@ -548,6 +561,61 @@ class _SignInCardState extends State<_SignInCard> {
   }
 }
 
+class _RoleGateNotice extends StatelessWidget {
+  const _RoleGateNotice({required this.store});
+
+  final HoneyChainStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final role = store.backendDisplayRole;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.orangeSoft,
+        borderRadius: AppTheme.radiusCard,
+        border: Border.all(color: AppTheme.orange.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.admin_panel_settings_outlined,
+              color: AppTheme.orangeDark, size: 24),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Simulator controls unavailable for “$role”',
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.ink,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'The backend only allows the admin role to drive the '
+                  'simulator (iot.simulator.control). You can still view '
+                  'devices and telemetry, but emitting events requires an '
+                  'admin sign-in on the demo account '
+                  '(admin@honeychain.in / HoneyChainDemo!1).',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: AppTheme.inkSoft,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SignedInCard extends StatelessWidget {
   const _SignedInCard({required this.store});
 
@@ -630,6 +698,7 @@ class _DeviceCard extends StatelessWidget {
   const _DeviceCard({
     required this.store,
     required this.device,
+    required this.canControl,
     required this.selected,
     required this.onSelect,
     required this.onStep,
@@ -640,6 +709,7 @@ class _DeviceCard extends StatelessWidget {
 
   final HoneyChainStore store;
   final IotDevice device;
+  final bool canControl;
   final bool selected;
   final VoidCallback onSelect;
   final Future<void> Function() onStep;
@@ -742,82 +812,108 @@ class _DeviceCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _MlStatusCard(status: mlInfo),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _Pill(
-                label: 'START',
-                color: AppTheme.green,
-                onTap: () async {
-                  await store.simulatorAction(device.deviceId, 'START');
-                },
-              ),
-              _Pill(
-                label: 'STOP',
-                color: AppTheme.red,
-                onTap: () async {
-                  await store.simulatorAction(device.deviceId, 'STOP');
-                },
-              ),
-              _Pill(
-                label: 'PAUSE',
-                color: AppTheme.orange,
-                onTap: () async {
-                  await store.simulatorAction(device.deviceId, 'PAUSE');
-                },
-              ),
-              _Pill(
-                label: 'RESUME',
-                color: AppTheme.blue,
-                onTap: () async {
-                  await store.simulatorAction(device.deviceId, 'RESUME');
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final mode in _modes)
+          if (!canControl) ...[
+            const SizedBox(height: 10),
+            const Row(
+              children: [
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 15,
+                  color: AppTheme.inkFaint,
+                ),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Controls hidden: admin role required to drive this device.',
+                    style: TextStyle(fontSize: 12, color: AppTheme.inkSoft),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (canControl) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
                 _Pill(
-                  label: mode,
-                  color: device.mode == mode ? AppTheme.orange : AppTheme.inkSoft,
+                  label: 'START',
+                  color: AppTheme.green,
                   onTap: () async {
-                    await store.simulatorMode(device.deviceId, mode);
+                    await store.simulatorAction(device.deviceId, 'START');
                   },
                 ),
-            ],
-          ),
+                _Pill(
+                  label: 'STOP',
+                  color: AppTheme.red,
+                  onTap: () async {
+                    await store.simulatorAction(device.deviceId, 'STOP');
+                  },
+                ),
+                _Pill(
+                  label: 'PAUSE',
+                  color: AppTheme.orange,
+                  onTap: () async {
+                    await store.simulatorAction(device.deviceId, 'PAUSE');
+                  },
+                ),
+                _Pill(
+                  label: 'RESUME',
+                  color: AppTheme.blue,
+                  onTap: () async {
+                    await store.simulatorAction(device.deviceId, 'RESUME');
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final mode in _modes)
+                  _Pill(
+                    label: mode,
+                    color:
+                        device.mode == mode ? AppTheme.orange : AppTheme.inkSoft,
+                    onTap: () async {
+                      await store.simulatorMode(device.deviceId, mode);
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _Pill(
+                  label: 'Emit 1 (STEP)',
+                  color: AppTheme.teal,
+                  onTap: onStep,
+                ),
+                _Pill(
+                  label: 'Emit 10 (BURST)',
+                  color: AppTheme.teal,
+                  onTap: onBurst,
+                ),
+                _Pill(
+                  label: 'Fork demo',
+                  color: AppTheme.purple,
+                  onTap: onFork,
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _Pill(
-                label: 'Emit 1 (STEP)',
-                color: AppTheme.teal,
-                onTap: onStep,
-              ),
-              _Pill(
-                label: 'Emit 10 (BURST)',
-                color: AppTheme.teal,
-                onTap: onBurst,
-              ),
-              _Pill(
-                label: 'Fork demo',
-                color: AppTheme.purple,
-                onTap: onFork,
-              ),
-              _Pill(
-                label: 'Check ledger',
-                color: AppTheme.ink,
-                onTap: onLedger,
-              ),
-            ],
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _Pill(
+              label: 'Check ledger',
+              color: AppTheme.ink,
+              onTap: onLedger,
+            ),
           ),
         ],
       ),

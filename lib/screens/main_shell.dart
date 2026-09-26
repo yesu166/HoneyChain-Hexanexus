@@ -6,6 +6,7 @@ import 'ask_my_bee_screen.dart';
 import 'home_tab.dart';
 import 'hives_tab.dart';
 import 'more_tab.dart';
+import 'alerts_tab.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -45,6 +46,26 @@ class _MainShellState extends State<MainShell> {
                       ),
                     ),
                     body: const HivesTab(),
+                  ),
+                ),
+              ),
+              onGoToAlerts: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => Scaffold(
+                    backgroundColor: AppTheme.bg,
+                    appBar: AppBar(
+                      backgroundColor: AppTheme.bg,
+                      surfaceTintColor: Colors.transparent,
+                      elevation: 0,
+                      foregroundColor: AppTheme.ink,
+                      title: Text(
+                        store.tr('alerts.title'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    body: const AlertsTab(),
                   ),
                 ),
               ),

@@ -6,6 +6,7 @@ import '../bee_health/models/bee_health_models.dart';
 abstract class HoneychainRepository {
   List<Hive> hivesForBeekeeper(String beekeeperId);
   void addHive(Hive hive);
+  void replaceHive(String oldId, Hive replacement);
   List<HiveReading> readingsForHive(String hiveId);
   List<Harvest> harvestsForBeekeeper(String beekeeperId);
   List<Batch> get batches;
@@ -250,6 +251,16 @@ class LocalHoneychainRepository implements HoneychainRepository {
 
   @override
   void addHive(Hive hive) => _hives.add(hive);
+
+  @override
+  void replaceHive(String oldId, Hive replacement) {
+    final index = _hives.indexWhere((hive) => hive.id == oldId);
+    if (index >= 0) {
+      _hives[index] = replacement;
+    } else {
+      _hives.add(replacement);
+    }
+  }
 
   @override
   List<HiveReading> readingsForHive(String hiveId) =>

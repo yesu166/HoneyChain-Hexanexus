@@ -127,6 +127,34 @@ class MoreTab extends StatelessWidget {
                 subtitle: store.tr('more.settings.sub'),
                 onTap: () => _push(context, const SettingsScreen()),
               ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      color: AppTheme.border,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'DEMO & DIAGNOSTICS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.6,
+                      color: AppTheme.inkFaint,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      color: AppTheme.border,
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 12),
               BeekeeperActionCard(
                 icon: Icons.developer_mode_rounded,

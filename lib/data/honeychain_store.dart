@@ -2012,6 +2012,14 @@ class HoneyChainStore extends ChangeNotifier {
   int get apiUnreadNotifications =>
       _apiNotifications.where((n) => !n.read).length;
 
+  /// Test-only: replaces the backend notifications collection so widget tests
+  /// can exercise the Home alerts bridge without a live backend session.
+  @visibleForTesting
+  void debugSetApiNotifications(List<BackendNotification> notifications) {
+    _apiNotifications = [...notifications];
+    notifyListeners();
+  }
+
   List<IotTelemetry> apiTelemetryFor(String deviceId) =>
       List.unmodifiable(_apiTelemetry[deviceId] ?? const []);
 
@@ -2518,9 +2526,18 @@ class HoneyChainStore extends ChangeNotifier {
   }
 
   /// Creates a hive in the backend too (offline local copy is still kept).
+  ///
+  /// When [localHiveId] is the id of the just-created local hive, a successful
+  /// push re-keys that local record to the server id. This is the fix for the
+  /// "one tap creates two hives" bug: the Hives Tab merges local and server
+  /// rows by id, so a hive that exists locally under `hive-new-N` and on the
+  /// server under its DB uuid used to render as two rows that never
+  /// reconciled. Adopting the server id keeps the user-entered fields while
+  /// guaranteeing a single row.
   Future<ServerHive?> addHiveToBackend({
     required String name,
     String? location,
+    String? localHiveId,
   }) async {
     if (testMode || !ApiConfig.isConfigured || !_backendSignedIn) return null;
     try {
@@ -2534,6 +2551,23 @@ class HoneyChainStore extends ChangeNotifier {
           if (h.id != server.id) h,
         server,
       ];
+      if (localHiveId != null && localHiveId.isNotEmpty) {
+        final current = hiveById(localHiveId);
+        if (current != null) {
+          final reconciled = Hive(
+            id: server.id,
+            name: current.name,
+            beekeeperId: current.beekeeperId,
+            organizationId: current.organizationId,
+            location: current.location,
+            honeyType: current.honeyType,
+            detail: current.detail,
+            photoCredit: current.photoCredit,
+          );
+          _repository.replaceHive(localHiveId, reconciled);
+          _persistHives();
+        }
+      }
       notifyListeners();
       return server;
     } on ApiException catch (error) {
