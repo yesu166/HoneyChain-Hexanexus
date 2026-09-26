@@ -65,6 +65,20 @@ class AuthService:
         user = self._repo.get_user(user_id)
         if user is None:
             return None
+        role = user.get("role", "")
+        roles = [role] if role else []
+        if role == "admin":
+            roles = [
+                "admin",
+                "platform_oversight",
+                "institution",
+                "fpo",
+                "beekeeper",
+                "lab",
+                "processor",
+                "buyer",
+            ]
+
         producer_id = ""
         if user.get("role") == "beekeeper":
             beekeeper = self._repo.get_beekeeper(user_id)
@@ -75,7 +89,8 @@ class AuthService:
             "email": user.get("email", ""),
             "name": user.get("name", ""),
             "phone": user.get("phone", ""),
-            "role": user.get("role", ""),
+            "role": role,
+            "roles": roles,
             "org_id": user.get("org_id", ""),
             "producer_id": producer_id,
             "org_name": org.get("name", ""),
