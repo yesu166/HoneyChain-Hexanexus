@@ -154,3 +154,20 @@ def test_inmemory_and_supabase_agree_when_client_id_is_omitted():
         SupabaseRepository._with_client_id(NULL_HIVE_ROW)["client_id"]
         == stored["client_id"]
     )
+
+
+def test_batch_contract_normalizes_nullable_string_fields():
+    rows = [
+        {"id": "b1", "organization_id": None, "client_id": None},
+        {"id": "b2", "organization_id": "org-1", "client_id": None},
+    ]
+    out = SupabaseRepository._with_batch_contract_list(rows)
+
+    assert out[0]["organization_id"] == ""
+    assert out[0]["client_id"] == ""
+    assert out[1]["organization_id"] == "org-1"
+    assert out[1]["client_id"] == ""
+
+
+def test_batch_contract_leaves_none_row_alone():
+    assert SupabaseRepository._with_batch_contract(None) is None
