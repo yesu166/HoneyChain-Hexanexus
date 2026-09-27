@@ -1354,8 +1354,13 @@ class SupabaseRepository(Repository):
     # -- user roles (multi-role membership) --
     def get_user_roles(self, user_id: str) -> list[str]:
         """Fetch all roles for a user from the user_roles table, with primary role fallback."""
-        roles_data = self._table("user_roles").select("role").eq("user_id", user_id).execute().data
-        roles = [r["role"] for r in roles_data] if roles_data else []
+        roles = []
+        try:
+            roles_data = self._table("user_roles").select("role").eq("user_id", user_id).execute().data
+            roles = [r["role"] for r in roles_data] if roles_data else []
+        except Exception:
+            # Table may not exist in production (migration pending); fall back to primary role
+            pass
         # Fallback to primary role from users table for backward compatibility
         user = self.get_user(user_id)
         if user and user.get("role") and user["role"] not in roles:
