@@ -1461,6 +1461,29 @@ class SupabaseRepository(Repository):
     def _with_client_id_list(cls, rows):
         return [cls._with_client_id(r) for r in rows]
 
+
+    @staticmethod
+    def _with_batch_contract(row):
+        """Normalize nullable batch string fields to the API's string contract.
+
+        Supabase legacy rows may contain NULL for organization_id/client_id,
+        while BatchRead exposes both as strings. Keep the translation at the
+        repository boundary so the in-memory and hosted repositories have the
+        same response shape.
+        """
+        if row is None:
+            return None
+        out = dict(row)
+        if out.get("organization_id") is None:
+            out["organization_id"] = ""
+        if out.get("client_id") is None:
+            out["client_id"] = ""
+        return out
+
+    @classmethod
+    def _with_batch_contract_list(cls, rows):
+        return [cls._with_batch_contract(r) for r in rows]
+
     # -- hives --
     def create_hive(self, hive, *, client_id=""):
         if client_id:
@@ -1621,33 +1644,37 @@ class SupabaseRepository(Repository):
         # (ORG-0000NN) users carry around to organizations.id. Unknown/blank
         # orgs store NULL — never a text code (22P02).
         row["organization_id"] = self._org_uuid(row.get("organization_id"))
-        return self._upsert("batches", row, key="client_id")
+        return self._with_batch_contract(self._upsert("batches", row, key="client_id"))
 
     def get_batch(self, batch_id):
-        return self._get_by("batches", "id", batch_id)
+        return self._with_batch_contract(self._get_by("batches", "id", batch_id))
 
     def get_batch_by_code(self, code):
-        return self._get_by("batches", "batch_code", code)
+        return self._with_batch_contract(self._get_by("batches", "batch_code", code))
 
     def list_batches(self, org_id, beekeeper_id=""):
         if beekeeper_id:
-            return (
+            rows = (
                 self._table("batches")
                 .select("*")
                 .eq("beekeeper_id", beekeeper_id)
                 .order("created_at", desc=True)
                 .execute().data
             )
+            return self._with_batch_contract_list(rows)
         q = self._table("batches").select("*")
         if org_id:
             ouuid = self._org_filter_value(org_id)
             if not ouuid:
                 return []
             q = q.eq("organization_id", ouuid)
-        return q.order("created_at", desc=True).execute().data
+        rows = q.order("created_at", desc=True).execute().data
+        return self._with_batch_contract_list(rows)
 
     def update_batch(self, batch_id, updates):
         row = self._clip(updates, self._BATCH_COLS, iso=("created_at",))
+        if "organization_id" in row:
+            row["organization_id"] = self._org_uuid(row.get("organization_id"))
         if row:
             self._table("batches").update(row).eq("id", batch_id).execute()
         return self.get_batch(batch_id)
