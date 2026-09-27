@@ -600,7 +600,7 @@ class _RoleGateNotice extends StatelessWidget {
                   'simulator (iot.simulator.control). You can still view '
                   'devices and telemetry, but emitting events requires an '
                   'admin sign-in on the demo account '
-                  '(admin@honeychain.in / HoneyChainDemo!1).',
+                  '(admin@honeychain.in / the configured demo password).',
                   style: TextStyle(
                     fontSize: 12.5,
                     color: AppTheme.inkSoft,
