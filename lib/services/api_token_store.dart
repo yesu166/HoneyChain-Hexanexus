@@ -60,8 +60,13 @@ class ApiTokenStore {
   final FlutterSecureStorage _secure = const FlutterSecureStorage();
   SharedPreferences? _legacyPrefs;
   ApiIdentity? _cached;
+  Future<void>? _initFuture;
 
-  Future<void> init() async {
+  Future<void> init() {
+    return _initFuture ??= _initialize();
+  }
+
+  Future<void> _initialize() async {
     _legacyPrefs ??= await SharedPreferences.getInstance();
 
     String? raw;
@@ -110,7 +115,7 @@ class ApiTokenStore {
   String? get token => _cached?.token;
 
   Future<void> save(ApiIdentity identity) async {
-    if (_legacyPrefs == null) await init();
+    await init();
     _cached = identity;
     final raw = jsonEncode(identity.toJson());
     try {
@@ -126,7 +131,7 @@ class ApiTokenStore {
   }
 
   Future<void> clear() async {
-    if (_legacyPrefs == null) await init();
+    await init();
     _cached = null;
     try {
       await _secure.delete(key: _kToken);
