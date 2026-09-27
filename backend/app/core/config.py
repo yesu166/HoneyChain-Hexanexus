@@ -54,7 +54,7 @@ class Settings:
         # the regex; arbitrary third-party origins are never allowed by default.
         self.cors_origin_regex: str = os.getenv(
             "CORS_ORIGIN_REGEX",
-            r"^https://hc-web-portal(?:-[a-z0-9-]+)?\\.(?:onrender\\.com|vercel\\.app)$",
+            r"^https://hc-web-portal(?:-[a-z0-9-]+)?\.(?:onrender\.com|vercel\.app)$",
         )
 
         # Blockchain + AI adapters.
