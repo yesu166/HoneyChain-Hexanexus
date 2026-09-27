@@ -38,6 +38,9 @@ dependencies:
   # Offline-first persistence (shared_preferences for local caching;
   # replaced/supplemented by FastAPI + Supabase in production).
   shared_preferences: ^2.3.0
+  # JWT/session credentials use platform secure storage; SharedPreferences is
+  # retained only for migration of sessions created by older app versions.
+  flutter_secure_storage: ^11.2.0
 
   # Web platform helpers (browser online status, js interop).
   web: ^1.1.0
