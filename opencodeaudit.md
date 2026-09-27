@@ -1,3 +1,29 @@
+# Follow-up — 2026-09-27
+
+This note records changes made after the original audit. The original findings are kept below as historical audit evidence; they are not treated as current truth without re-verification.
+
+## Confirmed fixes in this follow-up
+
+- Batch repository responses now normalize nullable organization_id and client_id to the API schema's string contract on create/read/list/update paths.
+- Batch null-contract regression coverage was added alongside the existing hive/harvest coverage.
+- Backend pytest now runs in GitHub Actions in addition to the existing Flutter checks.
+- A repeatable Windows PowerShell online Android build/install script was added: scripts/build_android_online.ps1. It injects the existing deployed API_BASE_URL at build time; the Flutter application still does not hardcode the backend URL.
+
+## Findings intentionally not changed from source code alone
+
+- Render's live environment secrets (JWT_SECRET, Supabase credentials, Gemini keys) must be verified/rotated in the deployment environment, not committed to Git.
+- The deployed blockchain adapter must not be changed to Fabric blindly without verifying the reachable Fabric gateway and its credentials/network.
+- JWT secure-storage migration is a separate security hardening task and was not mixed into the API regression/batch fix because changing authentication storage without device verification could break the current login flow.
+- Pagination, multi-writer conflict resolution, load testing, and production APK signing remain separate scale/release tasks rather than being silently claimed complete.
+
+## API build truth
+
+The mobile app intentionally requires the existing build-time flag:
+
+--dart-define=API_BASE_URL=https://honeychain-api.onrender.com
+
+A debug APK built without that flag is intentionally an offline/demo build and will show the honest Backend not configured state. This is a build-configuration issue, not a reason to add a hardcoded backend URL to the Flutter source.
+
 # HONEYCHAIN 3.0 — READ-ONLY AUDIT
 
 **Auditor mode:** READ-ONLY. No source file, migration, test, schema, or config was modified. No commit/push performed. One scratch script written to the OS temp dir (outside the repo) and executed; left in place.
