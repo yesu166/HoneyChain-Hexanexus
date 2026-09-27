@@ -110,6 +110,7 @@ class ApiTokenStore {
   String? get token => _cached?.token;
 
   Future<void> save(ApiIdentity identity) async {
+    if (_legacyPrefs == null) await init();
     _cached = identity;
     final raw = jsonEncode(identity.toJson());
     try {
@@ -125,6 +126,7 @@ class ApiTokenStore {
   }
 
   Future<void> clear() async {
+    if (_legacyPrefs == null) await init();
     _cached = null;
     try {
       await _secure.delete(key: _kToken);
