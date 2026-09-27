@@ -36,7 +36,8 @@ report "authenticated" — the honest label is displayed instead.
 ## 2. Durable session
 
 - `lib/services/api_token_store.dart` keeps the backend JWT + identity
-  (`token / id / email / name / role / organizationId`) in `SharedPreferences`.
+  (`token / id / email / name / role / organizationId`) in platform secure
+  storage. Older SharedPreferences sessions are migrated once and removed.
 - **Fix in this pass:** `ApiTokenStore.instance.init()` is now invoked inside
   `HoneyChainStore.ensureStarted()` (previously the token store was never initialized from the
   app, so a backend sign-in evaporated on restart). On startup the store restores
