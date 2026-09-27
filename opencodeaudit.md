@@ -1,3 +1,48 @@
+# Security hardening follow-up — 2026-09-27
+
+The original audit findings below are historical observations. This follow-up
+records source-level fixes applied afterward; it does not mean deployment
+secrets were rotated automatically.
+
+## Fixed in source
+
+- Removed the published hardcoded JWT development fallback. Missing
+  `JWT_SECRET` now uses a fresh process-local cryptographic secret in
+  development and refuses startup in production.
+- Unknown `API_ENV` values are rejected.
+- Removed the hardcoded demo password from backend/Flutter application source,
+  simulator text, and public demo documentation. Demo authentication now
+  requires `DEMO_PASSWORD` from local/deployment configuration.
+- Moved backend JWT/profile persistence from plaintext SharedPreferences to
+  `flutter_secure_storage`, with one-time migration and cleanup of legacy
+  SharedPreferences copies.
+- Removed the committed 74 MB APK artifact.
+- Updated security documentation to classify Gemini, Supabase service-role,
+  JWT, Fabric bridge, database, blockchain, and demo credentials as
+  server-side/environment-only secrets.
+
+## Still requires operator action
+
+1. Rotate any real `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`,
+   `SUPABASE_DB_URL` password, Gemini key, Fabric bridge token, blockchain
+   private key, or JWT secret that has existed in a shared/local working
+   directory. The earlier audit found real values in gitignored `.env` files;
+   source changes cannot rotate those credentials.
+2. Set a strong `JWT_SECRET` in the Render `honeychain-api` environment.
+3. Set `DEMO_PASSWORD` only for intentionally local/demo identities and never
+   reuse it for a real account.
+4. Review existing Supabase demo users created by the legacy seed migration and
+   rotate/delete them if the hosted project is intended for non-demo use.
+5. Never put server secrets into Flutter `--dart-define` or Vite `VITE_*`
+   variables.
+
+## Verification status
+
+These changes are on branch `security-hardening-2026-09-27`. Tests/builds
+have not been run in this pass.
+
+---
+
 # Follow-up — 2026-09-27
 
 This note records changes made after the original audit. The original findings are kept below as historical audit evidence; they are not treated as current truth without re-verification.
