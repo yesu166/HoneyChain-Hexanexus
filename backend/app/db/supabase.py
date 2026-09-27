@@ -265,6 +265,9 @@ class Repository(ABC):
     def list_lab_tests(self, batch_id: str) -> list[dict[str, Any]]: ...
 
     @abstractmethod
+    def list_lab_tests_for_batches(self, batch_ids: list[str]) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
     def list_lab_queue(self, lab_id: str) -> list[dict[str, Any]]: ...
 
     # ---- custody -------------------------------------------------------------
@@ -317,6 +320,9 @@ class Repository(ABC):
     def list_certificates(self, batch_id: str) -> list[dict[str, Any]]: ...
 
     @abstractmethod
+    def list_certificates_for_batches(self, batch_ids: list[str]) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
     def revoke_certificate(
         self, certificate_id: str, *, revoked_at: str, reason: str
     ) -> dict[str, Any] | None: ...
@@ -347,6 +353,9 @@ class Repository(ABC):
     def list_telemetry_events(
         self, device_id: str, limit: int = 20, since: str = ""
     ) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def list_telemetry_events_for_devices(self, device_ids: list[str], limit: int = 10000) -> list[dict[str, Any]]: ...
 
     @abstractmethod
     def telemetry_events_for_hive(
@@ -814,6 +823,12 @@ class InMemoryRepository(Repository):
     def list_lab_tests(self, batch_id):
         return [t for t in self._data["lab_tests"] if t["batch_id"] == batch_id]
 
+    def list_lab_tests_for_batches(self, batch_ids: list[str]):
+        if not batch_ids:
+            return []
+        batch_id_set = set(batch_ids)
+        return [t for t in self._data["lab_tests"] if t["batch_id"] in batch_id_set]
+
     def list_lab_queue(self, lab_id):
         return [
             t
@@ -900,6 +915,12 @@ class InMemoryRepository(Repository):
             c for c in self._data["certificates"] if c.get("batch_id") == batch_id
         ]
 
+    def list_certificates_for_batches(self, batch_ids: list[str]):
+        if not batch_ids:
+            return []
+        batch_id_set = set(batch_ids)
+        return [c for c in self._data["certificates"] if c.get("batch_id") in batch_id_set]
+
     def revoke_certificate(self, certificate_id, *, revoked_at, reason):
         cert = self.get_certificate(certificate_id)
         if cert is None:
@@ -955,6 +976,16 @@ class InMemoryRepository(Repository):
         ]
         if since:
             rows = [t for t in rows if str(t.get("timestamp", "")) >= since]
+        rows.sort(key=lambda r: str(r.get("timestamp", "")), reverse=True)
+        return rows[:limit]
+
+    def list_telemetry_events_for_devices(self, device_ids: list[str], limit: int = 10000):
+        if not device_ids:
+            return []
+        device_id_set = set(device_ids)
+        rows = [
+            t for t in self._data["telemetry_events"] if t.get("device_id") in device_id_set
+        ]
         rows.sort(key=lambda r: str(r.get("timestamp", "")), reverse=True)
         return rows[:limit]
 
@@ -1722,6 +1753,17 @@ class SupabaseRepository(Repository):
             .execute().data
         )
 
+    def list_lab_tests_for_batches(self, batch_ids: list[str]):
+        if not batch_ids:
+            return []
+        return (
+            self._table("lab_tests")
+            .select("*")
+            .in_("batch_id", batch_ids)
+            .order("requested_at", desc=False)
+            .execute().data
+        )
+
     def list_lab_queue(self, lab_id):
         return (
             self._table("lab_tests")
@@ -1884,6 +1926,16 @@ class SupabaseRepository(Repository):
             .execute().data
         )
 
+    def list_certificates_for_batches(self, batch_ids: list[str]):
+        if not batch_ids:
+            return []
+        return (
+            self._table("certificates")
+            .select("*")
+            .in_("batch_id", batch_ids)
+            .execute().data
+        )
+
     def revoke_certificate(self, certificate_id, *, revoked_at, reason):
         self._table("certificates").update(
             {"status": "revoked", "revoked_at": revoked_at, "revocation_reason": reason}
@@ -1925,6 +1977,18 @@ class SupabaseRepository(Repository):
         if since:
             q = q.gte("timestamp", since)
         return q.order("timestamp", desc=True).limit(limit).execute().data
+
+    def list_telemetry_events_for_devices(self, device_ids: list[str], limit: int = 10000):
+        if not device_ids:
+            return []
+        return (
+            self._table("telemetry_events")
+            .select("*")
+            .in_("device_id", device_ids)
+            .order("timestamp", desc=True)
+            .limit(limit)
+            .execute().data
+        )
 
     def telemetry_events_for_hive(self, hive_id, limit=50):
         return (

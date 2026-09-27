@@ -118,16 +118,31 @@ class OrgService:
 
     def platform_stats(self) -> dict[str, Any]:
         batches = self._repo.list_batches("")
-        lab_tests = 0
-        certificates = 0
-        for batch in batches:
-            lab_tests += len(self._repo.list_lab_tests(batch.get("id", "")))
-            certificates += len(self._repo.list_certificates(batch.get("id", "")))
+        batch_ids = [b.get("id", "") for b in batches if b.get("id")]
+
+        # Bulk fetch lab tests and certificates for all batches at once
+        lab_tests_by_batch: dict[str, list[dict]] = {}
+        certificates_by_batch: dict[str, list[dict]] = {}
+        if batch_ids:
+            lab_tests = self._repo.list_lab_tests_for_batches(batch_ids)
+            certificates = self._repo.list_certificates_for_batches(batch_ids)
+            for test in lab_tests:
+                lab_tests_by_batch.setdefault(test.get("batch_id", ""), []).append(test)
+            for cert in certificates:
+                certificates_by_batch.setdefault(cert.get("batch_id", ""), []).append(cert)
+
+        lab_tests = sum(len(lab_tests_by_batch.get(bid, [])) for bid in batch_ids)
+        certificates = sum(len(certificates_by_batch.get(bid, [])) for bid in batch_ids)
+
         devices = self._repo.list_iot_devices()
-        telemetry_events = sum(
-            len(self._repo.list_telemetry_events(d.get("device_id", ""), limit=10_000))
-            for d in devices
-        )
+        device_ids = [d.get("device_id", "") for d in devices if d.get("device_id")]
+
+        # Bulk fetch telemetry events for all devices at once
+        telemetry_events = 0
+        if device_ids:
+            telemetry = self._repo.list_telemetry_events_for_devices(device_ids, limit=10_000)
+            telemetry_events = len(telemetry)
+
         harvests = self._repo.list_harvests(None)
         return {
             "registered_beekeepers": len(self._repo.list_beekeepers()),
