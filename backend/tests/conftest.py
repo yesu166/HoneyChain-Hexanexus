@@ -4,6 +4,7 @@ import os
 
 os.environ["API_ENV"] = "development"
 os.environ["JWT_SECRET"] = "test-secret-for-ci"
+os.environ["DEMO_PASSWORD"] = "test-demo-password-for-ci"
 os.environ.pop("SUPABASE_URL", None)
 os.environ.pop("SUPABASE_SERVICE_ROLE_KEY", None)
 os.environ["BLOCKCHAIN_ADAPTER"] = "simulated"
@@ -27,7 +28,7 @@ os.environ["SUPABASE_SERVICE_ROLE_KEY"] = ""
 get_settings.cache_clear()
 
 DEMO_EMAIL = "demo@honeychain.in"
-DEMO_PASSWORD = "HoneyChainDemo!1"
+DEMO_PASSWORD = "test-demo-password-for-ci"
 
 
 def make_token(

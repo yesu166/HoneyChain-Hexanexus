@@ -17,8 +17,8 @@ import '../theme/app_theme.dart';
 /// Requirements:
 /// 1. Run the backend with `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
 /// 2. Run the app with `--dart-define=API_BASE_URL=http://localhost:8000`.
-/// 3. Sign in as an admin (`admin@honeychain.in` / HoneyChainDemo!1) so
-///    `iot.simulator.control` is permitted.
+/// 3. Sign in as an admin. If using the optional demo helper, supply the
+///    password with `--dart-define=DEMO_PASSWORD=...`; it is not stored in source.
 class IotSimulatorScreen extends StatefulWidget {
   const IotSimulatorScreen({super.key});
 
@@ -467,7 +467,7 @@ class _SignInCardState extends State<_SignInCard> {
     text: 'admin@honeychain.in',
   );
   final TextEditingController _password = TextEditingController(
-    text: 'HoneyChainDemo!1',
+    text: const String.fromEnvironment('DEMO_PASSWORD'),
   );
   bool _busy = false;
 
@@ -600,7 +600,7 @@ class _RoleGateNotice extends StatelessWidget {
                   'simulator (iot.simulator.control). You can still view '
                   'devices and telemetry, but emitting events requires an '
                   'admin sign-in on the demo account '
-                  '(admin@honeychain.in / HoneyChainDemo!1).',
+                  '(admin@honeychain.in / the configured demo password).',
                   style: TextStyle(
                     fontSize: 12.5,
                     color: AppTheme.inkSoft,

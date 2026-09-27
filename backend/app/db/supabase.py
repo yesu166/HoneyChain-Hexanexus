@@ -2164,15 +2164,19 @@ class DemoSeededRepository(InMemoryRepository):
 
     def __init__(self) -> None:
         from ..core.security import hash_password
+        import os
 
         super().__init__()
+        demo_password = os.getenv("DEMO_PASSWORD", "").strip()
+        if not demo_password:
+            return
         beekeeper = self.create_user(
             email="demo@honeychain.in",
             name="Ravi Kumar",
             phone="+919000000000",
             role="beekeeper",
             org_id="ORG-000001",
-            password_hash=hash_password("HoneyChainDemo!1"),
+            password_hash=hash_password(demo_password),
         )
         self._seed_beekeeper = beekeeper
         org = self.ensure_organization(

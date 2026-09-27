@@ -11,7 +11,8 @@ class DemoAuthService {
 
   static const beekeeperEmail = 'demo@honeychain.in';
   static const orgEmail = 'org@honeychain.in';
-  static const demoPassword = 'HoneyChainDemo!1';
+  /// Supplied only for local/demo builds; never embedded in source control.
+  static const demoPassword = String.fromEnvironment('DEMO_PASSWORD');
 
   static Future<bool> signInBeekeeper() => _signIn(beekeeperEmail);
 

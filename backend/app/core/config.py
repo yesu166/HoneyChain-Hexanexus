@@ -5,6 +5,7 @@ Secrets come from environment variables only. No credentials are committed.
 from __future__ import annotations
 
 import os
+import secrets
 from functools import lru_cache
 from pathlib import Path
 
@@ -25,7 +26,9 @@ class Settings:
     """Runtime configuration read from the environment."""
 
     def __init__(self) -> None:
-        self.api_env: str = os.getenv("API_ENV", "development")
+        self.api_env: str = os.getenv("API_ENV", "development").strip().lower()
+        if self.api_env not in {"development", "production"}:
+            raise RuntimeError("API_ENV must be exactly 'development' or 'production'.")
         self.api_version: str = "1.0.0"
 
         # Supabase PostgreSQL (system of record).
@@ -145,15 +148,19 @@ class Settings:
         return self.api_env.lower() == "production"
 
     def require_jwt_secret(self) -> str:
-        """Development falls back to a non-secret default so local runs work;
-        production must supply a real secret or the service refuses to start."""
+        """Return configured secret, or an ephemeral dev-only secret.
+
+        A missing development secret never falls back to a published value.
+        The ephemeral secret changes on every process start, so local sessions
+        intentionally expire when the backend restarts. Production fails closed.
+        """
         if self.jwt_secret:
             return self.jwt_secret
         if self.is_production:
             raise RuntimeError(
                 "JWT_SECRET must be set in production (refusing to start)."
             )
-        return "honeychain-local-dev-secret-do-not-use-in-production"
+        return secrets.token_urlsafe(32)
 
 
 @lru_cache

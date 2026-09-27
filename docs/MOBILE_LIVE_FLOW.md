@@ -24,7 +24,7 @@ there is no backend instead of inventing verification.
 ## 2. Backend-beekeeper flow (built with API_BASE_URL)
 
 1. **Sign in** — Login screen offers real FastAPI sign-in
-   (`demo@honeychain.in` / `HoneyChainDemo!1`, role `beekeeper`).
+   (`demo@honeychain.in` / `<DEMO_PASSWORD>`, role `beekeeper`; the password is supplied only through local/deployment secret configuration).
 2. **Session** — JWT + identity persisted (`ApiTokenStore`); restored on restart
    (`_restoreBackendSession`). `AuthState.authenticated` only when the health probe succeeds.
 3. **Hives** — `GET/POST /api/v1/hives` scoped to the beekeeper.
