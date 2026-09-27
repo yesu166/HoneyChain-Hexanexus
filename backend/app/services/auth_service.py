@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from ..core.config import get_settings
@@ -10,7 +11,7 @@ from ..core.security import (
 )
 from ..db.supabase import InMemoryRepository, Repository
 
-DEMO_PASSWORD = "HoneyChainDemo!1"
+DEMO_PASSWORD = os.getenv("DEMO_PASSWORD", "").strip()
 
 # Roles that require an existing (or platform-issued) organization binding.
 _ORG_ROLES = ("fpo", "processor", "lab")
@@ -158,10 +159,14 @@ class AuthService:
 def bootstrap_identities(repo: Repository) -> None:
     """Seed demo identities for local dev / tests.
 
-    Never runs against production: production identities are created through the
-    registration endpoint by operators or an admin provisioning flow.
+    The demo password is supplied by the local environment. It is deliberately
+    not embedded in application source or Flutter builds. Never runs against
+    production: production identities are created through the registration
+    endpoint by operators or an admin provisioning flow.
     """
     if isinstance(repo, InMemoryRepository) is False:
+        return
+    if not DEMO_PASSWORD:
         return
     demo = repo.get_user_by_email("demo@honeychain.in")
     if demo is None:
