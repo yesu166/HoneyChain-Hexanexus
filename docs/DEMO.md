@@ -10,7 +10,7 @@ cd backend
 ```
 
 Open `http://localhost:8000/docs`. Demo identity:
-`demo@honeychain.in` / `HoneyChainDemo!1` (beekeeper, ORG-TN-001).
+`demo@honeychain.in` / `<DEMO_PASSWORD>` (beekeeper, ORG-TN-001). Set the password only in the local backend environment and, when using the optional Flutter demo helper, pass the same value with `--dart-define=DEMO_PASSWORD=...`.
 
 ## Scripted walkthrough
 
