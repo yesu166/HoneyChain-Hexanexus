@@ -290,6 +290,21 @@ def test_org_dashboard_is_zero_based_and_scoped(client, fpo_token):
     assert denied.status_code == 403
 
 
+def test_org_dashboard_accepts_uuid_and_public_org_key_for_same_fpo(client, fpo_token):
+    org = client.app.state.repository.get_organization(ORG_A)
+    assert org is not None
+    org_uuid = str(org.get("id") or "")
+    assert org_uuid
+
+    by_key = client.get(f"/api/v1/org/{ORG_A}/dashboard", headers=auth(fpo_token))
+    by_uuid = client.get(f"/api/v1/org/{org_uuid}/dashboard", headers=auth(fpo_token))
+    assert by_key.status_code == 200
+    assert by_uuid.status_code == 200
+    assert by_key.json()["org_id"] == ORG_A
+    assert by_uuid.json()["org_id"] == org_uuid
+    assert by_key.json()["batches"] == by_uuid.json()["batches"]
+
+
 def test_org_dashboard_tracks_created_batch(client, fpo_token):
     batch = _seed_batch(client, fpo_token, "HC-ISO-DASH")
     body = client.get(

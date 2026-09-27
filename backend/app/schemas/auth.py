@@ -26,6 +26,7 @@ class UserMe(BaseModel):
     producer_id: str = ""
     org_name: str = ""
     status: str = "ACTIVE"
+    roles: list[str] = []
 
 
 class RegisterUserRequest(BaseModel):

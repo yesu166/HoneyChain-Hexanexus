@@ -6,16 +6,15 @@
    `hhxwhopaazqjdlreqhkf`. Backend writes to Supabase require the
    `SUPABASE_SERVICE_ROLE_KEY`, which the user did NOT provide; therefore the
    backend runs on `DemoSeededRepository` locally. Migrations ARE applied.
-2. **No blockchain credentials exist.** No EVM RPC+wallet+contract, no Fabric
-   network. We build real adapter boundaries and honest status codes; we do
-   not simulate or fake blockchain results.
-3. **The ML artifacts are demo artifacts.** `ml/model.pkl` and its metrics are
+2. **Hyperledger Fabric is the selected live provenance network for the current prototype path.** A real Fabric network exists on EC2 on `mychannel` with `honeychain` v2.0, and backend-side live submission/read-back has been verified. The gateway is currently protected from public exposure and is reached through the documented EC2 path/tunnel.
+3. **The local ledger remains a development fallback.** `LocalLedgerAdapter` is explicitly labelled `local` and must never be presented as a distributed blockchain.
+4. **The ML artifacts are demo artifacts.** `ml/model.pkl` and its metrics are
    not claims of trained-model accuracy. The risk engine is rule-based.
-4. **Photos and labs never reach a ledger.** Only canonical hashes do.
+5. **Photos and labs never reach a ledger.** Only canonical hashes do.
    This is a design decision, not a limitation.
-5. **Camera/QR need a real device.** This environment has none; features are
+6. **Camera/QR need a real device.** This environment has none; features are
    covered by widget/integration tests only.
-6. **Docker daemon is down.** No container image builds or `supabase` CLI
+7. **Docker daemon is down.** No container image builds or `supabase` CLI
    workflows this session (CLI not installed either).
 
 ## Decisions (with rationale)

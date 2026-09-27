@@ -195,6 +195,9 @@ PERMISSION_MATRIX: dict[str, dict[str, set[str]]] = {
             "iot.device.read",
             "org.dashboard",
             "platform.stats",
+            # Read-only platform visibility used by the KVIC organization list.
+            "organization.view_all",
+            "membership.view",
             "assertion.read",
             "provenance.impact.read",
         },
@@ -212,7 +215,10 @@ PERMISSION_MATRIX: dict[str, dict[str, set[str]]] = {
         "scope": "any",
     },
     "admin": {
-        "allowed": set(ACTIONS) - PLATFORM_ORGANIZATION_ACTIONS,
+        # The admin workspace reads organizations and beekeeper membership.
+        # Keep lifecycle mutations reserved for platform_oversight.
+        "allowed": (set(ACTIONS) - PLATFORM_ORGANIZATION_ACTIONS)
+        | {"organization.view_all", "membership.view"},
         "scope": "any",
     },
     "retailer": {

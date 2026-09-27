@@ -42,12 +42,19 @@ class Settings:
             os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080")
         )
 
-        # CORS.
-        # Production browser clients must send an explicit Origin. Keep the
-        # known deployed portal origin as a safe fallback when an older Render
-        # service has not yet received CORS_ORIGINS in its dashboard settings.
-        self.cors_origins: list[str] = _split_csv(os.getenv("CORS_ORIGINS", "")) or (
-            ["https://hc-web-portal.onrender.com"] if self.is_production else []
+        # CORS. Explicit CORS_ORIGINS remains the preferred production
+        # configuration. Keep the known HoneyChain portal deployment domains as
+        # safe fallbacks so an older Render service or a Vercel preview does not
+        # fail authenticated browser requests merely because its exact generated
+        # hostname was not copied into the dashboard.
+        self.cors_origins: list[str] = _split_csv(os.getenv("CORS_ORIGINS", ""))
+        if self.is_production and "https://hc-web-portal.onrender.com" not in self.cors_origins:
+            self.cors_origins.append("https://hc-web-portal.onrender.com")
+        # Only HoneyChain's own portal deployment naming patterns are covered by
+        # the regex; arbitrary third-party origins are never allowed by default.
+        self.cors_origin_regex: str = os.getenv(
+            "CORS_ORIGIN_REGEX",
+            r"^https://hc-web-portal(?:-[a-z0-9-]+)?\\.(?:onrender\\.com|vercel\\.app)$",
         )
 
         # Blockchain + AI adapters.
