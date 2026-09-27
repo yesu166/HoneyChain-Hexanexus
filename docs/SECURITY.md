@@ -15,10 +15,23 @@
 
 ## Secrets
 
-- Credentials are env-only, gitignored. `.env` holds `SUPABASE_DB_URL` and is
-  never committed (`.gitignore`). `.env.example` has placeholders.
+- Credentials are env-only, gitignored. `.env` holds `SUPABASE_DB_URL` and
+  backend secrets and is never committed (`.gitignore`). `.env.example` has
+  placeholders only.
+- `GEMINI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET`,
+  `BLOCKCHAIN_PRIVATE_KEY`, `FABRIC_BRIDGE_TOKEN`, and database credentials
+  are server-side secrets. They must never be placed in Flutter, Vite
+  `VITE_*` variables, source code, or committed files.
+- `DEMO_PASSWORD` is also environment-only. Demo identities are for local
+  demonstration/testing and must not be treated as production credentials.
 - `BLOCKCHAIN_PRIVATE_KEY` is read from env, never logged, never serialized
   into API responses.
+- Backend JWTs are stored in Flutter platform secure storage. A one-time
+  migration removes JWTs left in legacy SharedPreferences by older builds.
+- If a real secret has ever existed in a developer `.env`, treat it as
+  compromised before sharing that folder and rotate it in the owning service.
+- The public Supabase publishable/anon key is not a substitute for the
+  service-role key; service-role and database credentials remain server-only.
 
 ## Ledger honesty guarantees
 
