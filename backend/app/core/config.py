@@ -155,6 +155,10 @@ class Settings:
         intentionally expire when the backend restarts. Production fails closed.
         """
         if self.jwt_secret:
+            if self.is_production and len(self.jwt_secret.encode("utf-8")) < 32:
+                raise RuntimeError(
+                    "JWT_SECRET must contain at least 32 bytes in production."
+                )
             return self.jwt_secret
         if self.is_production:
             raise RuntimeError(
