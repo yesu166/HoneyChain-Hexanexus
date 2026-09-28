@@ -60,12 +60,15 @@ in the two runtime env files. Never log it, never return it in a response.
    `--host 0.0.0.0` to `--host 127.0.0.1`. The Security Group does not allow
    `8000`, but loopback-only removes the dependency on the SG staying correct.
 4. **DNS (user)**: `ledger.honeychain.in A <EC2 IP>`, TTL 300, DNS-only.
-5. **SG (user)**: allow TCP `80` from `0.0.0.0/0` (HTTP-01 + redirect) — `443`
-   is already open.
+5. **SG**: nothing to do — the Security Group already exposes TCP `443`, and
+   the Caddyfile now uses the **TLS-ALPN-01** challenge on that open port
+   (`disable_http_challenge`), so TCP `80` is **not required** for certificate
+   issuance or renewal. (Verified 2026-09-28: 443 reachable, 80 blocked.)
 6. **Render**: set the env table above and deploy.
 
-Caddy obtains the certificate automatically via HTTP-01 on first request after
-DNS resolves.
+Caddy obtains the certificate automatically via TLS-ALPN-01 on the first retry
+after DNS resolves (restart with `sudo systemctl restart caddy` to make it
+immediate).
 
 ## Verification matrix (must all pass before claiming real anchoring)
 
@@ -84,14 +87,23 @@ DNS resolves.
 
 ## Status
 
-- [x] `RemoteFabricAdapter` implemented + unit/integration tested (18 tests)
-- [x] `/internal/fabric/*` router implemented + tested
-- [x] Caddyfile written (`deploy/Caddyfile.ledger`)
-- [ ] DNS record created (user)
-- [ ] SG TCP 80 rule added (user)
-- [ ] Caddy installed and live on EC2
-- [ ] Verification matrix A–J executed against the live path
-- [ ] Real Fabric `tx_id` captured from a Render-initiated anchor
+Verified live on **2026-09-28** (see `docs/evidence/fabric-bridge-fresh-e2e-2026-09-28.md`):
+
+- [x] `RemoteFabricAdapter` implemented + unit/integration tested (22 tests,
+      including `submit_event` → bridge `kind=event`)
+- [x] `/internal/fabric/*` router implemented + tested; deployed to EC2
+- [x] Caddyfile written (`deploy/Caddyfile.ledger`) — TLS-ALPN-01, port 80 not needed
+- [x] Caddy installed and live on EC2 (2.6.2, 80/443 listening, config validated)
+- [x] Verification matrix A–F executed against the live bridge (401/401/200/real
+      facts/404/404), G pending Render env, H/I/J pending DNS + Render
+- [x] Real Fabric `tx_id` captured through the bridge stack:
+      anchor `a105c691e3c8958d6b8938c55becc1fbce0d3b035af465c51e369e8265e5e283`
+      (block 68→69), event `3cb7322d250156985bc049b5dcfd487aa4140e4e702f909d99a5858c037af9ed`
+      (block 69→70), both read back from the chain
+- [ ] DNS record created (user — GoDaddy, blocker for cert + Render connectivity)
+- [ ] `FABRIC_BRIDGE_TOKEN` set in the Render dashboard (user; value generated
+      2026-09-28 on EC2, stored server-side only)
+- [ ] Real Fabric `tx_id` captured from a **Render-initiated** anchor
 
 **The complete path is NOT verified yet.** Do not claim "Blockchain Verified" in
 any product surface until H passes with a real transaction id.
