@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import hmac
 import os
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -103,6 +103,12 @@ def _error_payload(exc: Exception) -> dict[str, Any]:
 class AnchorRequest(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
     tx_ref: str
+    # "anchor" -> anchorMerkleRoot (evidence commitment);
+    # "event"  -> submitEvent (domain provenance event, EC2 maps the domain
+    #             type to the chaincode's EVENT_TYPES whitelist).
+    # Any other value is rejected by pydantic with a 422, so the bridge cannot
+    # be used to invoke an arbitrary chaincode function.
+    kind: Literal["anchor", "event"] = "anchor"
 
 
 class QueryRequest(BaseModel):
@@ -133,7 +139,13 @@ def fabric_anchor(
     _require_service_auth(authorization)
     adapter = _fabric_adapter()
     try:
-        result = adapter.submit_anchor(body.payload, body.tx_ref)
+        if body.kind == "event":
+            # Domain provenance event -> chaincode submitEvent. The event-type
+            # -> EVENT_TYPES mapping lives in FabricBlockchainAdapter.submit_event
+            # so the same mapping applies whichever side submits it.
+            result = adapter.submit_event(body.payload, body.tx_ref)
+        else:
+            result = adapter.submit_anchor(body.payload, body.tx_ref)
     except (LedgerUnavailable, LedgerNotConfigured) as exc:
         raise HTTPException(status_code=503, detail=_error_payload(exc)) from None
     return {

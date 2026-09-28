@@ -283,6 +283,39 @@ class RemoteFabricAdapter(LedgerAdapter):
             "fabric_result": resp.get("result"),
         }
 
+    def submit_event(self, event: dict[str, Any], tx_ref: str) -> dict[str, Any]:
+        """Write a real domain provenance event to Fabric via the bridge.
+
+        Forwards the raw domain event with `kind: "event"` so the EC2 side runs
+        the genuine `FabricBlockchainAdapter.submit_event`, which maps the domain
+        type onto the chaincode's EVENT_TYPES whitelist and submits the real
+        `submitEvent` transaction. This keeps a single mapping implementation
+        instead of duplicating it on both hosts, and it never falls back to the
+        base-class behaviour of merely anchoring the event's hash — an anchor is
+        not an event, and reporting one as the other would be a lie.
+        """
+        resp = self._request(
+            "POST",
+            BRIDGE_ANCHOR_PATH,
+            {"payload": event, "tx_ref": tx_ref, "kind": "event"},
+        )
+        if resp.get("error"):
+            self._raise_for_remote_error(resp)
+
+        tx_hash = str(resp.get("tx_hash") or "")
+        if not tx_hash:
+            raise LedgerUnavailable(
+                "FABRIC_UNAVAILABLE: bridge returned no transaction id for the event"
+            )
+
+        return {
+            "tx_hash": tx_hash,
+            "network": resp.get("network") or f"fabric:{resp.get('channel', '')}",
+            "state": TxState.CONFIRMED,
+            "block_number": resp.get("block_number", ""),
+            "fabric_result": resp.get("result"),
+        }
+
     def verify_anchor(self, ref: str, expected_root: str = "") -> bool:
         """True only when the bridge can prove [ref] is anchored on Fabric.
 

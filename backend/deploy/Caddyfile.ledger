@@ -21,9 +21,15 @@
 }
 
 ledger.honeychain.in {
-	# Explicit TLS + HTTP-01 challenge on :80 for certificate issuance.
+	# Explicit TLS. Challenge strategy: the EC2 security group exposes TCP 443
+	# but not TCP 80, so the HTTP-01 challenge can never succeed from this host.
+	# TLS-ALPN-01 runs on the open :443 instead — same CA (Let's Encrypt), no
+	# port-80 dependency, and renewals keep working without changing the SG.
 	tls {
 		protocols tls1.2 tls1.3
+		issuer acme {
+			disable_http_challenge
+		}
 	}
 
 	encode zstd gzip

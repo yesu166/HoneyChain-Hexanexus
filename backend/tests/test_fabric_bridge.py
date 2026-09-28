@@ -101,6 +101,7 @@ def test_query_rejects_unknown_op(client):
 class _BridgeHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     mode = "ok"
+    last_body: dict | None = None
 
     def log_message(self, *args):  # silence test output
         pass
@@ -138,6 +139,7 @@ class _BridgeHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length) or b"{}")
+        type(self).last_body = body
         # Authentication is checked before anything else, as a real service
         # would do, so an unauthenticated caller never reaches business logic.
         if not self._authed():
@@ -201,6 +203,52 @@ def test_anchor_without_tx_id_raises_instead_of_faking(adapter):
     _BridgeHandler.mode = "no_txid"
     with pytest.raises(LedgerUnavailable, match="no transaction id"):
         adapter.submit_anchor({"evidence_hash": "x"}, "HC-TEST-1")
+
+
+def test_submit_event_forwards_kind_event(adapter):
+    """Domain events must reach the bridge as submitEvent, not as an anchor.
+
+    The base LedgerAdapter default would silently anchor the event's hash;
+    the remote adapter must instead tag the request `kind="event"` so the EC2
+    side runs the real chaincode submitEvent.
+    """
+    _BridgeHandler.last_body = None
+    receipt = adapter.submit_event(
+        {"type": "custody_transfer", "batch_id": "HC-TEST-1", "quantity_kg": 5},
+        "evt-ref-1",
+    )
+    assert receipt["tx_hash"].startswith("a1b2c3d4")
+    assert receipt["state"] == "CONFIRMED"
+    assert _BridgeHandler.last_body is not None
+    assert _BridgeHandler.last_body["kind"] == "event"
+    assert _BridgeHandler.last_body["payload"]["type"] == "custody_transfer"
+
+
+def test_submit_event_without_tx_id_raises_instead_of_faking(adapter):
+    _BridgeHandler.mode = "no_txid"
+    with pytest.raises(LedgerUnavailable, match="no transaction id"):
+        adapter.submit_event({"type": "custody_transfer", "batch_id": "B"}, "evt-1")
+
+
+def test_router_event_kind_still_requires_fabric_adapter(client):
+    """The bridge host must refuse event writes when Fabric is not active."""
+    r = client.post(
+        "/internal/fabric/anchor",
+        json={"payload": {"type": "custody_transfer"}, "tx_ref": "e", "kind": "event"},
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    )
+    assert r.status_code == 503
+    assert "Fabric adapter is not active" in r.text
+
+
+def test_router_rejects_unknown_kind(client):
+    """kind is an allowlist — the bridge can never name an arbitrary function."""
+    r = client.post(
+        "/internal/fabric/anchor",
+        json={"payload": {}, "tx_ref": "e", "kind": "invoke_anything"},
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    )
+    assert r.status_code == 422
 
 
 def test_anchor_with_wrong_token_reports_auth_failure(bridge_url):

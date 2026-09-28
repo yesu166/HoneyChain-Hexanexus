@@ -13,7 +13,20 @@ services:
       - key: AI_ADAPTER
         value: risk_engine
       - key: BLOCKCHAIN_ADAPTER
-        value: simulated
+        value: remote_fabric
+      # Fabric bridge (server-side only). FABRIC_BRIDGE_TOKEN is a secret set
+      # ONLY in the Render dashboard (Service > Environment) — same value as on
+      # the EC2 bridge host. Never a VITE_* variable; never committed.
+      - key: FABRIC_BRIDGE_URL
+        value: https://ledger.honeychain.in
+      - key: FABRIC_BRIDGE_TOKEN
+        sync: false
+      - key: FABRIC_BRIDGE_TIMEOUT
+        value: "30"
+      - key: FABRIC_CHANNEL
+        value: mychannel
+      - key: FABRIC_CHAINCODE
+        value: honeychain
       - key: GEMINI_MODEL
         value: gemini-3.6-flash
       - key: GOOGLE_AI_API_BASE
