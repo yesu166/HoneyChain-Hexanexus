@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import os
 import time
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from .adapters.ai.base import build_risk_engine
 from .adapters.ai.gemini import build_gemini_provider
@@ -166,6 +168,11 @@ for router in (
     internal_fabric.router,
 ):
     app.include_router(router)
+
+# Additive live operations portal. Existing Flutter/mobile/web structure stays untouched.
+_PORTAL_DIR = Path(__file__).resolve().parents[2] / "portal"
+if _PORTAL_DIR.is_dir():
+    app.mount("/portal", StaticFiles(directory=_PORTAL_DIR, html=True), name="portal")
 
 
 @app.get("/health")
