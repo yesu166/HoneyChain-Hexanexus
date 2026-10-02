@@ -6,7 +6,7 @@ see alerts for their own hives.
 from __future__ import annotations
 
 from app.services.iot_service import IoTDeviceService, hash_payload_json
-from tests.conftest import auth
+from tests.conftest import auth, make_token
 
 TS = "2026-09-09T10:00:00+00:00"
 
@@ -180,6 +180,52 @@ def test_beekeeper_only_sees_own_hive_alerts(client, demo_token, fpo_token, admi
     assert any(n["hive_id"] == other_hive["id"] for n in fpo_notes["items"])
 
 
-def test_notifications_require_permission(client, buyer_token):
-    resp = client.get("/api/v1/notifications", headers=auth(buyer_token))
+def test_buyer_inbox_is_scoped_to_their_own_organization(client):
+    """A buyer can read an inbox, but only ever rows addressed to its org.
+
+    This is the guard that makes granting `notification.read` to buyers safe:
+    the repository filters by organization, so the grant does not open the
+    seller's inbox or another buyer's. Written against the repository directly
+    because the point being proven is the scoping, not the HTTP plumbing.
+    """
+    repo = client.app.state.repository
+    # `buyer_token` carries no org, so create a bound buyer identity instead.
+    repo.ensure_organization(
+        {"id": "ORG-NOTIF-BUYER", "name": "Notify Buyer", "type": "buyer"}
+    )
+    buyer = make_token("notify-buyer-id", "buyer", "ORG-NOTIF-BUYER")
+    repo.add_notification(
+        {
+            "notification_id": None,
+            "title": "Seller inbox item",
+            "body": "not for the buyer",
+            "category": "MARKET_LISTED",
+            "severity": "info",
+            "reason": "",
+            "recommended_action": "",
+            "source": "workflow",
+            "hive_id": None,
+            "batch_id": None,
+            "device_id": None,
+            "organization_id": "ORG-NOTIF-SELLER",
+            "is_simulated": False,
+            "read": False,
+            "created_at": "2026-09-09T10:00:00+00:00",
+        }
+    )
+    inbox = client.get("/api/v1/notifications", headers=auth(buyer)).json()
+    # The buyer's inbox is readable, and holds nothing addressed to the seller.
+    assert all(n["organization_id"] == "ORG-NOTIF-BUYER" for n in inbox["items"])
+
+
+def test_notifications_require_permission(client, lab_token):
+    """The notifications gate is real: a role without the permission is denied.
+
+    `lab` is the role used here because it genuinely does not hold
+    `notification.read`. It was previously `buyer`, back when a buyer only
+    browsed lots and never acted on them. A buyer now requests, accepts and
+    fulfils real orders, so it holds the permission and is covered by
+    `test_buyer_inbox_is_scoped_to_their_own_organization` instead.
+    """
+    resp = client.get("/api/v1/notifications", headers=auth(lab_token))
     assert resp.status_code == 403

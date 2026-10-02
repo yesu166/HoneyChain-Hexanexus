@@ -18,6 +18,7 @@ from .lineage_service import LineageService
 from .passport_service import PassportService
 from .assertion_service import AssertionService
 from .impact_service import ProvenanceImpactService
+from .provenance_service import ProvenanceService
 from .reconciliation_service import ReconciliationService
 
 
@@ -142,13 +143,19 @@ def build_services(
 
     if gateway is None:
         gateway = build_blockchain_gateway()
+    # Notifications are built FIRST because every write path emits the workflow
+    # event that the next actor's inbox shows — harvest, batch, custody and lab
+    # events are all persisted from the same write that changed state.
+    from .notification_service import NotificationService
+
+    notifications = NotificationService(repo)
     hive_service = HiveService(repo)
-    harvest_service = HarvestService(repo)
+    harvest_service = HarvestService(repo, notifications)
     inspection_service = InspectionService(repo)
     treatment_service = TreatmentService(repo)
-    batch_service = BatchService(repo, gateway)
-    custody_service = CustodyService(repo, gateway)
-    lab_service = LabService(repo)
+    batch_service = BatchService(repo, gateway, notifications)
+    custody_service = CustodyService(repo, gateway, notifications)
+    lab_service = LabService(repo, notifications)
     ledger = EventLedger(repo)
     evidence_service = HarvestEvidenceService(repo, gateway)
     lab_certificate_service = LabCertificateService(repo, gateway, ledger)
@@ -163,14 +170,26 @@ def build_services(
         repo, batch_service, assertion_service, reconciliation_service, ledger
     )
     passport_service = PassportService(repo, batch_service, assertion_service)
-
-    from .notification_service import NotificationService
-
-    notifications = NotificationService(repo)
+    provenance_service = ProvenanceService(repo, batch_service)
 
     from .platform_service import PlatformService
 
     platform = PlatformService(repo)
+
+    # Market linkage, QR package identity, and the mobile processing van. These
+    # are CAPABILITIES of the FPO / Buyer / KVIC Field Officer surfaces, not
+    # portals of their own — they are mounted on the existing surfaces and reuse
+    # the same repository, notification sink, and custody write path.
+    #
+    # MarketService needs CustodyService so a fulfilled order writes a real SALE
+    # custody event; it is constructed after custody_service above.
+    from .market_service import MarketService
+    from .qr_service import QrService
+    from .van_service import VanService
+
+    market_service = MarketService(repo, notifications, custody_service)
+    qr_service = QrService(repo, notifications)
+    van_service = VanService(repo, notifications)
 
     from .iot_service import DeviceSimulator, IoTDeviceService, TelemetryIngestor
 
@@ -197,6 +216,7 @@ def build_services(
         "custody": custody_service,
         "labs": lab_service,
         "passport": passport_service,
+        "provenance": provenance_service,
         "sync": sync_service,
         "evidence": evidence_service,
         "certificates": lab_certificate_service,
@@ -208,6 +228,9 @@ def build_services(
         "gateway": gateway,
         "notifications": notifications,
         "platform": platform,
+        "market": market_service,
+        "qr": qr_service,
+        "van": van_service,
         "iot": {
             "devices": iot_devices,
             "ingestor": iot_ingestor,

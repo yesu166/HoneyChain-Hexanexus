@@ -183,7 +183,17 @@ PERMISSION_MATRIX: dict[str, dict[str, set[str]]] = {
         "scope": "read_org",
     },
     "buyer": {
-        "allowed": {"batch.read", "harvest.read", "passport.read", "assertion.read"},
+        "allowed": {
+            "batch.read",
+            "harvest.read",
+            "passport.read",
+            "assertion.read",
+            # A buyer is an active participant in market linkage: it requests
+            # lots and needs to see the seller's accept / reject / fulfil
+            # decisions. `notification.read` is scoped to the caller's own
+            # organization rows, so this cannot expose another org's inbox.
+            "notification.read",
+        },
         "scope": "any",
     },
     "institution": {

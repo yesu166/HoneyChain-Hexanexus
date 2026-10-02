@@ -2,29 +2,35 @@ import 'package:flutter/material.dart';
 
 import '../data/honeychain_store.dart';
 import '../theme/app_theme.dart';
-import 'buyer/buyer_portal_screen.dart';
 import 'consumer_screen.dart';
-import 'org/org_login_screen.dart';
+import 'kvic_van_screen.dart';
 
-/// First-launch role gate: decide who is entering this session.
+/// First-launch role gate — the judge-facing demo chooser.
 ///
-/// Beekeeper -> the existing phone + OTP [LoginScreen] (protects the existing
-/// portal). Organization/FPO -> a lightweight org login that opens the
-/// organization portal. No complex auth is required for the demo.
+/// Exactly THREE primary entries are offered:
+///
+///   1. BEEKEEPER                      -> phone + OTP login -> beekeeper shell
+///   2. KVIC HONEY MISSION / PORTABLE VAN -> real backend sign-in -> van workspace
+///   3. CONSUMER                       -> QR scan -> Honey Passport
+///
+/// This is a demo-entry simplification only. Every other role (FPO, society,
+/// laboratory, processor, buyer, distributor, retailer, admin, institution,
+/// platform oversight) keeps its backend role, database model, API endpoints
+/// and RBAC exactly as before — it is simply no longer a primary choice here.
 class WhoAreYouScreen extends StatelessWidget {
   const WhoAreYouScreen({
     super.key,
     required this.onBeekeeper,
-    required this.onPlatform,
+    required this.onKvicVan,
   });
 
   /// Raised when the Beekeeper role is tapped so the parent can swap the
   /// gate for the phone + OTP login without adding a route.
   final VoidCallback onBeekeeper;
 
-  /// Raised when the Platform Oversight role is tapped so the parent swaps to
-  /// the live-backend sign-in (platform users authenticate against the API).
-  final VoidCallback onPlatform;
+  /// Raised when the KVIC Portable Van is tapped so the parent opens the van
+  /// workspace (which signs in against the real backend).
+  final VoidCallback onKvicVan;
 
   @override
   Widget build(BuildContext context) {
@@ -94,19 +100,13 @@ class WhoAreYouScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             _RoleOption(
-              icon: Icons.storefront_outlined,
-              title: store.tr('role.organization'),
-              subtitle: store.tr('role.organization.desc'),
+              icon: Icons.local_shipping_outlined,
+              title: 'KVIC HONEY MISSION\nPORTABLE VAN',
+              subtitle:
+                  'Portable van operations: batch intake, origin review, '
+                  'quality hand-off and pass-forward.',
               accent: AppTheme.green,
-              onTap: () => _openOrganization(context),
-            ),
-            const SizedBox(height: 14),
-            _RoleOption(
-              icon: Icons.shopping_bag_outlined,
-              title: store.tr('role.buyer'),
-              subtitle: store.tr('role.buyer.desc'),
-              accent: AppTheme.honeyDark,
-              onTap: () => _openBuyer(context),
+              onTap: onKvicVan,
             ),
             const SizedBox(height: 14),
             _RoleOption(
@@ -115,14 +115,6 @@ class WhoAreYouScreen extends StatelessWidget {
               subtitle: store.tr('role.consumer.desc'),
               accent: AppTheme.teal,
               onTap: () => _openConsumer(context),
-            ),
-            const SizedBox(height: 14),
-            _RoleOption(
-              icon: Icons.admin_panel_settings_outlined,
-              title: 'Platform Oversight',
-              subtitle: 'Organization lifecycle and membership governance',
-              accent: AppTheme.honeyGold,
-              onTap: onPlatform,
             ),
             const SizedBox(height: 22),
             Text(
@@ -136,26 +128,17 @@ class WhoAreYouScreen extends StatelessWidget {
     );
   }
 
-  void _openOrganization(BuildContext context) {
-    final store = HoneyChainStore.instance;
-    store.setFpoRole(true);
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const OrgLoginScreen()),
-    );
-  }
-
-  void _openBuyer(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const BuyerPortalScreen()),
-    );
-  }
-
   void _openConsumer(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ConsumerScreen()),
     );
   }
 }
+
+/// Opens the KVIC Portable Van workspace. Exposed so the parent gate can route
+/// to it without importing the internals of this screen.
+Route<void> kvicVanRoute() =>
+    MaterialPageRoute<void>(builder: (_) => const KvicVanScreen());
 
 class _RoleOption extends StatelessWidget {
   const _RoleOption({

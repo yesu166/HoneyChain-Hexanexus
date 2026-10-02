@@ -2484,6 +2484,38 @@ class HoneyChainStore extends ChangeNotifier {
     return role;
   }
 
+  /// Records a custody / hand-off event for [batchId] on the LIVE backend.
+  ///
+  /// Used by the KVIC Portable Van workflow. Returns true only when the
+  /// backend accepted the write; the caller is expected to re-read the batch
+  /// afterwards to verify persistence. Never synthesises a local success.
+  Future<bool> recordBatchCustodyEvent({
+    required String batchId,
+    required String action,
+    String notes = '',
+  }) async {
+    if (testMode || !ApiConfig.isConfigured || !_backendSignedIn) return false;
+    try {
+      await honeyApi.addCustodyEvent(
+        batchId: batchId,
+        action: action,
+        notes: notes,
+        actor: backendIdentity?.email,
+      );
+      _backendError = null;
+      notifyListeners();
+      return true;
+    } on ApiException catch (error) {
+      _backendError = backendFailureFriendly(error);
+      notifyListeners();
+      return false;
+    } on Exception {
+      _backendError = 'Custody write failed (backend unreachable).';
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// local record + push: keeps the offline-first local harvest AND, when
   /// signed into the backend, creates the harvest live (returns the server
   /// row with the real server id, so evidence can anchor against it).

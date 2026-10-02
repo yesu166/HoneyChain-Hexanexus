@@ -17,6 +17,8 @@ Status key: ✅ done+tested · ⚠️ partial (runs but has known limits) · �
 | Fabric adapter boundary | ✅ | real EC2 Fabric proven live (see evidence) — committed tx + read-back |
 | Batch lineage + state machine | ✅ | transitions, custody holder, genealogy; tests |
 | Lab certificate issue/verify/revoke | ✅ | content-hash anchor + revocation; tests |
+| Lab test lifecycle (requested → in progress → result) | ✅ | `lab_service` + `GET /labs`, `POST /labs/tests/{id}/start`; `test_lab_workflow.py` |
+| Batch provenance aggregation | ✅ | `GET /batches/{id}/provenance`; `test_batch_provenance.py` |
 | Honey Passport (public, PII-free) | ✅ | pre-existing `passport_service`; existing tests |
 | DEMO_MODE tamper gate | ✅ | `/admin/tamper/*` 403 in production; tests |
 | RBAC permission matrix | ✅ | `backend/app/core/rbac.py`; matrix + tests |
@@ -32,6 +34,8 @@ Status key: ✅ done+tested · ⚠️ partial (runs but has known limits) · �
 | JWT auth (PBKDF2, HS256) | ✅ | pre-existing; demo identities |
 | Trust tiers (weakest-tier merge) | ✅ | pre-existing `batch_service` |
 | Rate-limited public passport | ✅ | pre-existing |
+| Production repository guard | ✅ | missing `SUPABASE_URL` / service-role key raises in production instead of silently serving demo data; `test_production_repository_guard.py` |
+| Workflow notifications from write paths | ✅ | harvest / batch / custody / lab emit from the SAME write that changed state; `test_workflow_notifications.py` |
 
 ## P2 — Smart beekeeping / ML
 

@@ -43,11 +43,24 @@ def weakest_tier(tiers: list[str]) -> str:
 
 
 class BatchService:
-    def __init__(self, repo: Repository, gateway: Any = None) -> None:
+    def __init__(
+        self, repo: Repository, gateway: Any = None, notifications: Any = None
+    ) -> None:
         self._repo = repo
         # BlockchainGateway facade; optional for tests. When present, every
         # real parent->child genealogy relation (split/merge) is anchored.
         self._gateway = gateway
+        # Optional workflow sink: creating a batch is what opens the next stage
+        # (lab request / processing / listing) for the owning organization.
+        self._notifications = notifications
+
+    def _emit(self, **kwargs: Any) -> None:
+        if self._notifications is None:
+            return
+        try:
+            self._notifications.notify(**kwargs)
+        except Exception:  # pragma: no cover - notification must never break a write
+            pass
 
     def _anchor_lineage(
         self, *, input_batch_id: str, output_batch_id: str,
@@ -162,6 +175,17 @@ class BatchService:
         created = self._repo.create_batch(batch, client_id=client_id)
         for harvest_id, allocated in allocations:
             self._repo.link_batch_harvest(created["id"], harvest_id, allocated)
+        self._emit(
+            event="BATCH_CREATED",
+            title="Batch created",
+            body=(
+                f"Batch {created.get('batch_code')} "
+                f"({created.get('quantity_kg')} kg) was created."
+            ),
+            organization_id=org_id,
+            batch_id=created.get("id"),
+            recommended_action="Request laboratory testing or move the batch forward.",
+        )
         return created
 
     # ------------------------------------------------------------------ read

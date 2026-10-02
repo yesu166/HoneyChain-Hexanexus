@@ -172,7 +172,7 @@ class _RootGateState extends State<_RootGate> {
         if (_beekeeperChosen) return const LoginScreen();
         return WhoAreYouScreen(
           onBeekeeper: () => setState(() => _beekeeperChosen = true),
-          onPlatform: () => setState(() => _beekeeperChosen = true),
+          onKvicVan: () => Navigator.of(context).push(kvicVanRoute()),
         );
       },
     );

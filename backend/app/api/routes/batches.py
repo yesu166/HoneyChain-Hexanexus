@@ -84,6 +84,26 @@ def genealogy(
     return request.app.state.services["batches"].genealogy(batch_id)
 
 
+@router.get("/{batch_id}/provenance", response_model=dict)
+def provenance(
+    batch_id: str, request: Request, user=Depends(get_current_user)
+) -> dict:
+    """Canonical, aggregated provenance for one batch.
+
+    Material lineage (hive -> harvest -> batch -> split/merge) plus operational
+    provenance (collection -> lab -> certificate -> processing -> packaging ->
+    custody -> buyer) in a single response. Batch Detail uses this as its
+    authoritative source. Existing endpoints are untouched.
+    """
+    batch = request.app.state.services["batches"].get_for_user(batch_id, user=user)
+    if batch is None:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    payload = request.app.state.services["provenance"].build(batch_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    return payload
+
+
 @router.post("/{batch_id}/split", response_model=batch_schemas.SplitResult)
 def split_batch(
     batch_id: str,

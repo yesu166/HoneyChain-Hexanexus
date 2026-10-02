@@ -33,3 +33,20 @@ class LabTestRead(BaseModel):
 class LabQueueItem(LabTestRead):
     batch_code: str = ""
     honey_type: str = ""
+
+
+class LabOrganization(BaseModel):
+    """A selectable laboratory for a test request.
+
+    Only public directory fields leave this schema. A caller requesting a test
+    must pick a real laboratory from this list instead of typing an arbitrary
+    organization id.
+    """
+
+    id: str
+    organization_key: str = ""
+    name: str
+    type: str = ""
+    state: str = ""
+    district: str = ""
+    status: str = ""

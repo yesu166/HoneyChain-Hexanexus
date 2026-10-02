@@ -164,6 +164,42 @@ class NotificationService:
         }
         return self._repo.add_notification(row)
 
+    def notify(
+        self,
+        *,
+        event: str,
+        title: str,
+        body: str,
+        organization_id: str = "",
+        severity: str = "info",
+        batch_id: str | None = None,
+        hive_id: str | None = None,
+        recommended_action: str = "",
+    ) -> dict[str, Any]:
+        """Persist one workflow notification for a real state change.
+
+        `event` is a canonical WorkflowEvent name (see schemas.notification).
+        This is how a persisted harvest / collection / batch / lab / custody /
+        processing / market event becomes visible in the next actor's inbox —
+        the notification is created from the SAME write that changed state, so
+        the inbox can never advertise an action the database did not record.
+        """
+        alert = {
+            "hive_id": hive_id,
+            "batch_id": batch_id,
+            "device_id": None,
+            "category": event,
+            "severity": severity,
+            "reason": title,
+            "recommended_action": recommended_action,
+            "source": "workflow",
+            "title": title,
+            "body": body,
+            "organization_id": organization_id,
+            "is_simulated": False,
+        }
+        return self._create(alert)
+
     # ------------------------------------------------------- read side
     def list_for_user(self, user: Any, *, limit: int = 50) -> list[dict[str, Any]]:
         if user.role in ("admin", "institution"):

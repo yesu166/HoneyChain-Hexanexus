@@ -7,8 +7,19 @@ from ..db.supabase import Repository
 
 
 class HarvestService:
-    def __init__(self, repo: Repository) -> None:
+    def __init__(self, repo: Repository, notifications: Any = None) -> None:
         self._repo = repo
+        # Optional workflow sink: a persisted harvest is what tells the FPO that
+        # material exists to be collected.
+        self._notifications = notifications
+
+    def _emit(self, **kwargs: Any) -> None:
+        if self._notifications is None:
+            return
+        try:
+            self._notifications.notify(**kwargs)
+        except Exception:  # pragma: no cover - notification must never break a write
+            pass
 
     def create(
         self, *, beekeeper_id: str, data: dict[str, Any], user: Any = None
@@ -39,7 +50,25 @@ class HarvestService:
             "honey_type": data.get("honey_type", "Not specified"),
             "collected": False,
         }
-        return self._repo.create_harvest(harvest, client_id=client_id)
+        created = self._repo.create_harvest(harvest, client_id=client_id)
+        # Emitted only from the write that actually persisted the harvest, so
+        # the FPO inbox can never advertise material that does not exist.
+        org = str(getattr(user, "org_id", "") or "")
+        if not org:
+            owner = self._repo.get_beekeeper(owner_id) or {}
+            org = str(owner.get("org_id") or "")
+        self._emit(
+            event="HARVEST_CREATED",
+            title="Harvest recorded",
+            body=(
+                f"{created.get('quantity_kg')} kg of honey was recorded on hive "
+                f"{hive.get('hive_code') or hive.get('id')}."
+            ),
+            organization_id=org,
+            hive_id=created.get("hive_id"),
+            recommended_action="Arrange collection of this harvest.",
+        )
+        return created
 
     def get_for_user(self, harvest_id: str, *, user: Any) -> dict[str, Any] | None:
         harvest = self._repo.get_harvest(harvest_id)

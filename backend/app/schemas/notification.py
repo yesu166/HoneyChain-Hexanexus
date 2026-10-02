@@ -12,6 +12,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel
 
 AlertSeverity = Literal["info", "warning", "critical", "error"]
+# Backend-produced telemetry categories.
 AlertCategory = Literal[
     "telemetry",
     "device_status",
@@ -20,6 +21,30 @@ AlertCategory = Literal[
     "battery",
     "stale",
 ]
+# Workflow notification categories (supply-chain events). These are produced by
+# the WRITE path whenever a real state change is persisted, so the UI can show a
+# workflow inbox that is always backed by a recorded event.
+WorkflowEvent = Literal[
+    "HARVEST_CREATED",
+    "COLLECTION_ACCEPTED",
+    "BATCH_CREATED",
+    "LAB_REQUESTED",
+    "LAB_STARTED",
+    "LAB_PASS",
+    "LAB_FAIL",
+    "PROCESSING_STARTED",
+    "PACKAGED",
+    "CUSTODY_TRANSFER",
+    "CUSTODY_RECEIVED",
+    "MARKET_LISTED",
+    "BUYER_REQUESTED",
+    "BUYER_ACCEPTED",
+    "HIGH_RISK_HIVE",
+    "VAN_VISIT_SCHEDULED",
+    "VAN_SAMPLE_RECEIVED",
+    "VAN_TEST_COMPLETED",
+    "QR_SUSPICIOUS",
+]
 
 
 class NotificationRead(BaseModel):
@@ -27,11 +52,15 @@ class NotificationRead(BaseModel):
     hive_id: Optional[str] = None
     batch_id: Optional[str] = None
     device_id: Optional[str] = None
-    category: AlertCategory
+    # `category` widens to str because persisted notification rows may carry
+    # either a telemetry category (AlertCategory) or a workflow event name
+    # (WorkflowEvent). The write path only ever emits values from one of those
+    # two closed sets; the read path must not 500 on a workflow row.
+    category: str
     severity: AlertSeverity
     reason: str
     recommended_action: str
-    source: Literal["iot", "ledger", "evidence", "system"]
+    source: Literal["iot", "ledger", "evidence", "system", "workflow"]
     title: str
     body: str
     created_at: datetime.datetime

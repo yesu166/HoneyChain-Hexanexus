@@ -377,6 +377,89 @@ class Repository(ABC):
         self, notification_id: str
     ) -> dict[str, Any] | None: ...
 
+    # ---- market linkage ----------------------------------------------------
+    @abstractmethod
+    def create_market_listing(
+        self, listing: dict[str, Any]
+    ) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def get_market_listing(self, listing_id: str) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def update_market_listing(
+        self, listing_id: str, updates: dict[str, Any]
+    ) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def list_market_listings(
+        self, *, status: str = "", seller_org_id: str = ""
+    ) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def create_purchase_order(self, order: dict[str, Any]) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def get_purchase_order(self, order_id: str) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def update_purchase_order(
+        self, order_id: str, updates: dict[str, Any]
+    ) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def list_purchase_orders(
+        self, *, buyer_org_id: str = "", listing_id: str = "", batch_id: str = ""
+    ) -> list[dict[str, Any]]: ...
+
+    # ---- QR packages ---------------------------------------------------------
+    @abstractmethod
+    def create_package(self, package: dict[str, Any]) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def get_package_by_code(self, package_code: str) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def update_package(
+        self, package_code: str, updates: dict[str, Any]
+    ) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def list_packages(
+        self, *, batch_id: str = "", organization_id: str = ""
+    ) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def add_qr_scan(self, scan: dict[str, Any]) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def list_qr_scans(
+        self, *, package_code: str = "", limit: int = 50
+    ) -> list[dict[str, Any]]: ...
+
+    # ---- mobile processing van -------------------------------------------------
+    @abstractmethod
+    def create_van_visit(self, visit: dict[str, Any]) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def get_van_visit(self, visit_id: str) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def update_van_visit(
+        self, visit_id: str, updates: dict[str, Any]
+    ) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def list_van_visits(
+        self, *, officer_user_id: str = "", status: str = ""
+    ) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def create_van_sample(self, sample: dict[str, Any]) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def list_van_samples(self, visit_id: str) -> list[dict[str, Any]]: ...
+
 
 class InMemoryRepository(Repository):
     """Local dict-backed repository for development and tests.
@@ -409,6 +492,12 @@ class InMemoryRepository(Repository):
             "iot_devices": [],
             "telemetry_events": [],
             "notifications": [],
+            "market_listings": [],
+            "purchase_orders": [],
+            "packages": [],
+            "qr_scans": [],
+            "van_visits": [],
+            "van_samples": [],
         }
         if seed:
             for key, rows in seed.items():
@@ -1039,6 +1128,133 @@ class InMemoryRepository(Repository):
             None,
         )
 
+    # -- market linkage --
+    def create_market_listing(self, listing):
+        row = {"id": new_id(), **listing}
+        self._data["market_listings"].append(row)
+        return row
+
+    def get_market_listing(self, listing_id):
+        return next(
+            (x for x in self._data["market_listings"] if x["id"] == listing_id), None
+        )
+
+    def update_market_listing(self, listing_id, updates):
+        row = self.get_market_listing(listing_id)
+        if row is None:
+            return None
+        row.update(updates)
+        return row
+
+    def list_market_listings(self, *, status="", seller_org_id=""):
+        rows = self._data["market_listings"]
+        if status:
+            rows = [x for x in rows if x.get("status") == status]
+        if seller_org_id:
+            rows = [x for x in rows if x.get("seller_org_id") == seller_org_id]
+        return sorted(rows, key=lambda r: str(r.get("listed_at", "")))
+
+    def create_purchase_order(self, order):
+        row = {"id": new_id(), **order}
+        self._data["purchase_orders"].append(row)
+        return row
+
+    def get_purchase_order(self, order_id):
+        return next(
+            (x for x in self._data["purchase_orders"] if x["id"] == order_id), None
+        )
+
+    def update_purchase_order(self, order_id, updates):
+        row = self.get_purchase_order(order_id)
+        if row is None:
+            return None
+        row.update(updates)
+        return row
+
+    def list_purchase_orders(self, *, buyer_org_id="", listing_id="", batch_id=""):
+        rows = self._data["purchase_orders"]
+        if buyer_org_id:
+            rows = [x for x in rows if x.get("buyer_org_id") == buyer_org_id]
+        if listing_id:
+            rows = [x for x in rows if x.get("listing_id") == listing_id]
+        if batch_id:
+            rows = [x for x in rows if x.get("batch_id") == batch_id]
+        return sorted(rows, key=lambda r: str(r.get("requested_at", "")))
+
+    # -- QR packages --
+    def create_package(self, package):
+        row = {"id": new_id(), **package}
+        self._data["packages"].append(row)
+        return row
+
+    def get_package_by_code(self, package_code):
+        return next(
+            (p for p in self._data["packages"] if p["package_code"] == package_code),
+            None,
+        )
+
+    def update_package(self, package_code, updates):
+        row = self.get_package_by_code(package_code)
+        if row is None:
+            return None
+        row.update(updates)
+        return row
+
+    def list_packages(self, *, batch_id="", organization_id=""):
+        rows = self._data["packages"]
+        if batch_id:
+            rows = [p for p in rows if p.get("batch_id") == batch_id]
+        if organization_id:
+            rows = [p for p in rows if p.get("organization_id") == organization_id]
+        return sorted(rows, key=lambda r: str(r.get("issued_at", "")))
+
+    def add_qr_scan(self, scan):
+        row = {"id": new_id(), **scan}
+        self._data["qr_scans"].append(row)
+        return row
+
+    def list_qr_scans(self, *, package_code="", limit=50):
+        rows = self._data["qr_scans"]
+        if package_code:
+            rows = [s for s in rows if s.get("package_code") == package_code]
+        return sorted(
+            rows, key=lambda r: str(r.get("scanned_at", "")), reverse=True
+        )[:limit]
+
+    # -- mobile processing van --
+    def create_van_visit(self, visit):
+        row = {"id": new_id(), **visit}
+        self._data["van_visits"].append(row)
+        return row
+
+    def get_van_visit(self, visit_id):
+        return next((v for v in self._data["van_visits"] if v["id"] == visit_id), None)
+
+    def update_van_visit(self, visit_id, updates):
+        row = self.get_van_visit(visit_id)
+        if row is None:
+            return None
+        row.update(updates)
+        return row
+
+    def list_van_visits(self, *, officer_user_id="", status=""):
+        rows = self._data["van_visits"]
+        if officer_user_id:
+            rows = [v for v in rows if v.get("officer_user_id") == officer_user_id]
+        if status:
+            rows = [v for v in rows if v.get("status") == status]
+        return sorted(rows, key=lambda r: str(r.get("scheduled_for", "")))
+
+    def create_van_sample(self, sample):
+        row = {"id": new_id(), **sample}
+        self._data["van_samples"].append(row)
+        return row
+
+    def list_van_samples(self, visit_id):
+        return [
+            s for s in self._data["van_samples"] if s.get("visit_id") == visit_id
+        ]
+
 
 class SupabaseRepository(Repository):
     """PostgreSQL via Supabase's service-role client.
@@ -1152,6 +1368,41 @@ class SupabaseRepository(Repository):
         "recommended_action", "source", "hive_id", "batch_id", "device_id",
         "organization_id", "is_simulated", "read", "created_at",
     )
+    _LISTING_COLS = (
+        "id", "batch_id", "seller_org_id", "quantity_kg", "remaining_kg",
+        "price_per_kg", "currency", "status", "notes", "listed_at", "closed_at",
+        "client_id",
+    )
+    _LISTING_ISO = ("listed_at", "closed_at")
+    _ORDER_COLS = (
+        "id", "listing_id", "batch_id", "buyer_org_id", "buyer_user_id",
+        "quantity_kg", "price_per_kg", "total_amount", "currency", "status",
+        "buyer_notes", "seller_notes", "requested_at", "decided_at", "decided_by",
+        "fulfilled_at", "client_id",
+    )
+    _ORDER_ISO = ("requested_at", "decided_at", "fulfilled_at")
+    _PACKAGE_COLS = (
+        "id", "package_code", "batch_id", "organization_id", "quantity_kg",
+        "status", "first_scan_org", "first_scan_at", "scan_count", "issued_at",
+        "client_id",
+    )
+    _PACKAGE_ISO = ("first_scan_at", "issued_at")
+    _SCAN_COLS = (
+        "id", "package_code", "batch_id", "scanner_user_id", "scanner_role",
+        "organization_id", "result", "signals", "scanned_at",
+    )
+    _SCAN_ISO = ("scanned_at",)
+    _VAN_VISIT_COLS = (
+        "id", "van_code", "officer_user_id", "organization_id", "target_org_id",
+        "target_name", "status", "scheduled_for", "arrived_at", "completed_at",
+        "notes", "client_id",
+    )
+    _VAN_VISIT_ISO = ("scheduled_for", "arrived_at", "completed_at")
+    _VAN_SAMPLE_COLS = (
+        "id", "visit_id", "batch_id", "sample_code", "quantity_kg", "result",
+        "moisture_percent", "notes", "collected_at", "client_id",
+    )
+    _VAN_SAMPLE_ISO = ("collected_at",)
 
     def __init__(self, url: str, service_role_key: str) -> None:
         self._url = url
@@ -2056,6 +2307,158 @@ class SupabaseRepository(Repository):
     def get_notification(self, notification_id):
         return self._get_by("notifications", "notification_id", notification_id)
 
+    # -- market linkage --
+    def create_market_listing(self, listing):
+        row = self._clip(listing, self._LISTING_COLS, iso=self._LISTING_ISO)
+        if not row.get("status"):
+            row["status"] = "OPEN"
+        if not row.get("currency"):
+            row["currency"] = "INR"
+        return self._upsert("market_listings", row, "id")
+
+    def get_market_listing(self, listing_id):
+        return self._get_by("market_listings", "id", listing_id)
+
+    def update_market_listing(self, listing_id, updates):
+        self._table("market_listings").update(
+            self._clip(updates, self._LISTING_COLS, iso=self._LISTING_ISO)
+        ).eq("id", listing_id).execute()
+        return self.get_market_listing(listing_id)
+
+    def list_market_listings(self, *, status="", seller_org_id=""):
+        q = self._table("market_listings").select("*")
+        if status:
+            q = q.eq("status", status)
+        if seller_org_id:
+            q = q.eq("seller_org_id", seller_org_id)
+        return q.order("listed_at", desc=False).execute().data
+
+    def create_purchase_order(self, order):
+        row = self._clip(order, self._ORDER_COLS, iso=self._ORDER_ISO)
+        if not row.get("status"):
+            row["status"] = "REQUESTED"
+        if not row.get("currency"):
+            row["currency"] = "INR"
+        return self._upsert("purchase_orders", row, "id")
+
+    def get_purchase_order(self, order_id):
+        return self._get_by("purchase_orders", "id", order_id)
+
+    def update_purchase_order(self, order_id, updates):
+        self._table("purchase_orders").update(
+            self._clip(updates, self._ORDER_COLS, iso=self._ORDER_ISO)
+        ).eq("id", order_id).execute()
+        return self.get_purchase_order(order_id)
+
+    def list_purchase_orders(self, *, buyer_org_id="", listing_id="", batch_id=""):
+        if not (buyer_org_id or listing_id or batch_id):
+            return []
+        q = self._table("purchase_orders").select("*")
+        if buyer_org_id:
+            q = q.eq("buyer_org_id", buyer_org_id)
+        if listing_id:
+            q = q.eq("listing_id", listing_id)
+        if batch_id:
+            q = q.eq("batch_id", self._batch_uuid(batch_id))
+        return q.order("requested_at", desc=False).execute().data
+    # -- QR packages --
+    def create_package(self, package):
+        row = self._clip(package, self._PACKAGE_COLS, iso=self._PACKAGE_ISO)
+        if not row.get("status"):
+            row["status"] = "ACTIVE"
+        if "scan_count" not in row:
+            row["scan_count"] = 0
+        # The printed code is the identity, so a duplicate print must resolve to
+        # the package that already owns it rather than inserting a second row.
+        existing = self._get_by("packages", "package_code", row.get("package_code"))
+        if existing is not None:
+            return existing
+        return self._table("packages").insert(row).execute().data[0]
+
+    def get_package_by_code(self, package_code):
+        return self._get_by("packages", "package_code", package_code)
+
+    def update_package(self, package_code, updates):
+        self._table("packages").update(
+            self._clip(updates, self._PACKAGE_COLS, iso=self._PACKAGE_ISO)
+        ).eq("package_code", package_code).execute()
+        return self.get_package_by_code(package_code)
+
+    def list_packages(self, *, batch_id="", organization_id=""):
+        q = self._table("packages").select("*")
+        if batch_id:
+            q = q.eq("batch_id", self._batch_uuid(batch_id))
+        if organization_id:
+            q = q.eq("organization_id", organization_id)
+        return q.order("issued_at", desc=False).execute().data
+
+    def add_qr_scan(self, scan):
+        row = self._clip(scan, self._SCAN_COLS, iso=self._SCAN_ISO)
+        if not row.get("result"):
+            row["result"] = "CLEAR"
+        if row.get("signals") is None:
+            row["signals"] = []
+        return self._table("qr_scans").insert(row).execute().data[0]
+
+    def list_qr_scans(self, *, package_code="", limit=50):
+        q = self._table("qr_scans").select("*")
+        if package_code:
+            q = q.eq("package_code", package_code)
+        return q.order("scanned_at", desc=True).limit(limit).execute().data
+
+    # -- mobile processing van --
+    def create_van_visit(self, visit):
+        row = self._clip(visit, self._VAN_VISIT_COLS, iso=self._VAN_VISIT_ISO)
+        if not row.get("status"):
+            row["status"] = "SCHEDULED"
+        return self._upsert("van_visits", row, "id")
+
+    def get_van_visit(self, visit_id):
+        return self._get_by("van_visits", "id", visit_id)
+
+    def update_van_visit(self, visit_id, updates):
+        self._table("van_visits").update(
+            self._clip(updates, self._VAN_VISIT_COLS, iso=self._VAN_VISIT_ISO)
+        ).eq("id", visit_id).execute()
+        return self.get_van_visit(visit_id)
+
+    def list_van_visits(self, *, officer_user_id="", status=""):
+        q = self._table("van_visits").select("*")
+        if officer_user_id:
+            q = q.eq("officer_user_id", officer_user_id)
+        if status:
+            q = q.eq("status", status)
+        return q.order("scheduled_for", desc=False).execute().data
+
+    def create_van_sample(self, sample):
+        row = self._clip(sample, self._VAN_SAMPLE_COLS, iso=self._VAN_SAMPLE_ISO)
+        if not row.get("result"):
+            row["result"] = "PENDING"
+        return self._table("van_samples").insert(row).execute().data[0]
+
+    def list_van_samples(self, visit_id):
+        return (
+            self._table("van_samples")
+            .select("*")
+            .eq("visit_id", visit_id)
+            .order("collected_at", desc=False)
+            .execute().data
+        )
+
+    def _batch_uuid(self, batch_ref):
+        """UUID for the batches FK, or None when the ref matches no batch.
+
+        Same reasoning as `_org_uuid`: an unknown code must scope to zero rows
+        rather than raise Postgres 22P02 on a uuid comparison.
+        """
+        ref = str(batch_ref or "").strip()
+        if not ref:
+            return None
+        if self._is_uuid(ref):
+            return ref
+        row = self._get_by("batches", "batch_code", ref)
+        return str(row["id"]) if row else None
+
     # -- helpers --
     @property
     def _evidence_cols(self):
@@ -2193,14 +2596,41 @@ class DemoSeededRepository(InMemoryRepository):
 
 
 def build_repository() -> Repository:
+    """Select the persistence implementation.
+
+    PRODUCTION is fail-closed: the system of record is Supabase PostgreSQL, and a
+    production deployment that is missing its database configuration must refuse
+    to start rather than silently serve in-memory demo data. A demo dataset
+    appearing behind a public production host would be a false claim about real
+    supply-chain state, so it is never an acceptable fallback there.
+
+    DEVELOPMENT / TEST keeps the in-memory repository (explicitly a
+    development-only surface) so the test-suite and a local run work without a
+    live cloud project.
+    """
     settings = get_settings()
     if settings.supabase_url and settings.supabase_service_role_key:
         log.info("Using SupabaseRepository (service-role, server-side only).")
         return SupabaseRepository(
             settings.supabase_url, settings.supabase_service_role_key
         )
+    if settings.is_production:
+        missing = [
+            name
+            for name, value in (
+                ("SUPABASE_URL", settings.supabase_url),
+                ("SUPABASE_SERVICE_ROLE_KEY", settings.supabase_service_role_key),
+            )
+            if not value
+        ]
+        raise RuntimeError(
+            "Production requires the persistent PostgreSQL repository; missing "
+            + ", ".join(missing)
+            + ". Set these in the deployment environment. HoneyChain refuses to "
+            "fall back to in-memory demo data in production."
+        )
     log.warning(
-        "No SUPABASE_SERVICE_ROLE_KEY configured — using in-memory repository "
-        "(safe for local dev/tests; switch to SupabaseRepository for production)."
+        "No SUPABASE_SERVICE_ROLE_KEY configured — using the in-memory repository "
+        "(development/test only; production requires SupabaseRepository)."
     )
     return DemoSeededRepository()

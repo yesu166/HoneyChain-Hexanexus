@@ -29,6 +29,7 @@ from .api.routes import (
     internal_fabric,
     labs,
     lineage,
+    market,
     notifications,
     org,
     passport,
@@ -159,6 +160,10 @@ for router in (
     org.router,
     platform_orgs.router,
     assertions.router,
+    # Market linkage + QR packages + mobile processing van. These are
+    # capabilities mounted on the FPO / Buyer / KVIC Field Officer surfaces,
+    # not portals of their own.
+    market.router,
     # Fabric bridge endpoints. These are mounted on every deployment for code
     # symmetry, but only the EC2 host can actually serve them: the router
     # refuses unless the Fabric adapter is active there, and Caddy proxies only
