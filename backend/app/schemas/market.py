@@ -112,6 +112,10 @@ class PackageRead(BaseModel):
     scan_count: int = 0
     issued_at: Optional[datetime] = None
     client_id: str = ""
+    # Live public passport route this label should encode. The QR carries this
+    # URL, never a static copy of the passport payload, so a consumer always
+    # resolves current provenance from the backend.
+    passport_path: str = ""
 
 
 class QrScanRequest(BaseModel):

@@ -47,6 +47,37 @@ class PassportService:
         )
         return payload
 
+    def resolve_package(self, package_code: str) -> dict[str, Any] | None:
+        """Public passport for a printed package label.
+
+        A label in the field carries a PACKAGE identity (e.g. HC-TN-NLG-001-J0001),
+        not a batch code. This resolves that identity to its batch and then builds
+        the same passport a batch code produces, so a consumer scanning a jar
+        reaches live provenance rather than a static copy.
+
+        The package's own scan state is included so a consumer can see whether
+        this label has been presented before — that is the honest, persisted
+        basis for the reuse warning the portal shows.
+
+        Returns None for a code this platform never issued, so the caller can
+        answer 404 rather than inventing a product.
+        """
+        package = self._repo.get_package_by_code(str(package_code or "").strip())
+        if package is None:
+            return None
+        batch = self._repo.get_batch(str(package.get("batch_id") or ""))
+        if batch is None:
+            return None
+        payload = self._build(batch)
+        # Package provenance fields, on top of the batch passport.
+        payload["package_code"] = package.get("package_code")
+        payload["package_quantity_kg"] = package.get("quantity_kg")
+        payload["package_status"] = package.get("status")
+        payload["package_scan_count"] = package.get("scan_count")
+        payload["first_scan_org"] = package.get("first_scan_org") or ""
+        payload["first_scan_at"] = package.get("first_scan_at")
+        return payload
+
     def _build(self, batch: dict[str, Any]) -> dict[str, Any]:
         batch_id = batch["id"]
         events = []

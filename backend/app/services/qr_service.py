@@ -81,7 +81,9 @@ class QrService:
         # to the package that already owns that identity, which is what makes a
         # re-printed label visible as DUPLICATE_PRINT rather than as two
         # indistinguishable packages.
-        code = str(data.get("package_code") or "").strip() or self._mint_code()
+        code = str(data.get("package_code") or "").strip() or self._mint_code(
+            self._identity_prefix(batch)
+        )
         already_issued = self._repo.get_package_by_code(code)
         if already_issued is not None:
             return already_issued
@@ -97,12 +99,41 @@ class QrService:
                 "client_id": client_id,
             }
         )
-        return package
+        # The label carries a LIVE public passport URL, never a copy of the
+        # passport data. A phone camera opens the portal, which then resolves
+        # this package identity against the backend — so provenance shown to a
+        # consumer is always current and always the real ledger's.
+        return {**package, "passport_path": f"/api/v1/passport/package/{code}"}
 
     @staticmethod
-    def _mint_code() -> str:
-        """Human-scannable code. Uniqueness is enforced by the unique index."""
-        return f"HC-{secrets.token_hex(6).upper()}"
+    def _mint_code(prefix: str = "") -> str:
+        """Human-scannable code. Uniqueness is enforced by the unique index.
+
+        With a [prefix], the code is the structured field identity
+        HC-TN-NLG-001-J0001: prefix + a per-batch sequence, so a printed jar can
+        be traced to its batch by eye without a lookup.
+        """
+        if not prefix:
+            return f"HC-{secrets.token_hex(6).upper()}"
+        return f"{prefix.rstrip('-')}-{secrets.token_hex(4).upper()}"
+
+    @staticmethod
+    def _identity_prefix(batch: dict[str, Any]) -> str:
+        """Derive the structured identity prefix from the batch's own record.
+
+        HC-TN-NLG-001: HC for HoneyChain, the two-letter origin initials, and the
+        batch sequence within that origin. Every part comes from data the batch
+        already carries, so the identity cannot claim an origin the provenance
+        ledger does not record.
+        """
+        origin = str(batch.get("origin") or "").strip()
+        words = [w for w in origin.replace(",", " ").split() if w]
+        initials = "".join(w[0] for w in words[:2]).upper() if words else "GEN"
+        # Batch codes commonly look like HC-NIL-2408-01; reuse that sequence when
+        # present so the identity and the batch code agree.
+        parts = str(batch.get("batch_code") or "").split("-")
+        sequence = parts[-1] if parts and parts[-1].isdigit() else secrets.token_hex(2).upper()
+        return f"HC-{initials[:2]}-{sequence}"
 
     def list_packages(self, *, user: Any, batch_id: str = "") -> list[dict[str, Any]]:
         if user.role in ("admin", "institution"):

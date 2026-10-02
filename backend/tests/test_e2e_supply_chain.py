@@ -216,6 +216,119 @@ def test_full_supply_chain_journey(client, actors):
     assert "SALE" in stages
 
 
+def test_public_walkthrough_matches_canonical_journey(client, actors):
+    """A final read-only pass over the canonical journey, asserting every stage.
+
+    Same path as `test_full_supply_chain_journey`, but this one exists to be read
+    alongside the other integrity tests: it checks the sequence of PUBLIC-facing
+    reads (marketplace, package passport, provenance) as well as the writes, so
+    the whole consumer-visible chain is covered in one place.
+    """
+    fpo, lab = actors["fpo"], actors["lab"]
+    buyer, kvic = actors["buyer"], actors["kvic"]
+
+    hive = client.post(
+        "/api/v1/hives", json={"hive_code": "WALK-HIVE"}, headers=fpo
+    ).json()
+    harvest = client.post(
+        "/api/v1/harvests",
+        json={"hive_id": hive["id"], "quantity_kg": 15, "honey_type": "Acacia"},
+        headers=fpo,
+    ).json()
+    batch = client.post(
+        "/api/v1/batches",
+        json={
+            "batch_code": "WALK-001",
+            "quantity_kg": 15,
+            "origin": "Tamil Nadu, Nilgiris",
+            "harvest_ids": [harvest["id"]],
+        },
+        headers=fpo,
+    ).json()
+
+    test = client.post(
+        f"/api/v1/batches/{batch['id']}/lab-test",
+        json={"batch_id": batch["id"], "lab_id": LAB_ORG},
+        headers=fpo,
+    ).json()
+    client.post(f"/api/v1/labs/tests/{test['id']}/start", headers=lab)
+    client.post(
+        f"/api/v1/labs/tests/{test['id']}/result",
+        json={"result": "PASS"},
+        headers=lab,
+    )
+
+    label = client.post(
+        "/api/v1/qr/packages",
+        json={"batch_id": batch["id"], "quantity_kg": 5},
+        headers=fpo,
+    ).json()
+    listing = client.post(
+        "/api/v1/market/listings",
+        json={"batch_id": batch["id"], "quantity_kg": 10, "price_per_kg": 700},
+        headers=fpo,
+    ).json()
+    order = client.post(
+        "/api/v1/market/orders",
+        json={"listing_id": listing["id"], "quantity_kg": 6},
+        headers=buyer,
+    ).json()
+    client.post(
+        f"/api/v1/market/orders/{order['id']}/decide",
+        json={"accept": True},
+        headers=fpo,
+    )
+    client.post(f"/api/v1/market/orders/{order['id']}/fulfil", headers=buyer)
+
+    # ---- the consumer-visible reads ------------------------------------
+    # The lot is still open: 10 kg were listed and 6 kg were committed, so 4 kg
+    # genuinely remain. This is the committed-stock contract — the buyer sees
+    # exactly what the ledger still has, not the original listing quantity.
+    market = client.get("/api/v1/market/marketplace", headers=buyer).json()
+    listed = [x for x in market["listings"] if x["batch_id"] == batch["id"]]
+    assert len(listed) == 1
+    assert listed[0]["remaining_kg"] == 4.0
+    assert any(o["status"] == "FULFILLED" for o in market["orders"])
+
+    # Public package passport: live, PII-free, and reflecting the sale.
+    passport = client.get(
+        f"/api/v1/passport/package/{label['package_code']}"
+    ).json()
+    assert passport["subject_code"] == "WALK-001"
+    assert passport["trust_tier"] == "lab_verified"
+    assert any(e["type"] == "SALE" for e in passport["events"])
+
+    # Provenance: material lineage balanced, operational stages present.
+    prov = client.get(f"/api/v1/batches/{batch['id']}/provenance", headers=fpo).json()
+    assert prov["mass_balance"]["balanced"] is True
+    assert prov["harvest_sources"], "material lineage must reach the harvest"
+
+    # The van cannot certify: an institution-role van sample is a field
+    # observation only and leaves the laboratory tier alone.
+    tier_before = client.get(f"/api/v1/batches/{batch['id']}", headers=fpo).json()[
+        "trust_tier"
+    ]
+    visit = client.post(
+        "/api/v1/van/visits", json={"van_code": "WALK-VAN"}, headers=kvic
+    ).json()
+    client.post(f"/api/v1/van/visits/{visit['id']}/advance", headers=kvic)
+    sample = client.post(
+        f"/api/v1/van/visits/{visit['id']}/samples",
+        json={"batch_id": batch["id"], "sample_code": "WALK-S1"},
+        headers=kvic,
+    ).json()
+    van_result = client.post(
+        f"/api/v1/van/samples/{sample['id']}/result",
+        json={"result": "PASS"},
+        headers=kvic,
+    ).json()
+    assert van_result["is_laboratory_certificate"] is False
+    tier_after = client.get(f"/api/v1/batches/{batch['id']}", headers=fpo).json()[
+        "trust_tier"
+    ]
+    assert tier_after == tier_before, "a van result must never certify a batch"
+
+
 def test_journey_refuses_to_skip_verification(client, actors):
     """The same journey with the lab step removed must not complete.
 

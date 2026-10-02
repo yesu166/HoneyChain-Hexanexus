@@ -534,7 +534,84 @@ def test_van_result_never_certifies_the_batch(client, seller):
     assert after["trust_tier"] == before["trust_tier"]
 
 
+def test_package_passport_is_public_and_live(client, seller, buyer):
+    """A printed label's code resolves to a real public passport.
+
+    This is the live-QR contract: the label carries an identity, a phone camera
+    opens the public route, and the backend answers with the batch's CURRENT
+    provenance. Nothing is baked into the QR.
+    """
+    batch_id = _make_verified_batch(client, seller, code="QR-PASS-1")
+    issued = client.post(
+        "/api/v1/qr/packages",
+        json={"batch_id": batch_id, "quantity_kg": 5},
+        headers=auth(seller),
+    )
+    assert issued.status_code == 201, issued.text
+    code = issued.json()["package_code"]
+    # The issuer is handed the live public route, not passport data.
+    assert issued.json()["passport_path"] == f"/api/v1/passport/package/{code}"
+
+    # No auth header at all: this is the consumer path.
+    public = client.get(f"/api/v1/passport/package/{code}")
+    assert public.status_code == 200, public.text
+    body = public.json()
+    assert body["subject_code"] == "QR-PASS-1"
+    assert body["trust_tier"] == "lab_verified"
+    assert body["raw"]["package_code"] == code
+    # PII-free: no person, phone or email anywhere in the public payload.
+    blob = str(body).lower()
+    for leak in ("@", "phone", "email", "password"):
+        assert leak not in blob, f"public passport leaked {leak}"
+
+    # An unknown label is a 404 — never an invented product.
+    missing = client.get("/api/v1/passport/package/HC-NEVER-ISSUED-XYZ")
+    assert missing.status_code == 404
+
+
+def test_package_passport_reflects_later_changes(client, seller, buyer):
+    """The package passport is rebuilt from live records, not frozen."""
+    batch_id = _make_verified_batch(client, seller, code="QR-PASS-2")
+    code = client.post(
+        "/api/v1/qr/packages",
+        json={"batch_id": batch_id, "quantity_kg": 5},
+        headers=auth(seller),
+    ).json()["package_code"]
+
+    before = client.get(f"/api/v1/passport/package/{code}").json()
+    stages_before = {e["type"] for e in before["events"]}
+
+    # A real custody write after the label was issued.
+    client.post(
+        f"/api/v1/batches/{batch_id}/custody-events",
+        headers=auth(seller),
+        json={"batch_id": batch_id, "action": "SALE", "actor": "fpo"},
+    )
+
+    after = client.get(f"/api/v1/passport/package/{code}").json()
+    stages_after = {e["type"] for e in after["events"]}
+    assert "SALE" in stages_after
+    assert stages_after != stages_before
+
+
+def test_ledger_never_claims_fabric_in_development(client):
+    """Development keeps the local ledger, and says so honestly."""
+    from app.adapters.blockchain.gateway import build_blockchain_gateway
+
+    gateway = build_blockchain_gateway(client.app.state.settings)
+    # The test session is explicitly the simulated/local adapter.
+    assert gateway.ledger_name == "local", (
+        "a development session must not report a real chain it did not use"
+    )
+
+
 def test_van_is_closed_to_non_officer_roles(client):
+    """A buyer may not open the field-officer submodule."""
+    res = client.get(
+        "/api/v1/van/dashboard",
+        headers=auth(make_token("buyer-user-id", "buyer", "ORG-TEST-BUYER")),
+    )
+    assert res.status_code == 403
     """A buyer may not open the field-officer submodule."""
     res = client.get(
         "/api/v1/van/dashboard",

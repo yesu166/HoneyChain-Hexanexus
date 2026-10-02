@@ -812,12 +812,22 @@ class BlockchainGateway:
 
 
 def build_blockchain_gateway(settings: Any = None) -> BlockchainGateway:
-    """Build the gateway from config. Defaults to the local (dev/test) ledger.
+    """Build the gateway from config.
 
-    REAL chain integration is selected by configuration:
+    Ledger integration is selected by configuration:
       - EVM:   BLOCKCHAIN_RPC_URL, BLOCKCHAIN_CHAIN_ID, BLOCKCHAIN_CONTRACT,
                BLOCKCHAIN_PRIVATE_KEY (never committed)
-      - FABRIC: FABRIC_CHANNEL, FABRIC_CHAINCODE (plus connection profile)
+      - FABRIC via bridge (production): BLOCKCHAIN_ADAPTER=remote_fabric,
+               FABRIC_BRIDGE_URL, FABRIC_BRIDGE_TOKEN, FABRIC_CHANNEL,
+               FABRIC_CHAINCODE
+
+    PRODUCTION FAILS CLOSED. A local in-process ledger is a development and test
+    device; letting it become the production ledger would let a public host
+    report provenance anchors that exist in no chain at all, and label them as
+    if they did. So in production the local adapter is refused outright and the
+    remote Fabric bridge is required, exactly as `build_repository` already
+    requires Supabase. There is no silent fallback: a misconfigured production
+    deployment fails to start rather than quietly serving fake provenance.
     """
     if settings is None:
         from ...core.config import get_settings
@@ -825,34 +835,74 @@ def build_blockchain_gateway(settings: Any = None) -> BlockchainGateway:
         settings = get_settings()
 
     adapter_name = getattr(settings, "blockchain_adapter", "local")
-    if adapter_name.lower() in ("simulated", "local", "memory", ""):
+    normalized = adapter_name.lower()
+    is_production = bool(getattr(settings, "is_production", False))
+
+    if normalized in ("simulated", "local", "memory", ""):
         # 'simulated' is the legacy name for the local dev/testing ledger.
+        if is_production:
+            raise RuntimeError(
+                "BLOCKCHAIN_ADAPTER is the local in-process ledger, which is a "
+                "development/test device and must never be the production "
+                "ledger. Set BLOCKCHAIN_ADAPTER=remote_fabric together with "
+                "FABRIC_BRIDGE_URL, FABRIC_BRIDGE_TOKEN, FABRIC_CHANNEL and "
+                "FABRIC_CHAINCODE. Refusing to start rather than reporting "
+                "provenance that exists in no chain."
+            )
         adapter = LocalLedgerAdapter()
-    elif adapter_name.lower() in ("evm", "ethereum", "polygon"):
+    elif normalized in ("evm", "ethereum", "polygon"):
         adapter = EVMBlockchainAdapter(
             rpc_url=getattr(settings, "blockchain_rpc_url", ""),
             chain_id=getattr(settings, "blockchain_chain_id", ""),
             contract_address=getattr(settings, "blockchain_contract", ""),
             private_key_hex=getattr(settings, "blockchain_private_key", ""),
         )
-    elif adapter_name.lower() in ("fabric", "hyperledger"):
+    elif normalized in ("fabric", "hyperledger"):
         adapter = FabricBlockchainAdapter(
             channel=getattr(settings, "fabric_channel", ""),
             chaincode=getattr(settings, "fabric_chaincode", ""),
             gateway_url=getattr(settings, "fabric_gateway_url", ""),
         )
-    elif adapter_name.lower() in ("remote_fabric", "fabric_bridge", "fabric_remote"):
+    elif normalized in ("remote_fabric", "fabric_bridge", "fabric_remote"):
         # Public API deployment that forwards to the internal Fabric service on
         # EC2. Same real chain, same honest FABRIC_* states, no local fallback.
         from .bridge import RemoteFabricAdapter
 
+        bridge_url = getattr(settings, "fabric_bridge_url", "")
+        bridge_token = getattr(settings, "fabric_bridge_token", "")
+        channel = getattr(settings, "fabric_channel", "")
+        chaincode = getattr(settings, "fabric_chaincode", "")
+        # Missing bridge configuration is refused up front rather than
+        # producing a gateway that accepts writes and reports them as anchored.
+        missing = [
+            name
+            for name, value in (
+                ("FABRIC_BRIDGE_URL", bridge_url),
+                ("FABRIC_BRIDGE_TOKEN", bridge_token),
+                ("FABRIC_CHANNEL", channel),
+                ("FABRIC_CHAINCODE", chaincode),
+            )
+            if not str(value or "").strip()
+        ]
+        if missing and is_production:
+            raise RuntimeError(
+                "BLOCKCHAIN_ADAPTER=remote_fabric requires "
+                + ", ".join(missing)
+                + ". Refusing to start with an unconfigured Fabric bridge rather "
+                "than falling back to the local ledger."
+            )
         adapter = RemoteFabricAdapter(
-            bridge_url=getattr(settings, "fabric_bridge_url", ""),
-            service_token=getattr(settings, "fabric_bridge_token", ""),
+            bridge_url=bridge_url,
+            service_token=bridge_token,
             timeout=getattr(settings, "fabric_bridge_timeout", 30),
-            channel=getattr(settings, "fabric_channel", ""),
-            chaincode=getattr(settings, "fabric_chaincode", ""),
+            channel=channel,
+            chaincode=chaincode,
         )
     else:
+        if is_production:
+            raise RuntimeError(
+                f"Unknown BLOCKCHAIN_ADAPTER={adapter_name!r}. Production must "
+                "use remote_fabric; refusing to fall back to the local ledger."
+            )
         adapter = LocalLedgerAdapter()
     return BlockchainGateway(adapter)

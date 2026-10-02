@@ -94,6 +94,61 @@ portal, and none may be added.
 The public consumer surface remains `GET /passport/{code}`; `/qr/scan` is
 authenticated so an anonymous caller cannot flood the scan ledger.
 
+## Ledger / provenance anchoring
+
+`BLOCKCHAIN_ADAPTER` selects the ledger:
+
+- `local` (aliases `simulated`, `memory`) — in-process development/test ledger.
+  **Refused in production.**
+- `remote_fabric` (aliases `fabric_bridge`, `fabric_remote`) — the real
+  Hyperledger Fabric network, reached through the Fabric bridge on EC2. This is
+  the production setting.
+- `fabric` — direct Fabric gateway client.
+- `evm` — EVM chain via `BLOCKCHAIN_RPC_URL`.
+
+### Production fails closed
+
+Production **must** run `remote_fabric`. If `BLOCKCHAIN_ADAPTER` names the local
+ledger, names an unknown adapter, or selects `remote_fabric` without
+`FABRIC_BRIDGE_URL` / `FABRIC_BRIDGE_TOKEN` / `FABRIC_CHANNEL` /
+`FABRIC_CHAINCODE`, startup raises rather than falling back:
+
+```
+BLOCKCHAIN_ADAPTER is the local in-process ledger, which is a
+development/test device and must never be the production ledger...
+```
+
+There is no silent fallback. This is deliberate: a local ledger holds
+commitments in memory, so a public host serving it would report provenance
+anchors that exist in no chain while labelling them as if they did — the same
+failure mode `build_repository` already prevents by requiring Supabase.
+
+When the bridge is configured but unreachable, the adapter reports
+`FABRIC_UNAVAILABLE` with the transport cause. It does **not** degrade to local.
+
+The adapter identity is exposed through `GET /blockchain/status` as `ledger`
+(`fabric`, `evm`, or `local`) and through the health endpoint, and the portal
+maps this to `FABRIC` / `EVM` / `LOCAL` — the UI never labels local state as
+Fabric.
+
+## Live QR package identity
+
+A printed label carries a structured package identity, derived from the batch's
+own record (e.g. `HC-TN-NLG-001-J0001`: HoneyChain prefix, origin initials,
+batch sequence, package sequence). Uniqueness is enforced by a unique index.
+
+- `POST /qr/packages` returns `passport_path`, the live public route this label
+  should encode.
+- `GET /api/v1/passport/package/{package_code}` — public, unauthenticated,
+  PII-free, rate limited. Resolves the package identity to its batch and builds
+  the **current** passport, so a consumer scanning a jar always reads live
+  provenance rather than a static copy. An unissued code is a 404.
+
+Reuse detection is based on persisted package/scan records only: the first scan
+by one organization is `CLEAR`; a later scan by a different organization is
+flagged `REUSE_BY_OTHER_ORG`; a re-printed code is `DUPLICATE_PRINT`; a code the
+platform never issued is `UNKNOWN_CODE`; a recalled label is `RECALLED`.
+
 ## Mobile processing van (KVIC Field Officer)
 
 A submodule of the KVIC Field Officer surface — there is no "Mobile Processing
