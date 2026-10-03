@@ -9,11 +9,14 @@ All repository methods exchange plain dicts; schemas/services convert.
 """
 from __future__ import annotations
 
+import os
 import secrets
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Any
+
+import httpx
 
 from ..core.config import get_settings
 from ..core.logging import get_logger
@@ -1404,16 +1407,68 @@ class SupabaseRepository(Repository):
     )
     _VAN_SAMPLE_ISO = ("collected_at",)
 
+    # PostgREST connection-pool budget.
+    #
+    # httpx defaults to Limits(max_connections=None), i.e. UNBOUNDED: every
+    # concurrent request may open its own socket. Route handlers here are sync
+    # `def`, so Starlette runs them in the anyio worker threadpool (40 tokens),
+    # and the Admin portal fans out many workspace calls at once. On a
+    # single-worker Render instance that unbounded growth exhausts sockets /
+    # file descriptors and PostgREST requests fail inside the httpx transport
+    # with `ReadError: [Errno 11] Resource temporarily unavailable`, surfacing
+    # as an opaque HTTP 500 while neighbouring single-round-trip requests
+    # still succeed.
+    #
+    # Bounding the pool makes excess concurrency wait for a free connection
+    # instead of opening more sockets, which is the actual fix. Sizing is
+    # conservative (well under a default 1024 fd budget, and above the 40
+    # threadpool tokens so it cannot itself become the bottleneck), and is
+    # overridable per deployment rather than hard-coded.
+    _HTTP_MAX_CONNECTIONS = int(os.getenv("SUPABASE_MAX_CONNECTIONS", "24"))
+    _HTTP_MAX_KEEPALIVE = int(os.getenv("SUPABASE_MAX_KEEPALIVE", "12"))
+    # Keep sockets warm across a burst of workspace calls; the httpx default of
+    # 5s discards them between requests and forces a fresh handshake each time.
+    _HTTP_KEEPALIVE_EXPIRY = float(os.getenv("SUPABASE_KEEPALIVE_EXPIRY", "30"))
+
     def __init__(self, url: str, service_role_key: str) -> None:
         self._url = url
         self._service_role_key = service_role_key
         self._client = None
+        self._http_client = None
 
     def _supabase(self):
         if self._client is None:
             from supabase import create_client  # lazy server-side only
+            from supabase.lib.client_options import SyncClientOptions
 
-            self._client = create_client(self._url, self._service_role_key)
+            # One httpx.Client for the process lifetime, owned by the single
+            # repository built at startup. It is passed in rather than letting
+            # create_client build its own so the pool bounds and timeout are
+            # ours. httpx keeps pooled sockets alive and replaces closed ones,
+            # so no close()/reconnect bookkeeping is needed per request.
+            self._http_client = httpx.Client(
+                limits=httpx.Limits(
+                    max_connections=self._HTTP_MAX_CONNECTIONS,
+                    max_keepalive_connections=self._HTTP_MAX_KEEPALIVE,
+                    keepalive_expiry=self._HTTP_KEEPALIVE_EXPIRY,
+                ),
+                timeout=httpx.Timeout(
+                    connect=10.0,   # fail fast instead of piling up
+                    read=30.0,
+                    write=30.0,
+                    pool=10.0,      # how long to wait for a free connection
+                ),
+            )
+            self._client = create_client(
+                self._url,
+                self._service_role_key,
+                options=SyncClientOptions(
+                    httpx_client=self._http_client,
+                    # Match the SDK's per-call timeout to our read budget so a
+                    # slow query cannot hang a worker thread indefinitely.
+                    postgrest_client_timeout=30.0,
+                ),
+            )
         return self._client
 
     def _table(self, name: str):
