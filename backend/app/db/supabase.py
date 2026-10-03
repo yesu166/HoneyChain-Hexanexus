@@ -2592,6 +2592,25 @@ class DemoSeededRepository(InMemoryRepository):
             }
         )
         self._seed_org = org
+        # Test/contract orgs referenced by the suite (ORG-TN-001/ORG-TN-002 as
+        # FPO tenants, LAB-TN-001 as lab tenant). They must exist so the org
+        # dashboard scope check resolves UUID and public-key forms to the
+        # same canonical tenant instead of 404. Dev/test seed only — never
+        # used in production (production requires SupabaseRepository).
+        for _seed_id, _seed_name, _seed_type in (
+            ("ORG-TN-001", "Test FPO Tenant A", "FPO"),
+            ("ORG-TN-002", "Test FPO Tenant B", "FPO"),
+            ("LAB-TN-001", "Test Lab Tenant", "LAB"),
+        ):
+            self.ensure_organization(
+                {
+                    "id": _seed_id,
+                    "organization_key": _seed_id,
+                    "name": _seed_name,
+                    "type": _seed_type,
+                    "status": "ACTIVE",
+                }
+            )
         return None
 
 

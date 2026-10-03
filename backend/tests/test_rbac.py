@@ -22,7 +22,7 @@ def test_multi_role_user_has_all_permissions(client):
         headers={"Authorization": f"Bearer {multi_token}"},
         json={"hive_code": "HIVE-MULTI"},
     )
-    assert hive_resp.status_code == 200, "beekeeper role should allow hive creation"
+    assert hive_resp.status_code == 201, "beekeeper role should allow hive creation"
     
     # fpo can see org dashboard
     dash_resp = client.get(
