@@ -222,11 +222,14 @@ PERMISSION_MATRIX: dict[str, dict[str, set[str]]] = {
         "scope": "any",
     },
     "admin": {
-        # Administrator manages domain data and reads the immutable governance
-        # audit trail. Organization + membership governance (including the
-        # read-only platform views) is reserved for platform_oversight, so the
-        # matrix is exactly "all domain actions, no platform governance".
-        "allowed": (set(ACTIONS) - PLATFORM_ORGANIZATION_ACTIONS),
+        # Admin is the full-access operator account for the unified HoneyChain
+        # portal. It can inspect and operate every existing domain and platform
+        # surface, including organization/membership governance. This keeps the
+        # UI selector and server-side authorization aligned: an admin must not
+        # see a portal option that the API then rejects solely because of RBAC.
+        # Platform-oversight remains a narrower governance role; admin is the
+        # break-glass/full-access role used for administration and demonstrations.
+        "allowed": set(ACTIONS),
         "scope": "any",
     },
     "retailer": {
