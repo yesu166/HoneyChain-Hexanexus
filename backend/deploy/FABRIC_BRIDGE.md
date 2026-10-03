@@ -30,6 +30,56 @@ IP, so no DNS record has to be created.
   `FABRIC_UNAVAILABLE` / `FABRIC_TIMEOUT`; it never downgrades to the local
   development ledger.
 
+## The restricted bridge app (`app.bridge_app`)
+
+The three-path allowlist used to live **only** in the Caddy matcher in front of
+the EC2 instance. The app on `:8000` has always mounted the entire HoneyChain
+API alongside the bridge router (`app/main.py` includes auth, hives, batches,
+passports, platform orgs, AI chat, … plus `internal_fabric.router`). Port 8000
+was safe only because the Security Group never allowed inbound 8000 and Caddy
+404'd everything else.
+
+That protection is edge-dependent. Any transport that reaches the local port
+directly bypasses it. `app/bridge_app.py` is a separate ASGI app that mounts
+**only** `internal_fabric.router`, so the boundary is enforced by the
+application:
+
+```
+uvicorn app.bridge_app:app --host 127.0.0.1 --port 8001
+```
+
+Run it as its own loopback-only service beside `honeychain-api.service` (which
+keeps serving the public API on 8000, untouched). Then:
+
+- Caddy can proxy to `:8001` instead of `:8000`, or
+- a transport may target `:8001` directly.
+
+Either way `/api/v1/*`, `/health/*` and the docs surfaces are 404 by FastAPI
+default, and the bridge still requires the constant-time
+`FABRIC_BRIDGE_TOKEN` bearer check. Tests: `tests/test_bridge_app.py`.
+
+## Temporary demo transport (NOT permanent production)
+
+If no certificate can be obtained for an owned hostname, a Cloudflare Quick
+Tunnel can front the bridge for a demo:
+
+```
+cloudflared tunnel --url http://127.0.0.1:8001     # :8001, never :8000
+```
+
+Limitations, stated plainly:
+
+- The `https://<random>.trycloudflare.com` URL is **temporary**. It changes
+  whenever the tunnel process is stopped or recreated, so `FABRIC_BRIDGE_URL`
+  must be updated by hand each time.
+- Cloudflare documents Quick Tunnels as intended for testing and development,
+  **not** permanent production infrastructure.
+- It is **not** a claim of permanent production architecture. A real deployment
+  needs an owned hostname with a proper certificate.
+
+**Never** point a tunnel at `:8000`: that publishes the whole HoneyChain API,
+including open self-registration at `/api/v1/auth/register`.
+
 ## Environment variables (names only — never commit values)
 
 ### Render (public API service)
