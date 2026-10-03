@@ -14,13 +14,17 @@ from app.core.security import CurrentUser
 
 
 def test_admin_has_every_domain_action():
+    """Admin holds every non-governance action (plus the governance set below)."""
     for action in ACTIONS - PLATFORM_ORGANIZATION_ACTIONS:
         assert has_permission("admin", action)
 
 
-def test_admin_excluded_from_platform_org_oversight():
+def test_admin_holds_platform_org_oversight_actions():
+    """Admin is the full-access super-admin: it also holds governance actions."""
     for action in PLATFORM_ORGANIZATION_ACTIONS:
-        assert not has_permission("admin", action)
+        assert has_permission("admin", action)
+    # Explicitly through the matrix, not a require_permission bypass.
+    assert PERMISSION_MATRIX["admin"]["allowed"] == set(ACTIONS)
 
 
 def test_platform_oversight_has_org_oversight_only():

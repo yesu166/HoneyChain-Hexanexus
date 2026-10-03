@@ -39,16 +39,20 @@ def test_organization_keys_are_unique(client):
 
 
 def test_every_non_oversight_role_rejected_for_org_create(client):
-    tokens = {
+    """Admin may create organizations; every other non-oversight role may not."""
+    allowed = {"admin": make_token("u-admin", "admin")}
+    denied = {
         "beekeeper": make_token("u-beekeeper", "beekeeper", "ORG-TN-001"),
         "fpo": make_token("u-fpo", "fpo", "ORG-TN-001"),
         "lab": make_token("u-lab", "lab", "LAB-TN-001"),
         "processor": make_token("u-proc", "processor"),
         "buyer": make_token("u-buyer", "buyer"),
         "institution": _institution_token(),
-        "admin": make_token("u-admin", "admin"),
     }
-    for role, token in tokens.items():
+    for role, token in allowed.items():
+        resp = _create_fpo(client, token)
+        assert resp.status_code == 201, f"{role} must be able to create organizations"
+    for role, token in denied.items():
         resp = _create_fpo(client, token)
         assert resp.status_code == 403, f"{role} must not create organizations"
 
@@ -77,26 +81,22 @@ def test_non_oversight_roles_cannot_activate_suspend_or_onboard(client):
         )
 
 
-def test_admin_is_de_scoped_from_organization_oversight(client):
+def test_admin_is_full_access_platform_operator(client):
+    """Admin is the super-admin and must hold every governance route."""
     org_key = _create_fpo(client, _platform_token()).json()["organization_key"]
     admin = auth(make_token("u-admin", "admin"))
-    assert (
-        client.post(
-            f"/api/v1/platform/organizations/{org_key}/activate", headers=admin
-        ).status_code
-        == 403
+    assert client.post(
+        f"/api/v1/platform/organizations/{org_key}/activate", headers=admin
+    ).status_code == 200
+    invite = client.post(
+        f"/api/v1/platform/organizations/{org_key}/admins",
+        json={"email": "admin-onboarded@example.com"},
+        headers=admin,
     )
-    assert (
-        client.post(
-            f"/api/v1/platform/organizations/{org_key}/admins",
-            json={"email": "admin@example.com"},
-            headers=admin,
-        ).status_code
-        == 403
-    )
-    assert (
-        client.get("/api/v1/platform/organizations", headers=admin).status_code == 403
-    )
+    assert invite.status_code == 200, invite.text
+    assert client.get("/api/v1/platform/organizations", headers=admin).status_code == 200
+    assert client.get("/api/v1/platform/beekeepers", headers=admin).status_code == 200
+    assert client.get("/api/v1/platform/audit", headers=admin).status_code == 200
 
 
 def test_activate_and_suspend_lifecycle(client):

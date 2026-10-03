@@ -45,25 +45,36 @@ def _register_beekeeper(client, email: str, phone: str) -> dict:
 
 
 # ---------------------------------------------------------------- authz matrix
-def test_admin_denied_all_membership_actions_at_route_level(client):
+def test_admin_allowed_all_membership_actions_at_route_level(client):
+    """Admin is the super-admin: it must reach every governance route.
+
+    Each call must get past the RBAC gate (not 403). Routes are exercised
+    against real state so the assertions distinguish "authorized" from
+    "authorized but the target does not exist" (404).
+    """
     org_key = _create_fpo(client, _platform_token())["organization_key"]
     admin = auth(_admin_token())
-    members = [
-        ("assign", lambda: client.post(
-            f"/api/v1/platform/organizations/{org_key}/beekeepers",
-            json={"user_id": "some-user"},
-            headers=admin,
-        )),
+    me = _register_beekeeper(client, "bkadmin@example.in", "+919000000067")
+    user_id = me["id"]
+
+    assigned = client.post(
+        f"/api/v1/platform/organizations/{org_key}/beekeepers",
+        json={"user_id": user_id},
+        headers=admin,
+    )
+    assert assigned.status_code == 200, assigned.text
+
+    for label, call in [
         ("revoke", lambda: client.post(
-            f"/api/v1/platform/organizations/{org_key}/members/some-user/revoke",
+            f"/api/v1/platform/organizations/{org_key}/members/{user_id}/revoke",
             headers=admin,
         )),
         ("suspend", lambda: client.post(
-            f"/api/v1/platform/organizations/{org_key}/members/some-user/suspend",
+            f"/api/v1/platform/organizations/{org_key}/members/{user_id}/suspend",
             headers=admin,
         )),
         ("reinstate", lambda: client.post(
-            f"/api/v1/platform/organizations/{org_key}/members/some-user/reinstate",
+            f"/api/v1/platform/organizations/{org_key}/members/{user_id}/reinstate",
             headers=admin,
         )),
         ("view members", lambda: client.get(
@@ -72,9 +83,23 @@ def test_admin_denied_all_membership_actions_at_route_level(client):
         ("deactivate", lambda: client.post(
             f"/api/v1/platform/organizations/{org_key}/deactivate", headers=admin
         )),
-    ]
-    for label, call in members:
-        assert call().status_code == 403, f"admin must be denied {label}"
+    ]:
+        status_code = call().status_code
+        assert status_code != 403, f"admin must be allowed {label}"
+        assert status_code in (200, 404), f"unexpected {status_code} for {label}"
+
+
+def test_non_oversight_roles_still_denied_membership_actions(client):
+    """Granting admin full access must NOT widen anyone else's grants."""
+    org_key = _create_fpo(client, _platform_token())["organization_key"]
+    for role in ("beekeeper", "fpo", "lab", "processor", "buyer", "institution"):
+        headers = auth(make_token(f"u-{role}", role))
+        assert client.get(
+            f"/api/v1/platform/organizations/{org_key}/members", headers=headers
+        ).status_code == 403, f"{role} must stay denied membership.view"
+        assert client.post(
+            f"/api/v1/platform/organizations/{org_key}/suspend", headers=headers
+        ).status_code == 403, f"{role} must stay denied organization.suspend"
 
 
 def test_non_oversight_roles_denied_membership_view(client, fpo_token):

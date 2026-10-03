@@ -79,8 +79,9 @@ ACTIONS = {
 }
 
 # Platform-oversight actions: organization + membership lifecycle. These are
-# deliberately NOT part of the admin role — an administrator manages domain
-# data, while organization/membership governance is reserved for the platform.
+# the governance-only actions reserved for the platform. Admin holds the FULL
+# action set (it is the super-admin / master demo role) and so also holds these;
+# they stay grouped here because platform_oversight's grant is exactly this set.
 PLATFORM_ORGANIZATION_ACTIONS = {
     "organization.create",
     "organization.update",
@@ -222,13 +223,18 @@ PERMISSION_MATRIX: dict[str, dict[str, set[str]]] = {
         "scope": "any",
     },
     "admin": {
-        # Admin is the full-access operator account for the unified HoneyChain
-        # portal. It can inspect and operate every existing domain and platform
-        # surface, including organization/membership governance. This keeps the
-        # UI selector and server-side authorization aligned: an admin must not
-        # see a portal option that the API then rejects solely because of RBAC.
-        # Platform-oversight remains a narrower governance role; admin is the
-        # break-glass/full-access role used for administration and demonstrations.
+        # Admin is HoneyChain's full-access super-admin: the master demo role,
+        # and the break-glass account used for administration and demos. It is
+        # granted EVERY action explicitly through the matrix -- NOT via a bypass
+        # in require_permission -- so require_permission("organization.create")
+        # and friends admit admin alongside platform_oversight on every route.
+        # Keeping the UI selector and server-side authorization aligned matters:
+        # an admin must not see a portal option that the API then rejects solely
+        # because of RBAC.
+        # Non-admin roles keep their existing grants. Platform-oversight remains
+        # a narrower governance role (PLATFORM_ORGANIZATION_ACTIONS plus its five
+        # read/audit actions), and their governance restrictions are unchanged.
+        # Scope "any" already lets admin read/write across all organizations.
         "allowed": set(ACTIONS),
         "scope": "any",
     },
