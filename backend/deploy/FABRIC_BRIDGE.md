@@ -1,15 +1,22 @@
-# Fabric bridge deployment (ledger.honeychain.in)
+# Fabric bridge deployment (EC2 AWS public hostname)
 
 ## Architecture
 
 ```
 Portal / Flutter
-   → https://honeychain-api.onrender.com        (Render, public API, RemoteFabricAdapter)
-   → https://ledger.honeychain.in               (EC2, Caddy TLS termination, HTTP-01)
-   → 127.0.0.1:8000                             (EC2 FastAPI, internal_fabric router)
-   → 127.0.0.1:9446                             (Fabric Gateway service)
+   → https://honeychain-api.onrender.com                  (Render, public API, RemoteFabricAdapter)
+   → https://ec2-13-127-118-165.ap-south-1.compute.amazonaws.com
+                                                          (EC2, Caddy TLS termination, TLS-ALPN-01)
+   → 127.0.0.1:8000                                       (EC2 FastAPI, internal_fabric router)
+   → 127.0.0.1:9446                                       (Fabric Gateway service)
    → Hyperledger Fabric (mychannel / honeychain)
 ```
+
+The bridge hostname is the **AWS-managed public hostname of the EC2 host**. No
+custom domain is used: `honeychain.in` is not owned by this team, so
+`ledger.honeychain.in` has been removed and must not be reintroduced. The AWS
+hostname's A record is managed by AWS and already points at this host's Elastic
+IP, so no DNS record has to be created.
 
 - Render holds **no** Fabric identity and **no** Fabric credentials.
 - EC2 holds the Fabric identity and the real `FabricBlockchainAdapter`.
@@ -30,7 +37,7 @@ Portal / Flutter
 | Variable                | Purpose                                              |
 |-------------------------|------------------------------------------------------|
 | `BLOCKCHAIN_ADAPTER`    | `remote_fabric` (selects the bridge)                 |
-| `FABRIC_BRIDGE_URL`     | `https://ledger.honeychain.in`                       |
+| `FABRIC_BRIDGE_URL`     | `https://ec2-13-127-118-165.ap-south-1.compute.amazonaws.com` |
 | `FABRIC_BRIDGE_TOKEN`   | shared service secret (same value as on EC2)         |
 | `FABRIC_BRIDGE_TIMEOUT` | seconds per bridge call (default `30`)               |
 | `FABRIC_CHANNEL`        | `mychannel` (status display only)                    |
@@ -59,7 +66,13 @@ in the two runtime env files. Never log it, never return it in a response.
 3. **EC2 (defense in depth)**: rebind the FastAPI service from
    `--host 0.0.0.0` to `--host 127.0.0.1`. The Security Group does not allow
    `8000`, but loopback-only removes the dependency on the SG staying correct.
-4. **DNS (user)**: `ledger.honeychain.in A <EC2 IP>`, TTL 300, DNS-only.
+4. **Certificate**: no DNS record is needed. Caddy must obtain a Let's Encrypt
+   certificate for the AWS hostname via **TLS-ALPN-01** on the already-open
+   `443`. Caddy serves a site block by SNI, so if no certificate exists for the
+   hostname every handshake fails with `TLSV1_ALERT_INTERNAL_ERROR` and the
+   bridge appears dead even though `:443` is listening. Confirm issuance before
+   touching Render: `journalctl -u caddy -n 50 | grep -i acme` and
+   `curl -sS https://ec2-13-127-118-165.ap-south-1.compute.amazonaws.com/internal/fabric/health`.
 5. **SG**: nothing to do — the Security Group already exposes TCP `443`, and
    the Caddyfile now uses the **TLS-ALPN-01** challenge on that open port
    (`disable_http_challenge`), so TCP `80` is **not required** for certificate
@@ -74,12 +87,12 @@ immediate).
 
 | # | Check                                                             | Expected                                   |
 |---|-------------------------------------------------------------------|--------------------------------------------|
-| A | `GET https://ledger.honeychain.in/internal/fabric/health` + token | `FABRIC_CONNECTED`, channel/chaincode real |
+| A | `GET https://ec2-13-127-118-165.ap-south-1.compute.amazonaws.com/internal/fabric/health` + token | `FABRIC_CONNECTED`, channel/chaincode real |
 | B | same, wrong/missing token                                         | `401`                                      |
 | C | `POST .../anchor` + token                                         | real `tx_hash`, `CONFIRMED`                |
 | D | `POST .../query` verify                                            | `verified: true/false` from chain          |
-| E | `GET https://ledger.honeychain.in/api/v1/auth/login`              | `404`                                      |
-| F | any `/api/v1/*` through ledger host                               | `404`                                      |
+| E | `GET https://ec2-13-127-118-165.ap-south-1.compute.amazonaws.com/api/v1/auth/login` | `404`                                      |
+| F | any `/api/v1/*` through the EC2 bridge host                   | `404`                                      |
 | G | Render `/api/v1/blockchain/health`                                | `adapter: fabric`, real channel/chaincode  |
 | H | real anchor via Render, then public passport/provenance           | real `tx_id` persisted, no `LOCAL-*`       |
 | I | EC2 bridge down → Render anchor attempt                           | `FABRIC_UNAVAILABLE`/`FABRIC_TIMEOUT`, no local fallback |
@@ -100,7 +113,12 @@ Verified live on **2026-09-28** (see `docs/evidence/fabric-bridge-fresh-e2e-2026
       anchor `a105c691e3c8958d6b8938c55becc1fbce0d3b035af465c51e369e8265e5e283`
       (block 68→69), event `3cb7322d250156985bc049b5dcfd487aa4140e4e702f909d99a5858c037af9ed`
       (block 69→70), both read back from the chain
-- [ ] DNS record created (user — GoDaddy, blocker for cert + Render connectivity)
+- [ ] DNS record — **not needed any more**; the AWS hostname's A record is
+      managed by AWS and already resolves to this host
+- [ ] **BLOCKER**: Caddy holds a valid TLS certificate for the AWS hostname.
+      Until it does, the handshake fails with `TLSV1_ALERT_INTERNAL_ERROR`, so
+      row A cannot pass and Render must stay on `local`. Check
+      `journalctl -u caddy | grep -i acme` on EC2.
 - [ ] `FABRIC_BRIDGE_TOKEN` set in the Render dashboard (user; value generated
       2026-09-28 on EC2, stored server-side only)
 - [ ] Real Fabric `tx_id` captured from a **Render-initiated** anchor

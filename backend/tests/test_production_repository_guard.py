@@ -66,7 +66,7 @@ def test_production_remote_fabric_builds_when_fully_configured():
     gateway = _gateway_for(
         is_production=True,
         blockchain_adapter="remote_fabric",
-        fabric_bridge_url="https://ledger.honeychain.in",
+        fabric_bridge_url="https://ec2-13-127-118-165.ap-south-1.compute.amazonaws.com",
         fabric_bridge_token="not-a-real-token",
         fabric_channel="mychannel",
         fabric_chaincode="honeychain",

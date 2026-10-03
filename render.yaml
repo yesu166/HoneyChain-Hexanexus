@@ -18,7 +18,7 @@ services:
       # ONLY in the Render dashboard (Service > Environment) — same value as on
       # the EC2 bridge host. Never a VITE_* variable; never committed.
       - key: FABRIC_BRIDGE_URL
-        value: https://ledger.honeychain.in
+        value: https://ec2-13-127-118-165.ap-south-1.compute.amazonaws.com
       - key: FABRIC_BRIDGE_TOKEN
         sync: false
       - key: FABRIC_BRIDGE_TIMEOUT
