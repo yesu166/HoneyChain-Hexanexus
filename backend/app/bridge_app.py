@@ -35,11 +35,19 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from .api.routes import internal_fabric
+from .core.config import get_settings
+
+# Load-bearing import: app.core.config calls load_dotenv(backend/.env) at module
+# import, and the bridge router reads FABRIC_BRIDGE_TOKEN straight from
+# os.environ. Without this the bridge refuses every call with 503 "not
+# configured" even though the secret is sitting in .env on disk.
+_settings = get_settings()
+
+from .api.routes import internal_fabric  # noqa: E402 - must follow the .env load
 
 app = FastAPI(
     title="HoneyChain Fabric bridge (restricted)",
-    version="1.0.0",
+    version=_settings.api_version,
     # No interactive surface: the bridge is a machine-to-machine endpoint, and
     # exposing schema docs here would be the same mistake as exposing the API.
     docs_url=None,
