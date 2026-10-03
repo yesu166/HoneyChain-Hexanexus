@@ -116,8 +116,28 @@ class HarvestEvidenceService:
         bundle["created_at"] = datetime.now(timezone.utc).isoformat()
 
         if anchor:
+            # The deployed chaincode's anchorMerkleRoot calls
+            # getStateOrThrow(ctx, "BATCH:{batchId}") before it writes, so an
+            # anchor can only be committed against a batch that already exists
+            # on the ledger.
+            #
+            # entity_type="batch" passes the batch id directly. A harvest used to
+            # send an empty string, which produced batchId="" -> the chaincode
+            # threw NOT_FOUND: BATCH: -> Fabric refused endorsement with
+            # "502 ... 10 ABORTED: failed to endorse transaction" -> the gateway
+            # marked the tx UNKNOWN -> the bundle came back HTTP 200 with
+            # anchor.state != CONFIRMED, which is exactly the "Saved — blockchain
+            # anchor pending" message the app showed.
+            #
+            # A harvest id is itself a uuid (the Supabase harvest row id), which
+            # is the shape _ensure_batch_on_ledger recognises: it probes getBatch,
+            # and only on NOT_FOUND issues createBatch before the anchor. So
+            # anchoring the harvest's own id makes the Merkle root commit to a
+            # real ledger container instead of failing endorsement. Non-uuid refs
+            # (e.g. an assertion ref) stay as-is and remain honestly UNKNOWN.
+            anchor_target = entity_ref if entity_type in ("batch", "harvest") else ""
             result = self._gateway.submit_anchor(
-                batch_id=entity_ref if entity_type == "batch" else "",
+                batch_id=anchor_target,
                 evidence_root=root,
                 anchor_type=f"{entity_type}_evidence_bundle",
                 organization_ref=operator,
