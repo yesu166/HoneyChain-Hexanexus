@@ -52,7 +52,7 @@ class Settings:
         # hostname was not copied into the dashboard.
         self.cors_origins: list[str] = _split_csv(os.getenv("CORS_ORIGINS", ""))
         if self.is_production and "https://honeychain-web-portal.onrender.com" not in self.cors_origins:
-            self.cors_origins.append("https://hc-web-portal.onrender.com")
+            self.cors_origins.append("https://honeychain-web-portal.onrender.com")
         # Only HoneyChain's own portal deployment naming patterns are covered by
         # the regex; arbitrary third-party origins are never allowed by default.
         self.cors_origin_regex: str = os.getenv(
