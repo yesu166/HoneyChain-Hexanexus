@@ -4,7 +4,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../data/honeychain_store.dart';
 import '../services/trace_qr_service.dart';
 
-/// Camera-based QR scanner for the canonical HoneyChain payloads
+/// Camera-based Honey Yatra QR scanner for the canonical HoneyChain payloads
 /// (`honeychain://trace/<code>` and legacy `honeychain://jar/<id>`).
 ///
 /// Honest error handling: permission / camera failures show guidance plus a
@@ -80,7 +80,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: const Text('Scan Honey Passport QR'),
+        title: const Text('Scan Honey Yatra QR'),
       ),
       body: Column(
         children: [

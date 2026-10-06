@@ -6,7 +6,7 @@ import '../models/domain.dart';
 import '../theme/app_theme.dart';
 import '../screens/honey_passport_screen.dart';
 
-/// A real QR code encoding the deterministic trace handle of an individual
+/// A real Honey Yatra QR encoding the deterministic trace handle of an individual
 /// jar (`honeychain://jar/<jarId>`), which a consumer scans or pastes to open
 /// the jar's Honey Passport.
 ///

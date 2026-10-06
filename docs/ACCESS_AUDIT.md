@@ -1,7 +1,7 @@
-# HoneyChain 3.0 — Access & Permission Audit
+# HoneyChain — Access & Permission Audit
 
 Audit date: 2026-09-10
-Environment: Windows 11, PowerShell 5.1, working dir `HC-3.0-main`
+Environment: Windows 11, PowerShell 5.1, working dir `HoneyChain-main`
 
 Purpose: classify every capability the agent may (or may not) use before
 modifying the project. Classifications:
@@ -18,7 +18,7 @@ modifying the project. Classifications:
 | 2 | Terminal                   | GRANTED       | PowerShell 5.1 shell available. |
 | 3 | Filesystem                 | GRANTED       | Full read/write on project tree. |
 | 4 | Git                        | GRANTED       | `git 2.55.0`, local commits possible. |
-| 5 | GitHub                     | NOT_AVAILABLE | Repo `yesu166/HC-3.0` is private; no `gh` auth token detected. No push/pull performed in this session. |
+| 5 | GitHub                     | NOT_AVAILABLE | Repo `yesu166/HoneyChain` is private; no `gh` auth token detected. No push/pull performed in this session. |
 | 6 | AWS (EC2 ap-south-1)       | BLOCKED       | `~/.aws` has no credentials files. EC2 deployment explicitly planned "tomorrow" by user; DO NOT claim live. |
 | 7 | SSH                        | BLOCKED       | `~/.ssh` contains only `known_hosts` — no private key for the `Honeychain` EC2 instance. |
 | 8 | Docker                     | BLOCKED       | `docker version` hangs (daemon not running). Attempt made 2026-09-10; will retry before claiming Fabric local run. |

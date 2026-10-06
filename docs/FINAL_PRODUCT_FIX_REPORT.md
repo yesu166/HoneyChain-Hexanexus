@@ -1,6 +1,6 @@
-# HoneyChain 3.0 — Final Full-Stack Product Fix Report
+# HoneyChain — Final Full-Stack Product Fix Report
 
-> **Prepared:** this session. **Scope:** Flutter app (`HC-3.0-main`), FastAPI backend (same repo),
+> **Prepared:** this session. **Scope:** Flutter app (`HoneyChain-main`), FastAPI backend (same repo),
 > and the TanStack Start admin/buyer/org portal (separate workspace). **Rule kept:** nothing is ever
 > presented as real that did not actually run; every demo/offline path is labelled; **no commits were made**.
 

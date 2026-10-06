@@ -42,7 +42,7 @@ services:
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: "10080"
       - key: CORS_ORIGINS
-        value: https://hc-web-portal.onrender.com
+        value: https://honeychain-web-portal.onrender.com
       # Secrets below are marked sync:false — they are set ONLY in the Render
       # dashboard (Service > Environment). Nothing secret is committed.
       - key: SUPABASE_URL

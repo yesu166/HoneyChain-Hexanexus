@@ -1,4 +1,4 @@
-"""Cryptographic primitives for HoneyChain 3.0.
+"""Cryptographic primitives for HoneyChain.
 
 Provides canonical JSON serialization, SHA-256 hashing, a hash-chain helper,
 and ECDSA P-256 sign/verify using the `cryptography` library.

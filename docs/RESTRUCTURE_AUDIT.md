@@ -1,9 +1,9 @@
-# HoneyChain 3.0 — Restructure Audit
+# HoneyChain — Restructure Audit
 
 Audit date: 2026-09-10
 Baseline commit: `f319697` (main, clean)
 
-Goal: compare the EXISTING repository against the HoneyChain 3.0 master
+Goal: compare the EXISTING repository against the HoneyChain master
 specification and classify every subsystem REAL / PARTIAL / SIMULATED / MOCK /
 NOT_CONFIGURED / BLOCKED — with verified evidence, not wishful claims.
 

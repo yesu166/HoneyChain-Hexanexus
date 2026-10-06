@@ -1,6 +1,6 @@
 import '../models/domain.dart';
 
-/// The single canonical QR payload contract for the whole app.
+/// The single canonical Honey Yatra QR payload contract for the whole app.
 ///
 /// Every consumer-facing QR encodes one of this app's own schemes and nothing
 /// else. Resolution against real records happens in the store, so this class

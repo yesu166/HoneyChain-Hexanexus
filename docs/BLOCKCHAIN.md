@@ -1,6 +1,6 @@
 # Blockchain strategy (honest)
 
-HoneyChain 3.0 anchors cryptographic commitments, not marketing claims.
+HoneyChain anchors cryptographic commitments, not marketing claims.
 This document explains exactly what the blockchain layer does and what it does
 NOT do, and how to move from the local dev ledger to a real network without
 changing the application layer.

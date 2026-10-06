@@ -1,704 +1,367 @@
-# 🍯 HoneyChain 3.0
+# HoneyChain
 
-**Simple for Beekeepers.**
+**Hive-to-Consumer Traceability and Rural-First Smart Beekeeping**
 
-**SIH26021 — Honey Chain:** A blockchain-based honey traceability and smart beekeeping platform designed for fragmented, multi-organization, and intermittently connected honey supply chains.
+HoneyChain is an integrated digital platform for the Indian honey value chain. It connects rural beekeepers, FPOs and collection centres, laboratories, processors, buyers, consumers, KVIC and institutional stakeholders around a common batch identity.
 
-> **Repository state audited:** `main` at commit `a140002c4cf338cbc43e77f357a2824c8ad422cc` (2026-09-20). This README separates implemented behavior, simulated/demo surfaces, historical runtime evidence, and remaining work.
+The platform is designed around one core idea:
 
-HoneyChain is a flexible trust infrastructure for fragmented honey supply chains — connecting independent organizations and offline field operations into one continuously verifiable provenance network.
+> **The evidence should travel with the honey.**
 
-HoneyChain combines:
+A harvest record created at the hive should remain connected to collection, laboratory verification, custody, processing, packaging and public verification instead of becoming a disconnected certificate, receipt or spreadsheet.
 
-- 🐝 Beekeeper-first mobile workflows
-- 🤖 AI-assisted hive intelligence
-- 📷 Structured evidence capture
-- 📶 Offline-first field operations
-- 🔐 Cryptographic evidence integrity
-- ⛓ Hyperledger Fabric provenance anchoring
-- 📱 QR-based Honey Passports
+## What HoneyChain provides
 
----
+- **Rural-first beekeeper experience:** offline-first hive, inspection, reading and harvest capture with multilingual/conversational assistance.
+- **Batch traceability:** hive → harvest → collection → laboratory → processing → packaging → custody → consumer.
+- **Honey Yatra QR:** a persistent package QR that identifies a server-backed Honey Passport; the QR does not contain the whole provenance record.
+- **Evidence integrity:** SHA-256 commitments, Merkle proofs, hash-chained event records and ECDSA P-256 device-reading attribution.
+- **Permissioned provenance:** Hyperledger Fabric for governed participants and confirmed ledger evidence.
+- **AI assistance:** Ask My Bee, hive-health screening, telemetry anomaly detection and productivity-prediction integration.
+- **FPO market linkage:** verified lots, procurement requests and sale/custody recording.
+- **KVIC field operations:** cluster visibility and a mobile processing-van submodule.
+- **Public consumer verification:** no-login Honey Passport lookup with honest verification and blockchain states.
 
-## What HoneyChain Does
+## Repository structure
 
-HoneyChain traces honey from hive to consumer, recording verifiable provenance events at every stage:
-
-```
-Beekeeper
-  → Hive / Apiary
-    → Inspection
-      → Harvest
-        → Field Verification
-          → Evidence Bundle
-            → Laboratory Certification
-              → Processing
-                → Packaging
-                  → Distribution
-                    → Honey Passport
-                      → Consumer QR Verification
-```
-
-Provenance events are linked through batch lineage, trust tiers, and cryptographic commitments. Each stage is evaluated for evidence completeness and can be anchored to Hyperledger Fabric when the blockchain adapter is configured and reachable.
-
-### Trust Tiers
-
-Every batch is evaluated into one of four tiers derived **only** from recorded events:
-
-| Tier | Meaning |
-|---|---|
-| `selfDeclared` | Beekeeper-reported harvest |
-| `organizationVerified` | FPO / collection center confirmed |
-| `labVerified` | Laboratory certification passed |
-| `blockchainAnchored` | Merkle root committed to distributed ledger |
-
-Merged lots take the weakest child tier. A tier does **not** certify purity, taste, nutrition, or health claims.
-
----
-
-## Key Differentiators
-
-### Flexible Organization Model
-
-```
-Organization
-  → Membership
-    → Assignment
-      → Domain workflow
+```text
+HoneyChain-Hexanexus/
+├── lib/                         Flutter mobile application
+├── backend/                    FastAPI backend and domain services
+├── fabric-gateway-service/     Node.js/TypeScript Fabric gateway
+├── fabric/                     Fabric/chaincode deployment material
+├── ml/                         ML training/data/model material
+├── supabase/                   PostgreSQL schema and migrations
+├── docs/                       Architecture, operations, testing and security
+├── web-portal/                 Integrated React/TypeScript web portal
+├── test/                       Flutter application tests
+└── backend/tests/              Backend tests
 ```
 
-The same backend supports different stakeholders — beekeeper, field officer, FPO, collection center, laboratory, processor, packager, logistics, retailer, regulator, consumer, administrator — without creating a separate system for every organization.
+## System architecture
 
-### Offline-First Field Operations
+```text
+RURAL / FIELD
+Flutter Beekeeper App
+  ├─ Offline-first hive + inspection + harvest capture
+  ├─ Hive readings / alerts
+  ├─ Ask My Bee
+  └─ Honey Yatra QR / Honey Passport
 
-Beekeepers can record observations, inspections, and harvests without continuous connectivity. Work is queued locally and synchronized when the network returns.
+                 HTTPS REST
+                      │
+                      ▼
+CENTRAL SERVICE
+Python / FastAPI
+  ├─ Authentication + RBAC
+  ├─ Sync + idempotent writes
+  ├─ Batch / harvest / custody workflows
+  ├─ Laboratory + certificate workflows
+  ├─ Market linkage
+  ├─ QR package identity + reuse detection
+  ├─ Honey Passport
+  ├─ AI / ML integrations
+  └─ Provenance / evidence services
 
-### Evidence-First Provenance
-
-HoneyChain does not merely store a claim that an event happened. It links provenance to structured evidence, hashes, signatures, and event history. An evidence bundle associates beekeeper, apiary, source hives, field inspection, GPS, photos, timestamp, device identity, quantity, and metadata — then commits the Merkle root to a trust layer.
-
-### Blockchain as Infrastructure
-
-Beekeepers do not manually manage blockchain transactions. Blockchain is used underneath the application as a verifiable trust layer, anchored only when the backend confirms the actual state.
-
-### One Domain, Multiple Experiences
-
-The same core system supports beekeeper, FPO, laboratory, processor, consumer, regulator, and administrator workflows through role-based access control.
-
----
-
-## System Architecture
-
-```
-Flutter Mobile App
-        │
-        ▼
-API Client / HoneyChainStore
-        │
-        ▼
-FastAPI Backend (Python)
-        │
-        ├──────── Domain Services
-        │         (hive, harvest, batch, custody, lab,
-        │          evidence, merkle, lineage, passport, sync)
-        │
-        ├──────── Supabase / PostgreSQL
-        │         (canonical data store)
-        │
-        ├──────── Evidence + Cryptographic Layer
-        │         (SHA-256, ECDSA P-256, Merkle trees)
-        │
-        └──────── BlockchainGateway
-                         │
-                         ▼
-                Node.js Fabric Gateway Service
-                  (@hyperledger/fabric-gateway)
-                         │
-                         ▼
-              Hyperledger Fabric (EC2)
-                         │
-                         └── Consortium/network boundary
+              ┌───────┴────────┐
+              ▼                ▼
+        PostgreSQL /        Fabric Gateway
+        Supabase              │
+              │               ▼
+              │        Hyperledger Fabric
+              ▼
+      Web Portal / APIs
+        ├─ FPO / Collection
+        ├─ Laboratory
+        ├─ Processor
+        ├─ Buyer / Procurement
+        ├─ KVIC / Institution
+        ├─ Admin / Platform
+        ├─ Beekeeper web surface
+        └─ Public Honey Passport
 ```
 
-**Key principle:** Flutter does not communicate directly with Fabric. The backend controls domain validation, evidence integrity, and blockchain interaction. The application talks to exactly one boundary — `BlockchainGateway` — which dispatches to one adapter selected by configuration.
+## Web portal
 
-### Blockchain Adapter Taxonomy
+The integrated web portal lives in `web-portal/`. It is the operational web layer over the HoneyChain backend; it is not a second production database.
 
-| Adapter | When Used | Behavior |
+Detailed capability documentation:
+
+- [Portal Capability Matrix](docs/PORTAL_CAPABILITY_MATRIX.md)
+- [Security Audit](docs/SECURITY_AUDIT.md)
+- [Honey Yatra QR & Honey Passport](docs/QR_HONEY_PASSPORT.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Data Model](docs/DATA_MODEL.md)
+- [API](docs/API.md)
+- [Deployment](docs/DEPLOYMENT.md)
+- [Testing](docs/TESTING.md)
+- [Known Limitations](docs/KNOWN_LIMITATIONS.md)
+
+## Portal roles and surfaces
+
+| Surface | Route | Primary purpose |
 |---|---|---|
-| `LocalLedgerAdapter` | Default; no EVM/Fabric credentials | In-process dev ledger; labeled `local`; never presented as a real chain |
-| `EVMBlockchainAdapter` | `BLOCKCHAIN_ADAPTER=evm` + RPC/wallet/contract | Returns `BLOCKCHAIN_NOT_CONFIGURED` when unconfigured |
-| `FabricBlockchainAdapter` | `BLOCKCHAIN_ADAPTER=fabric` + channel/chaincode | Real submission via Node.js gateway when the gateway is reachable |
+| Admin / Platform | `/admin`, `/admin/platform` | Platform administration, organisations, members, audit, health, ledger and cross-workspace operations |
+| KVIC / Institution | `/kvic` | Cluster oversight, statistics, alerts and mobile processing-van operations |
+| FPO / Collection | `/org` | Harvest intake, batch formation, laboratory requests, market linkage and operational notifications |
+| Beekeeper | `/beekeeper` | Hive, harvest and field-state visibility on the web |
+| Laboratory | `/lab` | Laboratory test queue, testing state and PASS/FAIL result workflow |
+| Processor | `/processor` | Incoming/verified lots, processing, packaging, custody and Honey Yatra QR package operations |
+| Buyer / Procurement | `/buyer` | Verified lots, procurement requests, seller decisions and fulfilment |
+| Ask My Bee | `/ask-my-bee` | Conversational operational guidance |
+| Alerts | `/alerts` | Action-required notifications |
+| Honey Passport | `/verify/<code>`, `/passport/<code>` | Public product verification without login |
 
-The gateway never fabricates confirmations. `CONFIRMED` requires confirmation from a reachable ledger.
+**Honey Yatra QR, market linkage, genealogy, blockchain status and the KVIC mobile-processing-van workflow are capabilities inside these surfaces, not separate portals.**
 
----
+## Beekeeper application
 
-## Beekeeper Mobile Experience
+The Flutter application is the rural-first field surface.
 
-**"The beekeeper should interact with the apiary, not the blockchain."**
+Core capabilities include:
 
-Core actions available to the beekeeper:
+1. Create and manage hives.
+2. Record hive conditions, inspections and field observations.
+3. Submit hive readings and receive understandable alerts.
+4. Record harvests while offline.
+5. Synchronise queued changes after reconnecting.
+6. Review harvest history and batch state.
+7. Review hive-health screening and associated guidance.
+8. Record/track treatment follow-up information where supported by the workflow.
+9. Open and review the Honey Passport.
+10. Use Ask My Bee for natural-language assistance.
+11. Use camera/manual QR scanning for Honey Yatra verification.
+12. Continue working locally when the backend is unavailable, with the UI explicitly showing offline or unverified states instead of inventing success.
 
-- Check hive health
-- Record inspection
-- Take photo
-- Record voice observation
-- Record harvest
-- Review hive health scores and risk levels
-- Review tasks
-- View harvest history
-- View Honey Passport
-- Ask HoneyChain (AI-assisted assistant)
+See [Mobile Live Flow](docs/MOBILE_LIVE_FLOW.md) and [Role / Workspace UX Map](docs/ROLE_UX_MAP.md) for the current mobile behavior.
 
-Technical infrastructure is hidden unless the beekeeper explicitly opens technical details.
+## Honey Yatra QR
 
-**UX principles:**
-- Large touch targets
-- Minimal typing
-- Camera-first workflows
-- Voice-ready workflows
-- Local-language-ready UI
-- Offline status indicator
-- Automatic synchronization when connected
+Honey Yatra QR is the product name for the consumer-facing QR capability.
 
----
+The design separates the physical label identity from the provenance data:
 
-## Ask HoneyChain
-
-Ask HoneyChain currently has two assistive surfaces:
-
-- **Local intent parser:** deterministic, on-device intent handling for supported HoneyChain actions/questions, with a fallback instead of inventing unsupported answers.
-- **AI Snapshot research assistant:** an AI-native research/search surface for general honey-chain concepts and related knowledge; it does not create, certify, or modify supply-chain records.
-
-The hive-health path has two distinct layers: the existing **offline Decision Tree screening flow** in Flutter, trained/exported from the repository's `SYNTHETIC_PROTOTYPE` dataset, and the newer backend **telemetry anomaly engine** used by IoT ingestion/simulation. The telemetry engine is a 28-feature One-Class SVM anomaly detector when its external model artifacts are available; it does **not** diagnose biological disease. The repository does not currently contain those One-Class SVM artifact files, so a checkout without externally supplied artifacts must report ML as unavailable rather than fabricate inference.
-
-**Example interaction:**
-
-> **Beekeeper:** "My bees are less active today."
-
-> **HoneyChain:**
-> - Identifies the observation
-> - Associates it with a hive where context exists
-> - Provides an AI-assisted risk assessment
-> - Recommends an appropriate next action
-> - Allows the beekeeper to save the structured observation
-
-**Hard boundary:** AI does not diagnose disease, replace laboratory testing, issue/revoke certificates, change batch quantities/custody, or alter verification state. It may surface a risk signal or recommend inspection. The current backend risk engine is rule/evidence-based and explicitly reports "insufficient data" when evidence is thin.
-
----
-
-## Hive Productivity Prediction
-
-HoneyChain now exposes the existing trained productivity model through the Flutter app without replacing the existing hive-health logic.
-
-### Current flow
-
-```
-Hive readings / model inputs
-        ↓
-Flutter ProductivityService
-        ↓
-FastAPI POST /predict-productivity
-        ↓
-honey_productivity_model.joblib
-        ↓
-Predicted honey yield
-        ↓
-Hive / Home / More productivity surfaces
+```text
+Printed QR
+   │
+   │ stable verification URL / package identity
+   ▼
+HoneyChain public verification endpoint
+   │
+   ▼
+Current package + batch record
+   ├─ source / origin
+   ├─ harvest
+   ├─ laboratory evidence
+   ├─ processing / custody
+   ├─ package state
+   └─ blockchain anchor state
 ```
 
-The current client contract sends the four model inputs expected by the existing service:
+The QR is **not itself a cryptographic signature**. It identifies a server-backed record. The backend applies rate limiting and returns only public, PII-free passport information.
 
-- `apiary`
-- `total_brood`
-- `varroa_2`
-- `hygiene_2`
+Reuse/clone detection records scan history and can flag signals such as unknown codes, recalled packages, duplicate prints, reuse by another organisation and excessive scans.
 
-The trained artifact is documented in the repository as an **ExtraTreesRegressor**. The Flutter client does not invent or calculate the model yield locally; it displays the value returned by the model service and keeps the latest per-hive prediction data locally so the productivity screen can reopen offline.
+Existing QR schemes remain backward-compatible in the parser where required. Human-facing documentation and UI use **Honey Yatra QR**.
 
-**Important limitation:** productivity prediction is an estimate from the trained model. It is not a guaranteed harvest quantity and should not be interpreted as a biological diagnosis or laboratory measurement.
+## Provenance and evidence
 
-The feature is covered by dedicated Flutter tests for the service contract and productivity screen. The external model-serving artifact/service remains a separate runtime dependency and is not silently bundled into the Flutter application.
+The evidence model is layered:
 
----
-
-## Offline-First Design
-
-```
-Local event
-  → local queue
-    → connectivity returns
-      → synchronization
-        → server validation
-          → canonical persistence
-            → provenance update
-              → blockchain anchoring (when configured/available)
-```
-
-- Work recorded while offline keeps a `pending` status with retry counters persisted to local storage.
-- When connectivity returns, the sync engine drains the queue in dependency order.
-- Each item is retried up to a cap; records are protected against duplicate sync through idempotent `client_id` upserts.
-- Fork preservation: both branches of a conflict are preserved and surfaced; merging is an explicit operation.
-
-**Current limitation:** the repository proves concrete offline/sync paths and recent create/sync fixes, but full offline synchronization of every provenance entity is not established as a production guarantee. The Supabase sync fallback handles tables without a `client_id` conflict arbiter, but select-then-insert remains race-prone until database uniqueness constraints are guaranteed everywhere.
-
-**Important:** Offline mode does not mean blockchain operates offline. The field record can be created offline; blockchain anchoring occurs when the backend and network are available.
-
----
-
-## Evidence + Cryptographic Integrity
-
-### Evidence Bundle
-
-A Harvest Evidence Bundle may associate:
-
-- Beekeeper and apiary identity
-- Source hives
-- Hive intelligence records
-- Field inspection data
-- GPS coordinates
-- Photos (content hashes — raw files never reach the ledger)
-- Timestamps
-- Device identity
-- Field officer signature
-- Quantity and metadata
-
-### Cryptographic primitives
-
-| Primitive | Implementation |
-|---|---|
-| Canonical serialization | Object keys sorted, nulls omitted, numbers normalized, ISO-8601 timestamps |
-| Hash | SHA-256 (hex-encoded) |
-| Payload hash | `sha256(canonical_json(payload))` |
-| Actor signatures | ECDSA P-256 (NIST P-256 / secp256r1), DER-encoded |
-| Merkle tree | Leaves = canonical hash of each evidence object; internal nodes use sorted-pair hashing; root anchored to trust layer |
-| Hash chain | Offline event ledger with `previous_event_hash` references — tamper-evident local history |
-
-Blockchain stores verifiable references and commitments (Merkle roots, event hashes). Raw sensitive data, PII, photos, and lab sheets are **never** placed on-chain.
-
----
-
-## Hyperledger Fabric
-
-### Network Configuration
-
-| Property | Value |
-|---|---|
-| Hosting | AWS EC2 (ap-south-1) |
-| Fabric Version | v2.5.16 |
-| Channel | `mychannel` |
-| Chaincode | `honeychain` |
-| Chaincode Version | `2.0` |
-| Chaincode Sequence | `6` |
-| Org1 Approval | Yes |
-| Org2 Approval | Yes |
-| Endorsement Plugin | escc |
-| Validation Plugin | vscc |
-| Org1 Peer | `peer0.org1.example.com:7051` |
-| Orderer | `orderer.example.com:7050` |
-
-### Integration
-
-| Component | Technology |
-|---|---|
-| Gateway Service | Node.js (`@hyperledger/fabric-gateway` ^1.4.0, gRPC + TLS) |
-| Service Runtime | systemd (`honeychain-fabric-gateway`), port 9446 on EC2 |
-| Backend Adapter | Python `FabricBlockchainAdapter` → HTTP → Node.js gateway |
-| Protocol | `POST /evaluate` for reads, `POST /submit` for writes |
-
-**Important:** The deployed chaincode is **not** the local `fabric/chaincode/tracer/`. The deployed contract is `honeychain.js` with a different function interface. The local `tracer` source in `fabric/chaincode/tracer/` is a development reference only.
-
-The Node gateway is now allowlist-based rather than accepting arbitrary chaincode function names. Its write path obtains the real Fabric proposal transaction ID and waits for commit status before reporting confirmation. The gateway remains behind the private/SSH-tunnel boundary until service authentication is added.
-
-### Chaincode Functions
-
-**Reads:** `getEvent`, `getEventsByType`, `getBatch`, `getAllBatches`, `getAnchor`, `verifyMerkleRoot`, `getLineage`, `getCertificate`, `getCertificatesForBatch`, `getHistory`, `scanRange`
-
-**Writes:** `submitEvent`, `createBatch`, `transitionBatch`, `recordLineage`, `anchorMerkleRoot`, `registerCertificate`, `revokeCertificate`
-
-**Verification note:** These interfaces were documented from the existing deployment evidence/audit; this README does not claim a fresh live-network verification on every commit.
-
----
-
-## 🟠 Live Runtime Verification
-
-HoneyChain includes two categories of Fabric tests:
-
-1. **Unit tests** — Fabric HTTP interactions are mocked and labeled `UNIT`. These run without any network dependency.
-2. **LIVE_RUNTIME tests** — designed to connect to the real AWS EC2 Fabric gateway and execute actual chaincode transactions when the gateway is reachable.
-
-The repository contains evidence of previous live Fabric verification, including committed transactions and read-back checks. The latest source audit was read-only and did **not** independently re-run the EC2 transactions.
-
-### Gateway Health / Live Evidence
-
-The repository's recorded verification evidence includes a gateway health response showing:
-
-```json
-{
-  "status": "connected",
-  "channel": "mychannel",
-  "chaincode": "honeychain",
-  "chaincode_version": "2.0",
-  "chaincode_sequence": 6,
-  "peer": "localhost:7051",
-  "msp_id": "Org1MSP"
-}
+```text
+Hive
+  ↓
+Harvest
+  ↓
+Batch
+  ↓
+Laboratory verification
+  ↓
+Processing / packaging
+  ↓
+Custody
+  ↓
+Honey Yatra QR
+  ↓
+Public Honey Passport
 ```
 
-Recorded live transaction evidence includes successful `anchorMerkleRoot`, `submitEvent`, and `createBatch` operations, plus a deliberately invalid event that was rejected by Fabric chaincode validation. These are **recorded evidence from the project**, not a claim that the current runtime is continuously available.
+Integrity mechanisms include:
 
-### Block-Level Proof
+- canonical payload hashing with SHA-256
+- Merkle bundle roots and proofs
+- hash-chained offline event records
+- ECDSA P-256 for IoT device-reading attribution
+- Hyperledger Fabric commitments and event anchoring
+- explicit transaction states such as pending, submitted, confirmed, failed and unavailable
 
-Recorded evidence also includes a channel-height change from 41 to 42 and a matching previous-block hash, supporting that the documented write extended the channel ledger.
+HoneyChain deliberately distinguishes **record integrity/provenance** from physical honey authenticity. A blockchain anchor proves what was recorded and committed; it does not physically prevent adulteration of the contents of a jar.
 
----
+## AI and ML
 
-## Honey Passport / QR Verification
+### Ask My Bee
 
-The Honey Passport provides consumer-facing QR verification of honey provenance.
+Ask My Bee is the conversational interface for operational assistance. The backend exposes AI status and chat endpoints and uses tool calling for domain actions. Write operations require confirmation.
 
-### Passport Journey
+### Hive-health screening
 
+The current application includes a Decision Tree based screening workflow. It is a risk/screening aid and not a medical-style diagnosis system.
+
+### Telemetry anomaly detection
+
+Telemetry anomaly detection uses a One-Class SVM integration path.
+
+### Productivity prediction
+
+Productivity prediction is treated as a separate model-service integration. The portal reports the model as unavailable when the service is not configured rather than fabricating a prediction.
+
+## Government / KVIC operations
+
+The institutional surface provides:
+
+- cluster and organisation status
+- programme/platform statistics
+- batch trust mix
+- alerts requiring institutional attention
+- field workflow visibility
+- mobile processing-van visits
+- visit lifecycle management
+- field sample collection
+- field sample result capture
+
+A KVIC field result is not the same as an accredited laboratory certificate; the van module records field operations without silently changing the laboratory trust state.
+
+## Market linkage
+
+Market linkage is integrated into the FPO, processor and buyer workflows:
+
+```text
+Verified batch
+      ↓
+Seller listing
+      ↓
+Buyer request
+      ↓
+Seller accept / reject
+      ↓
+Fulfilment
+      ↓
+Sale custody event
 ```
-Hive → Harvest → Verification → Lab → Processing → Packaging → Distribution
-```
 
-### Current QR contract
+Quantity checks and state transitions are enforced by the backend. The buyer UI is not treated as the security boundary.
 
-The QR currently contains a **plain `honeychain://trace/<productCode>` or legacy `honeychain://jar/<jarId>` identifier**. It does **not** embed a cryptographic signature or hash. Scanning resolves local records first and can fall back to the public backend passport endpoint for an unknown code. A real server response can expose the evidence root/data hash and real Fabric transaction hash when an actual anchor exists; the app does not fabricate these values.
+## Authentication and authorization
 
-**Remaining QR-proof work:** bind the QR/passport directly to the canonical batch/evidence commitment so the consumer flow can recompute the expected SHA-256/Merkle root and compare it with the recorded Fabric anchor as one explicit `VERIFIED` check. Merely displaying a hash is not the same as this proof loop.
+HoneyChain uses server-side role/permission enforcement.
 
-### Statuses
+Backend roles include:
 
-| Status | Meaning |
-|---|---|
-| `RECORDED` | Event captured in the system |
-| `INFERRED` | Derived from linked events |
-| `CERTIFIED` | Laboratory certification passed |
-| `VERIFIED` | Evidence integrity confirmed |
-| `MISMATCH` | Evidence no longer matches anchored commitment |
-| `REVOKED` | Certificate revoked |
-| `DISPUTED` | Under review |
+- beekeeper
+- FPO
+- laboratory
+- processor
+- buyer
+- institution
+- platform oversight
+- admin
+- retailer where applicable
 
-**Important:** A trust tier and blockchain anchor do **not** certify the physical purity or authenticity of honey. See [Scientific Limitation](#scientific-limitation) below.
+The permission matrix is defined in `backend/app/core/rbac.py`.
 
----
+The browser cannot grant itself a role by hiding or displaying a button. Backend authorization remains authoritative.
 
-## User Roles
+The web portal also contains server-side request isolation and authenticated-route gates. Public Honey Passport endpoints intentionally remain unauthenticated.
 
-HoneyChain enforces a server-side RBAC matrix (`backend/app/core/rbac.py`) across 7 roles and ~24 actions:
+## Development
 
-| Role | Description |
-|---|---|
-| `beekeeper` | Dashboard, hive health, risk insight, record harvest, view history |
-| `fpo` | Harvests, batches, custody, verification, traceability, marketplace |
-| `lab` | Verify batches (PASS/FAIL), issue/revoke certificates |
-| `processor` | Custody, processing, split/merge genealogy, corrections |
-| `buyer` | Batch audit, published passports |
-| `institution` | Audit access across organizations |
-| `admin` | Full system access, audit, demo tools |
-
-Scoping: beekeepers see only their own data; FPO/processor see their org's data; lab/buyer/institution/admin have broader read access. Authorization is enforced by the backend RBAC layer; the broader database policy surface still requires hardening before production.
-
----
-
-## Technology Stack
-
-The repository remains a Flutter-first application. The current `pubspec.yaml` identifies Flutter/Dart, `shared_preferences`, HTTP/FastAPI integration, Supabase, QR generation/scanning, connectivity, and cryptographic hashing as the active mobile dependencies. The backend/blockchain stack documented below remains the intended/implemented integration boundary; individual live services still depend on deployment configuration.
-
-### Verified Technologies
-
-| Layer | Technology | Version |
-|---|---|---|
-| Mobile Frontend | Flutter | 3.47.1 |
-| Language (Mobile) | Dart | 3.13.1 |
-| Backend Framework | FastAPI | 0.141.1 |
-| Language (Backend) | Python | 3.14.6 |
-| Data Validation | Pydantic | 2.13.5 |
-| Database | PostgreSQL (Supabase) | — |
-| Supabase Client | supabase-py | 2.31.0 |
-| Cryptography | SHA-256, ECDSA P-256 | cryptography 50.0.1 |
-| JWT | PyJWT (HS256) | — |
-| Blockchain | Hyperledger Fabric | v2.5.16 |
-| Fabric SDK | @hyperledger/fabric-gateway | ^1.4.0 |
-| Fabric Gateway | Node.js + Express | ^4.18 |
-| gRPC | @grpc/grpc-js | ^1.10.0 |
-| QR Generation | qr_flutter | ^4.1.0 |
-| QR Scanning | mobile_scanner | ^7.4.0 |
-| Connectivity | connectivity_plus | ^7.3.1 |
-| Local Storage | shared_preferences | ^2.3.0 |
-| ML | Rule-based risk engine | (not a trained neural net) |
-| Testing (Backend) | pytest | 9.1.1 |
-| Testing (Frontend) | flutter_test | — |
-| CI/CD | GitHub Actions | Flutter CI |
-| Containerization | Docker | 29.7.2 (Dockerfile present) |
-
----
-
-## Current Verified Status
-
-### What Is Verified
-
-| Component | Status | Evidence |
-|---|---|---|
-| Flutter app (offline-first) | 🟡 VERIFIED IN TEST SUITE | Latest GitHub CI repair commit reports `flutter test` → 141 passed; physical-device E2E remains unverified |
-| Flutter ↔ backend (beekeeper path) | ✅ INTEGRATED | `honey_api_service` — real login, server hives/harvests, evidence/Fabric status path |
-| FastAPI backend | 🟡 VERIFIED IN TEST SUITE | Latest repository commit reports 207 backend tests passing; checked-in `TEST_RESULTS.md` still contains the older 157/3 baseline, so this is a commit-reported count rather than a fresh audit execution |
-| Supabase schema (migrations 001–008) | ✅ APPLIED | Migrations documented as applied to the project |
-| Backend repository abstraction | ✅ REAL | InMemory + Supabase repositories |
-| Evidence bundles + Merkle integrity | ✅ VERIFIED | Unit tests with tamper detection |
-| Event ledger (hash-chained) | ✅ VERIFIED | Append-only, fork-preserving |
-| BlockchainGateway + tx state machine | ✅ VERIFIED | PENDING → SUBMITTED → CONFIRMED |
-| Local dev ledger | ✅ REAL | Labeled `local` in responses |
-| EVM adapter boundary | ⚠️ NOT CONFIGURED | Returns `BLOCKCHAIN_NOT_CONFIGURED` |
-| Fabric adapter | 🟡 LIVE EVIDENCE + CURRENT CODE PATH | Previous EC2 transactions are documented; current source propagates real Fabric tx IDs/commit status, but this audit did not re-run the live EC2 network |
-| Lab certificate issue/verify/revoke | ✅ VERIFIED | Content-hash anchoring + revocation |
-| Trust tiers | ✅ VERIFIED | Weakest-tier merge logic tested |
-| RBAC matrix | ✅ VERIFIED | 7 roles × ~24 actions, server-side |
-| Honey Passport | 🟡 REAL + ONLINE PATH | Server-backed PII-free passport; QR is still an unsigned identifier and the full QR→Merkle→Fabric proof loop is not yet complete |
-| Hive Intelligence risk engine | ✅ OFFLINE SCREENING | Flutter Decision Tree inference is implemented/exported from the synthetic prototype dataset; it is assistive screening, not disease diagnosis |
-| Hive productivity prediction | 🟡 INTEGRATED | Flutter Home/Hive/More surfaces call the existing `POST /predict-productivity` service; the trained `honey_productivity_model.joblib` is an ExtraTreesRegressor and predictions are cached locally per hive |
-| Localization | ✅ IMPLEMENTED | Centralized app strings support English, Hindi, Bengali, Punjabi, Tamil, Malayalam, and Marathi with local persistence |
-| ML artifacts / telemetry model | 🟡 PARTIAL | The backend 28-feature One-Class SVM inference service is wired into IoT ingestion/simulation, but `one_class_svm.joblib`, `scaler.joblib`, and `production_threshold.joblib` are not present in the repository checkout; the dedicated real-model test is therefore skipped when those artifacts are absent |
-| Admin / oversight routing | ✅ FIXED IN CURRENT SOURCE | `RootGate` routes the active platform workspace separately from the beekeeper workspace |
-
-### What Is NOT Verified / NOT Complete
-
-| Component | Status | Current gap |
-|---|---|---|
-| Live Supabase writes | NOT VERIFIED | No live write/read E2E was executed in this audit |
-| Full QR cryptographic verification | NOT COMPLETE | QR is a plain identifier; full QR → real batch → recomputed Merkle root → Fabric anchor comparison remains to be wired as one consumer proof path |
-| Harvest evidence → Fabric anchor | PARTIAL | Generic evidence bundles compute a real Merkle root, but the current harvest entity path submits an empty batch reference to the anchor adapter; batch-scoped anchoring is the canonical persisted path |
-| EVM anchoring | NOT CONFIGURED | No RPC + wallet + deployed contract |
-| Public Fabric access | PRIVATE / SSH TUNNEL | EC2 gateway port 9446 is not publicly exposed |
-| Docker container builds | NOT VERIFIED IN THIS AUDIT | Docker runtime was not exercised here |
-| Camera/QR on hardware | NOT TESTED | No physical device access in the audit environment |
-| Real Android device E2E | NOT TESTED | No device/emulator in the audit environment |
-| Production release signing | NOT READY | Release APK is debug-signed; production keystore is still required |
-| Physical IoT protocols | NOT COMPLETE | The real telemetry ingestion contract, device identity/signatures, validation, notifications, and simulator are implemented; physical MQTT/LoRa/BLE/Wi-Fi/cellular adapters and real sensor deployment are not established as live |
-| Served telemetry ML | PARTIAL | 28-feature One-Class SVM inference is wired into the backend IoT pipeline and simulator, but the required model/scaler/threshold artifacts are external to the current repository checkout; this is anomaly detection, not disease diagnosis |
-
----
-
-## Test Results
-
-### Backend — pytest
-
-**Test status:** the repository's earlier audit recorded **207 backend tests passing** and the latest beekeeper-flow repair CI run reports **141 Flutter tests passing**. Since that audit, the repository also includes dedicated HoneyChain productivity model contract/UI tests, localization regression coverage, and the repaired Create Hive / Bee Health flows. This README update is a source/commit/CI inspection; it does not claim a fresh local test execution from this documentation edit.
-
-| Test File | Coverage |
-|---|---|
-| `test_fabric_adapter.py` | 25 passed (UNIT, mocked HTTP) + 3 skipped (LIVE_RUNTIME) |
-| `test_auth.py` | Login, JWT, demo identity |
-| `test_hives.py` / `test_harvests.py` / `test_batches.py` | CRUD + scoping |
-| `test_custody.py` | Custody transfers |
-| `test_lab.py` | Lab request/result flow |
-| `test_passport.py` | Public passport resolution |
-| `test_sync.py` | Idempotent offline sync |
-| `test_rbac.py` | Authorization + resource scope |
-| `test_crypto.py` | Canonical serialization, SHA-256, ECDSA |
-| `test_merkle.py` | Root/proof/tamper |
-| `test_event_ledger.py` | Hash chain, tamper detection, fork preservation |
-| `test_evidence.py` | Bundles, verify, proofs, tamper |
-| `test_certificates.py` | Issue/revoke/verify |
-| `test_lineage.py` | State machine transitions + custody holder |
-| `test_gateway.py` | Local vs EVM/Fabric boundary honesty |
-| `test_rbac_matrix.py` | Matrix + scope helpers |
-| `test_new_routes.py` | API surface for new endpoints |
-
-The 3 skipped tests are `LIVE_RUNTIME` tests gated by `FABRIC_GATEWAY_URL`.
-
-### Flutter — flutter test
-
-**141 passing — latest CI report on the current repaired main line.** Coverage includes beekeeper portal, recording harvests, hive details/alerts, honey passport drilldown, rule-based disease screening, IoT simulation warnings, responsive smoke tests, backend API service, offline queue + restart durability, no-duplicate sync, backend-mode guards, API config policy, auth/session state machine, workspace switching, and online passport verification client.
-
-**One session, many workspaces:** a signed-in account can switch between the Beekeeper, Organization / FPO, Buyer and Consumer experiences from the More tab without logging out and without re-entering a persona login. The active workspace is persisted, a backend-backed account is narrowed to the workspaces its role is actually allowed to enter, and `logout` never deletes local domain records or the pending-sync queue.
-
-**Beekeeper ↔ backend integration (`lib/services/honey_api_service.dart`):** when the app is built with `--dart-define=API_BASE_URL=…`, the login screen offers a real backend sign-in. Once signed in, My Hives shows server hives, create hive posts to the backend, harvest recording pushes to the API, and the blockchain screen maps backend chain status. The exact live Fabric path depends on the configured backend/gateway runtime.
-
-**Config policy (fail-fast):** the app does not hardcode a production backend or secrets. `API_BASE_URL` is injected at build time; production/staging must be `https://`, and plain `http://` is allowed only for local development hosts. A compiled-but-rejected URL aborts startup with an explicit error instead of silently running without a backend.
-
-### Android builds
-
-- **Debug APK** — GitHub Actions now builds `flutter build apk --debug` and uploads `app-debug.apk` as the `honeychain-debug-apk` workflow artifact.
-- **GitHub Release APK** — the current `.github/workflows/dart.yml` creates a GitHub Release only for a `main` push whose commit message starts with `release:`. The current release-triggering run is Run #94 and was still `in_progress` at audit time, so no release was claimed as available yet.
-- **Signing** — the CI APK is debug-signed and is not Play-Store-ready. A production keystore is still required for a distributable release build.
-- **Real-device E2E** — NOT TESTED in the audit environment: no Android device/emulator was available.
-
-### Test Integrity
-
-- Unit tests use mocked Fabric HTTP interactions and are labeled `UNIT`.
-- LIVE_RUNTIME tests are separate and require a reachable Fabric gateway.
-- No simulated blockchain success should be represented as live blockchain verification.
-- Truth status is documented in [`docs/FINAL_TRUTH_REPORT.md`](docs/FINAL_TRUTH_REPORT.md).
-
----
-
-## Security Notes
-
-- Secrets stay server-side; `.env` files are intended to be gitignored.
-- Supabase secret/service-role credentials are not shipped to Flutter; only the publishable client key is intended for the app.
-- **No third-party API key was detected in the current repository scan** for common Google/Gemini, OpenAI, GitHub, AWS, Supabase-secret and private-key patterns.
-- A development-only JWT fallback string exists in configuration and must never be used as a production secret.
-- Blockchain private keys / MSP material should never be committed.
-- Authentication and authorization remain backend-controlled (RBAC matrix).
-- Idempotency protects repeated operations (`client_id` upserts).
-- Conflict history is preserved (fork-recording, not auto-merge).
-- Raw photos / lab sheets / PII are not intended to be placed directly on-chain — only hashes/commitments.
-- **Production hardening required:** the Node.js Fabric gateway's privileged `/submit` and `/evaluate` endpoints must be authenticated and restricted/allowlisted before network exposure.
-- **Production hardening required:** Flutter JWT storage currently uses `SharedPreferences`; a platform-secure credential store should be used for production.
-- **Production hardening required:** database RLS policies and transitional direct-Supabase sync paths need alignment with backend RBAC.
-- Rate limiting exists for the public passport endpoint (in-memory; Redis recommended for production).
-- Tamper/demo endpoints are gated behind `DEMO_MODE` / 403 in production where implemented.
-
----
-
-## Roadmap
-
-### ✅ Verified / Implemented
-
-- Offline-first mobile workflows
-- Structured evidence capture + Merkle integrity
-- Batch lineage + trust tiers
-- FastAPI backend with RBAC
-- Supabase schema/migrations
-- Local dev ledger (honest, labeled `local`)
-- Hyperledger Fabric adapter and recorded live-runtime evidence
-- Honey Passport (PII-free, public)
-- Rule-based hive intelligence
-- Offline Decision Tree bee-health screening from the repository's synthetic prototype dataset
-- Backend 28-feature telemetry anomaly engine shared by simulator and telemetry ingestion
-- QR camera scanning
-- Voice-ready observation recording
-- Split / merge / correction business logic
-
-### 🟡 In Progress / Partially Verified
-
-- Full offline synchronization across all provenance entities
-- Supabase live persistence / end-to-end write verification
-- Full consumer QR proof: QR identifier → real passport → recomputed evidence commitment → Fabric comparison
-- Harvest evidence anchor semantics: attach harvest evidence to a canonical batch anchor before presenting it as blockchain-anchored
-- EVM adapter (boundary code exists, no network configured)
-- Physical IoT protocol adapters and real sensor ingestion
-- External One-Class SVM model/scaler/threshold artifacts in the repository and a reproducible deployed-model artifact pipeline
-- Real-world validation of the telemetry anomaly model
-- Disease screening from photos (not a validated diagnostic capability)
-- Multi-organization Fabric topology hardening
-
-### 🔵 Planned / Production Hardening
-
-- Authenticated Node.js Fabric gateway service before any network exposure (the function allowlist is already present)
-- Canonical QR/passport cryptographic proof flow with explicit recomputation + Fabric comparison
-- Secure platform-backed JWT storage
-- Alignment of Supabase RLS with backend RBAC
-- 24/7 public Fabric gateway endpoint (requires secure deployment rather than the current SSH-tunnel arrangement)
-- Stronger token refresh/revocation
-- Richer beekeeper localization
-- Advanced AI models for hive health
-- IoT integrations
-- Expanded organization workflows
-- Advanced analytics
-- Photo/media object storage
-- Redis-backed rate limiting for multi-instance deployment
-
----
-
-## Current Implementation Priorities
-
-The next work should stay inside the existing architecture — no reconstruction or repository restructure is required:
-
-1. **Provenance correctness:** finish harvest evidence → canonical batch anchoring and verify the persisted relationship.
-2. **Consumer proof:** make the QR resolve to the real passport and expose the real evidence root / Fabric tx reference; then add the explicit recompute-and-compare verification step. Do not fake a hash just to populate the QR.
-3. **Supabase E2E:** execute real Flutter → FastAPI → Supabase write/read and offline-sync recovery tests.
-4. **Hardware path:** test QR scanning on a physical Android device and normalize real IoT inputs behind the existing telemetry pipeline.
-5. **Intelligence:** keep the existing offline Decision Tree screening honest and assistive; the new telemetry One-Class SVM path is already wired, but requires its external model artifacts before real-model inference can run.
-6. **Security:** add service authentication to the private Fabric gateway before exposing it beyond the current boundary.
-
-## Demo Flow
-
-### Backend API Demo (Local)
+### Backend
 
 ```bash
 cd backend
-../.venv_backend/Scripts/uvicorn app.main:app --port 8000
-# Open http://localhost:8000/docs
-# Use demo credentials documented in docs/DEMO.md
+uvicorn app.main:app --reload --port 8001
 ```
 
-See [`docs/DEMO.md`](docs/DEMO.md) for a scripted walkthrough, demo credentials, and step-by-step instructions.
+### Web portal
 
-### SIH Demonstration Flow
+```bash
+cd web-portal
+npm install
+npm run dev
+```
 
-| Step | Action | Status |
-|---|---|---|
-| 1 | Beekeeper opens mobile app | ✅ Runtime-tested workflow |
-| 2 | Checks hive health scores | ✅ Offline Decision Tree + rule/evidence-based hive intelligence |
-| 3 | Ask HoneyChain identifies an observation | ✅ AI-assisted recommendation |
-| 4 | Beekeeper performs inspection | ✅ Workflow tested |
-| 5 | Takes photo | ⚠️ Requires device camera |
-| 6 | Saves observation offline | ✅ Offline queue tested |
-| 7 | Connectivity returns | ✅ Sync path tested |
-| 8 | Record synchronizes to backend | ✅ Idempotent sync path |
-| 9 | Harvest is recorded | ✅ API + tests |
-| 10 | Evidence bundle is created | ✅ Merkle root computed |
-| 11 | Evidence commitment generated | ✅ SHA-256 + Merkle tree |
-| 12 | Blockchain anchor submitted | ⚠️ Requires configured/reachable Fabric gateway |
-| 13 | Fabric commits transaction | ⚠️ Previous live evidence exists; not continuously available |
-| 14 | Backend verifies anchor | ⚠️ Requires configured/reachable Fabric gateway |
-| 15 | Honey Passport QR displayed | ✅ QR generation |
-| 16 | Consumer verifies provenance | ⚠️ Device scan requires camera; manual verification path exists |
-| 17 | Tampered data produces mismatch | ✅ Tamper detection logic |
+### Quality checks
 
----
+```bash
+# web portal
+npm run typecheck
+npm run lint
+npm test
+npm run build
 
-## Scientific Limitation
+# backend
+pytest
 
-> **Blockchain verifies the integrity and provenance of recorded information; it does not independently prove the physical purity or authenticity of honey.**
+# Flutter
+flutter analyze
+flutter test
+```
 
-Laboratory testing is required for claims about:
+Use the repository's own environment templates and never place server secrets into Flutter `--dart-define` values or Vite `VITE_*` variables unless they are explicitly public values.
 
-- Purity
-- Adulteration
-- Chemical composition
-- Microbiological quality
-- Other physical properties
+## Deployment
 
-A `blockchainAnchored` lot can still be counterfeited at the physical-good level. The system proves provenance of **records**, not the physical product. Trust tiers reflect recorded evidence; they do not certify taste, nutrition, or health claims.
+The backend Render definition is in the repository root `render.yaml`.
 
----
+The web portal has its own deployment definition in:
 
-## Documentation
+```text
+web-portal/render.yaml
+```
 
-Complete documentation is in [`docs/`](docs/):
+The portal supports Vercel/Nitro output and a Node-server Render target.
 
-| Document | Description |
-|---|---|
-| [`FINAL_TRUTH_REPORT.md`](docs/FINAL_TRUTH_REPORT.md) | Verified state audit — everything evidence-backed |
-| [`TEST_RESULTS.md`](docs/TEST_RESULTS.md) | Verified test matrix with transaction evidence |
-| [`BLOCKCHAIN.md`](docs/BLOCKCHAIN.md) | Blockchain strategy and adapter taxonomy |
-| [`FEATURE_STATUS.md`](docs/FEATURE_STATUS.md) | Feature completion status (honest classifications) |
-| [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System architecture and deployment modes |
-| [`SERVICE_STATUS.md`](docs/SERVICE_STATUS.md) | Component reality matrix |
-| [`TECH_STACK_VERSIONS.md`](docs/TECH_STACK_VERSIONS.md) | Verified technology versions |
-| [`API.md`](docs/API.md) | HTTP API reference |
-| [`CRYPTOGRAPHY.md`](docs/CRYPTOGRAPHY.md) | Cryptographic primitives and Merkle structure |
-| [`SECURITY.md`](docs/SECURITY.md) | Security model and guarantees |
-| [`KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md) | Explicit, honest limitations |
-| [`TESTING.md`](docs/TESTING.md) | Test suite documentation |
-| [`DEMO.md`](docs/DEMO.md) | Demo walkthrough |
-| [`ROLE_MATRIX.md`](docs/ROLE_MATRIX.md) | RBAC permission matrix |
-| [`ASSUMPTIONS.md`](docs/ASSUMPTIONS.md) | Assumptions and decisions record |
-| [`AUTH_SESSION_MODEL.md`](docs/AUTH_SESSION_MODEL.md) | One-session auth state machine + durable JWT restore |
-| [`ROLE_UX_MAP.md`](docs/ROLE_UX_MAP.md) | Workspace switching without re-login, role→workspace map |
-| [`QR_HONEY_PASSPORT.md`](docs/QR_HONEY_PASSPORT.md) | QR contract + Honey Passport + online verification |
-| [`PROVENANCE_MODEL.md`](docs/PROVENANCE_MODEL.md) | Trust tiers, hashing, anchors (local vs live Fabric) |
-| [`MOBILE_LIVE_FLOW.md`](docs/MOBILE_LIVE_FLOW.md) | End-to-end demo / backend / consumer flows |
-| [`evidence/live-fabric-backend-proof.md`](docs/evidence/live-fabric-backend-proof.md) | Recorded Fabric integration evidence |
+Public URLs are configuration:
 
----
+```text
+VITE_API_BASE_URL
+VITE_PUBLIC_APP_URL
+```
 
-## License
+Secrets such as JWT secrets, Supabase service-role keys, Gemini keys and Fabric bridge tokens must remain server-side.
 
-This project is developed for **Smart India Hackathon 2026** (SIH26021). License terms to be determined.
+## Current security posture
+
+Security controls currently include:
+
+- PBKDF2-HMAC-SHA256 password hashing with 480,000 iterations
+- environment-only JWT secrets
+- production refusal when JWT secret is missing
+- server-side RBAC/permission checks
+- resource/org scope checks
+- public passport rate limiting
+- HMAC-authenticated internal Fabric bridge
+- production-disabled demo tamper endpoints
+- explicit CORS configuration
+- no silent live→demo fallback in the web portal
+- public Honey Passport restricted to PII-free fields
+- explicit distinction between laboratory verification and blockchain anchoring
+
+Known hardening items are documented in [Security Audit](docs/SECURITY_AUDIT.md).
+
+## Naming policy
+
+This repository now uses **HoneyChain** as the product name, without project-version labels.
+
+- Product: **HoneyChain**
+- Consumer QR system: **Honey Yatra QR**
+- Consumer public view: **Honey Passport**
+- Web layer: **HoneyChain Web Portal**
+
+Internal compatibility namespaces such as `src/lib/hc` remain unchanged where renaming them would create unnecessary import/API breakage. They are implementation paths, not product branding.
+
+## Project principle
+
+HoneyChain does not attempt to make one technology solve every problem. It connects the evidence already produced by the honey ecosystem into one traceable workflow, then adds rural-first tooling, verification, market linkage and governed provenance around it.
+
+**Hive → Harvest → Batch → Lab → Processing → Custody → Honey Yatra QR → Consumer.**

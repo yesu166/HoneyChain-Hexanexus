@@ -1,11 +1,11 @@
-# QR & Honey Passport
+# Honey Yatra QR & Honey Passport
 
 **Scope:** the exact QR contract, how scanning resolves to records, and the honest online
 verification path. Companion: `PROVENANCE_MODEL.md` (trust tiers + anchors).
 
-## 1. QR contract (canonical, self-validating)
+## 1. Honey Yatra QR contract (canonical)
 
-All consumer QR payloads are produced by `lib/services/trace_qr_service.dart`:
+All consumer-facing Honey Yatra QR payloads are produced by `lib/services/trace_qr_service.dart`:
 
 | Scheme | Example | Meaning |
 |---|---|---|
@@ -16,7 +16,7 @@ Rules:
 
 - `TraceQrService.parse()` accepts **only** a `honeychain://` prefix with a known `trace`/`jar`
   path — anything else is rejected (`ScanResolutionUnknown` with a reason).
-- **The payload is NOT cryptographically signed.** The QR is a plain readable identifier; the
+- **The payload is NOT cryptographically signed.** Honey Yatra QR is a plain readable identifier; the
   guidance that the record is anchored is backed by the ledger, but the QR itself makes no
   signature claim. This is stated in the app and the docs (see `FINAL_TRUTH_REPORT.md`).
 - Real QR generation (mobile) uses `qr_flutter` (`QrImageView`), found in

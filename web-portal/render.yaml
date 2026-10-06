@@ -1,0 +1,28 @@
+# ---------------------------------------------------------------------------
+# Render deployment (alternate target alongside Vercel).
+#
+# Vercel stays the default: `npm run build` emits the Vercel preset. Render has
+# no serverless bundle convention, so this service builds the plain Node server
+# NITRO_PRESET=node-server produces and starts `.output/server/index.mjs`.
+#
+# Set the two VITE_ variables in the Render dashboard (they are inlined into the
+# public bundle at build time — never put a secret in a VITE_ variable).
+# ---------------------------------------------------------------------------
+services:
+  - type: web
+    name: honeychain-web-portal
+    runtime: node
+    plan: starter
+    buildCommand: npm install --no-audit --no-fund && npm run build:node
+    startCommand: node .output/server/index.mjs
+    healthCheckPath: /
+    envVars:
+      - key: NITRO_PRESET
+        value: node-server
+      - key: NODE_VERSION
+        value: "22"
+      # Public browser origin. This is a public URL, not a secret.
+      - key: VITE_API_BASE_URL
+        value: https://honeychain-api.onrender.com
+      - key: VITE_PUBLIC_APP_URL
+        value: https://honeychain-web-portal.onrender.com

@@ -46,7 +46,7 @@ configure_logging()
 log = get_logger("honeychain.api")
 
 app = FastAPI(
-    title="HoneyChain HC-3.0 API",
+    title="HoneyChain API",
     version=get_settings().api_version,
     docs_url=None if get_settings().is_production else "/docs",
     redoc_url=None if get_settings().is_production else None,

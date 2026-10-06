@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "HoneyChain",
+      "hasCanvas": false,
+      "bodyTextLen": 569,
+      "bodyTextHash": "137d23f7b6fadc47ae7272e021a5adbdf7aa6ab0702ec478b12fa7218bb91b4a",
+      "bodyTextPrefix": "HoneyChain Passport Sign in INDIA HONEY TRACEABILITY From hive t",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "HoneyChain",
+      "hasCanvas": false,
+      "bodyTextLen": 569,
+      "bodyTextHash": "137d23f7b6fadc47ae7272e021a5adbdf7aa6ab0702ec478b12fa7218bb91b4a",
+      "bodyTextPrefix": "HoneyChain Passport Sign in INDIA HONEY TRACEABILITY From hive t",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

@@ -1,4 +1,4 @@
-"""QR package identity and suspicious reuse detection.
+"""Honey Yatra QR package identity and suspicious reuse detection.
 
 A printed package code is the thing a consumer actually holds, so it needs its
 own identity in the system rather than being inferred from a batch code. That
@@ -99,7 +99,7 @@ class QrService:
                 "client_id": client_id,
             }
         )
-        # The label carries a LIVE public passport URL, never a copy of the
+        # The Honey Yatra QR label carries a LIVE public passport URL, never a copy of the
         # passport data. A phone camera opens the portal, which then resolves
         # this package identity against the backend — so provenance shown to a
         # consumer is always current and always the real ledger's.

@@ -1,4 +1,4 @@
-# HoneyChain 3.0 — Cryptography
+# HoneyChain — Cryptography
 
 ## Canonical serialization
 

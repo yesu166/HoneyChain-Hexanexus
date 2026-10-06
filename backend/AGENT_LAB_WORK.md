@@ -1,4 +1,4 @@
-# AI-Assisted Lab Documentation — HoneyChain 3.0
+# AI-Assisted Lab Documentation — HoneyChain
 
 This document records what the AI-assisted lab experience actually does in this
 repository, what it does **not** do, and how agents/editors should write around

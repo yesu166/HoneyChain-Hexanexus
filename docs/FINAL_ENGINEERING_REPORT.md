@@ -1,4 +1,4 @@
-# HoneyChain 3.0 — Engineering Truth Report
+# HoneyChain — Engineering Truth Report
 
 > **Documentation correction — 2026-09-27.** This file previously stated that there was no live Fabric network and that it superseded the other audit documents. Both statements are stale. The current repository contains documented live Fabric verification. Component-level truth remains in `docs/SERVICE_STATUS.md`, `docs/FEATURE_STATUS.md`, `docs/FINAL_TRUTH_REPORT.md`, and `docs/evidence/`.
 

@@ -1,7 +1,7 @@
 {
   "name": "honeychain-fabric-gateway",
   "version": "1.0.0",
-  "description": "HTTP gateway to Hyperledger Fabric for HoneyChain 3.0",
+  "description": "HTTP gateway to Hyperledger Fabric for HoneyChain",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

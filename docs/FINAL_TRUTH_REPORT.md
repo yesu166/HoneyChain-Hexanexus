@@ -1,4 +1,4 @@
-# Final Truth Report — HoneyChain 3.0
+# Final Truth Report — HoneyChain
 
 **Date:** 2026-09-11
 **Audit method:** source inspection + `git ls-files` / `git status` + live runtime proof against

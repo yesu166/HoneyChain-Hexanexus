@@ -51,13 +51,13 @@ class Settings:
         # fail authenticated browser requests merely because its exact generated
         # hostname was not copied into the dashboard.
         self.cors_origins: list[str] = _split_csv(os.getenv("CORS_ORIGINS", ""))
-        if self.is_production and "https://hc-web-portal.onrender.com" not in self.cors_origins:
+        if self.is_production and "https://honeychain-web-portal.onrender.com" not in self.cors_origins:
             self.cors_origins.append("https://hc-web-portal.onrender.com")
         # Only HoneyChain's own portal deployment naming patterns are covered by
         # the regex; arbitrary third-party origins are never allowed by default.
         self.cors_origin_regex: str = os.getenv(
             "CORS_ORIGIN_REGEX",
-            r"^https://hc-web-portal(?:-[a-z0-9-]+)?\.(?:onrender\.com|vercel\.app)$",
+            r"^https://honeychain-web-portal(?:-[a-z0-9-]+)?\.(?:onrender\.com|vercel\.app)$",
         )
 
         # Blockchain + AI adapters.

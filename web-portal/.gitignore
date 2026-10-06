@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.output/
+.vinxi/
+.nitro/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+
+# Local tooling / IDE / agent metadata (not part of the portal source)
+.grok/
+.vercel/
+.tanstack/
+.project_id
+.node_modules.lock
+
+# Local build/transfer artifacts (not referenced by the portal)
+artifacts/
+attachments/

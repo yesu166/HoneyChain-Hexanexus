@@ -1,4 +1,4 @@
-# HoneyChain 3.0 — Project Context (persistent memory)
+# HoneyChain — Project Context (persistent memory)
 
 Last updated: 2026-09-10  (update after every major phase)
 

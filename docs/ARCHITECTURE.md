@@ -1,4 +1,4 @@
-# HoneyChain 3.0 — Architecture
+# HoneyChain — Architecture
 
 > This document is the authoritative live description of the implemented
 > architecture. It is updated whenever the implementation changes.

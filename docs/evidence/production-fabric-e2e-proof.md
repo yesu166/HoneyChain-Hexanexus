@@ -1,6 +1,6 @@
 # Production Fabric E2E Proof (EC2 backend to live mychannel)
 
-**Status:** VERIFIED - the production HC-3.0 backend on EC2 committed real
+**Status:** VERIFIED - the production HoneyChain backend on EC2 committed real
 transactions to the live Hyperledger Fabric network, and the result was read
 back independently from the ledger and from a decoded orderer block.
 
@@ -16,7 +16,7 @@ back independently from the ledger and from a decoded orderer block.
 
 | Item | Value |
 |------|-------|
-| HC-3.0 code deployed | commit **6083028** (`fix: round-robin one Gemini key per request`) |
+| HoneyChain code deployed | commit **6083028** (`fix: round-robin one Gemini key per request`) |
 | Deployment method | `git archive 6083028` snapshot, tarball sha256 verified on both ends (`7196af13...`) |
 | Per-file proof | `git hash-object <deployed>` vs `git ls-tree 6083028` for every file in `backend/` + `fabric-gateway-service/`: **checked=144 mismatches=0 missing=0** |
 | Gateway fix deployed on top | commit **46a8d71**, deployed blob `6451b33da99299f8573f1b4f97917ca2e9f3f142` (identical to the commit blob) |

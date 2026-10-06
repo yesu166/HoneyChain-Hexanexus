@@ -1,9 +1,9 @@
 """
-HC-3.0 packet capture addon for mitmdump.
+HoneyChain packet capture addon for mitmdump.
 
 Logs every HTTP flow that passes through the reverse proxy between the
 React frontend (port 8080, via Vite proxy) and the FastAPI backend
-(port 8000). Each flow is written as one JSON line to HC3_capture.jsonl
+(port 8000). Each flow is written as one JSON line to honeychain_capture.jsonl
 in the same directory as this script.
 
 Sensitive headers (Authorization, Cookie, Set-Cookie) are redacted so the
@@ -12,7 +12,7 @@ log can be shared for debugging without leaking tokens.
 Run:
     mitmdump --mode reverse:http://127.0.0.1:8000 ^
              --listen-host 127.0.0.1 --listen-port 8001 ^
-             -s HC3_capture_addon.py --set flow_detail=0
+             -s honeychain_capture_addon.py --set flow_detail=0
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ import sys
 from datetime import datetime, timezone
 from typing import Any
 
-LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "HC3_capture.jsonl")
+LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "honeychain_capture.jsonl")
 
 # Headers whose values we redact so tokens/cookies never hit the log.
 REDACT_HEADERS = frozenset({
@@ -137,7 +137,7 @@ def response(flow: Any, **kwargs: Any) -> None:
         )
         sys.stderr.flush()
     except Exception as exc:
-        sys.stderr.write(f"[HC3-capture ERROR] {exc}\n")
+        sys.stderr.write(f"[HoneyChain-capture ERROR] {exc}\n")
         sys.stderr.flush()
 
 
@@ -150,10 +150,10 @@ def error(flow: Any, **kwargs: Any) -> None:
         sys.stderr.write(f"[{rec['ts']}] {rec['method']} {rec['url']} -> ERROR: {rec.get('error')}\n")
         sys.stderr.flush()
     except Exception as exc:
-        sys.stderr.write(f"[HC3-capture ERROR] {exc}\n")
+        sys.stderr.write(f"[HoneyChain-capture ERROR] {exc}\n")
         sys.stderr.flush()
 
 
 def done() -> None:
-    sys.stderr.write(f"[HC3-capture] wrote {sum(1 for _ in open(LOG_PATH, encoding='utf-8'))} records to {LOG_PATH}\n")
+    sys.stderr.write(f"[HoneyChain-capture] wrote {sum(1 for _ in open(LOG_PATH, encoding='utf-8'))} records to {LOG_PATH}\n")
     sys.stderr.flush()

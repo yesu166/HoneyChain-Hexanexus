@@ -1,6 +1,6 @@
 """Cross-tenant (FPO) isolation regression tests.
 
-These pin the HC-3.0 contract that org-bound callers may never read or mutate
+These pin the HoneyChain contract that org-bound callers may never read or mutate
 another organization's supply-chain data through any route or the sync API.
 """
 from __future__ import annotations

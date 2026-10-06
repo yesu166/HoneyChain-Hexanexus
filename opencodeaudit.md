@@ -77,7 +77,7 @@ A debug APK built without that flag is intentionally an offline/demo build and w
 
 ## 1. EXECUTIVE SUMMARY
 
-HoneyChain 3.0 is a coherent **modular monolith** (FastAPI) + offline-first **Flutter client** + **adapter-based blockchain boundary** + Node.js Fabric gateway sidecar. The codebase is unusually honest: every ML/blockchain surface either does real work or reports its own unavailability — there is no fabricated success path. The docs match the code.
+HoneyChain is a coherent **modular monolith** (FastAPI) + offline-first **Flutter client** + **adapter-based blockchain boundary** + Node.js Fabric gateway sidecar. The codebase is unusually honest: every ML/blockchain surface either does real work or reports its own unavailability — there is no fabricated success path. The docs match the code.
 
 However, the audit confirms the **client_id-class production bug is NOT fully fixed**: the NULL→"" normalization added to `SupabaseRepository` covers only **hives and harvests**. **Batches were missed.** A live read against production shows `batches` holds 4/15 rows with `client_id = NULL` and **14/15 rows with `organization_id = NULL`**, and `BatchRead` rejects both with a Pydantic `str_type` error (verified by execution against the installed pydantic 2.13). Every batch create/read/list/update/split/merge path against live Supabase therefore returns **HTTP 500**, while all 232 in-memory tests stay green. This is the same failure class the baseline fix claims to have eliminated.
 

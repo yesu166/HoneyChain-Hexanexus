@@ -184,7 +184,7 @@ def require_roles(*roles: str):
     """
 
     def _check(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
-        if user.role == "admin" or user.role in roles:
+        if user.role == "admin" or any(r in roles for r in user.roles):
             return user
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
