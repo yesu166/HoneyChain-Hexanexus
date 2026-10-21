@@ -365,3 +365,7 @@ Internal compatibility namespaces such as `src/lib/hc` remain unchanged where re
 HoneyChain does not attempt to make one technology solve every problem. It connects the evidence already produced by the honey ecosystem into one traceable workflow, then adds rural-first tooling, verification, market linkage and governed provenance around it.
 
 **Hive → Harvest → Batch → Lab → Processing → Custody → Honey Yatra QR → Consumer.**
+
+## Project brief
+
+For the project's purpose, scope, current maturity, proposed roadmap, limitations, and collaboration opportunities, see [PROJECT_BRIEF.md](PROJECT_BRIEF.md).
