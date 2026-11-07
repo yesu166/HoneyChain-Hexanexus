@@ -1,0 +1,60 @@
+name: Nested Web Portal CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "web-portal/**"
+      - ".github/workflows/web-portal-ci.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "web-portal/**"
+      - ".github/workflows/web-portal-ci.yml"
+
+concurrency:
+  group: nested-portal-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web-portal
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web-portal/package-lock.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      - name: Production build
+        env:
+          NITRO_PRESET: node-server
+          VITE_API_BASE_URL: https://honeychain-api.onrender.com
+          VITE_PUBLIC_APP_URL: https://hc-web-portal.onrender.com
+        run: npm run build:node
