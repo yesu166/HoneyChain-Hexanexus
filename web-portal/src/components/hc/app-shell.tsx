@@ -1,5 +1,6 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Eye, Hexagon, LogOut, Menu } from "lucide-react";
+import { AskMyBeeGuide } from "@/components/hc/ask-my-bee-guide";
 import { useMemo, useState } from "react";
 import { useHoneyAuth } from "@/lib/hc/auth";
 import { roleLabel } from "@/lib/hc/format";
@@ -19,6 +20,7 @@ function NavList({
 }) {
   const { user, mode } = useHoneyAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const hash = useRouterState({ select: (s) => s.location.hash.replace(/^#/, "") });
   const roleItems = navForRole(user?.role, user?.roles);
   // The selector belongs to a live session only. In demo it would be a role
   // switcher over one synthetic identity, so it is not offered there.
@@ -51,11 +53,14 @@ function NavList({
           <div className="space-y-1">
             {groupItems.map((item) => {
               const Icon = item.icon;
-              const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
+              const active = pathname === item.to
+                ? (item.hash ? hash === item.hash : !hash)
+                : !item.hash && pathname.startsWith(`${item.to}/`);
               return (
                 <Link
-                  key={item.to}
+                  key={`${item.to}-${item.hash || "root"}`}
                   to={item.to}
+                  hash={item.hash}
                   onClick={onNavigate}
                   className={cn(
                     "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition",
@@ -149,12 +154,15 @@ function ConnectionBadge() {
 export function AppShell() {
   const { user, logout, mode } = useHoneyAuth();
   const [open, setOpen] = useState(false);
-  const roleItems = navForRole(user?.role);
+  const roleItems = navForRole(user?.role, user?.roles);
   // The selector belongs to a live session only. In demo it would be a role
   // switcher over one synthetic identity, so it is not offered there.
   const items = mode === "demo" ? roleItems : [WORKSPACE_SELECTOR_ITEM, ...roleItems];
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const current = items.find((item) => pathname === item.to || pathname.startsWith(`${item.to}/`));
+  const hash = useRouterState({ select: (s) => s.location.hash.replace(/^#/, "") });
+  const current = items.find((item) => pathname === item.to
+    ? (item.hash ? hash === item.hash : !hash)
+    : !item.hash && pathname.startsWith(`${item.to}/`));
 
   return (
     <div className="min-h-screen bg-cream md:grid md:grid-cols-[240px_1fr]">
@@ -212,12 +220,13 @@ export function AppShell() {
         {mode === "demo" ? (
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-b border-honey-300 bg-honey-100 px-4 py-2 text-center text-xs font-semibold text-honey-600 md:px-8">
             <Eye size={13} />
-            DEMO / PREVIEW — these records are synthetic and were never sent to HoneyChain.
+            DEMO / PREVIEW — synthetic records; changes are temporary and never sent to HoneyChain.
+            <Link to="/" hash="demo-roles" className="underline underline-offset-2">Switch demo role</Link>
           </div>
         ) : null}
 
-        <main className="flex-1 px-4 py-6 pb-28 md:px-8 md:py-8 md:pb-10">
-          <div className="mx-auto w-full max-w-[1280px]">
+        <main className="flex-1 px-4 py-6 pb-28 md:px-10 md:py-10 md:pb-12">
+          <div className="mx-auto w-full max-w-[1440px]">
             <Outlet />
           </div>
         </main>
@@ -229,11 +238,14 @@ export function AppShell() {
               leaves the selector to the drawer. */}
           {(mode === "demo" ? roleItems : [...roleItems, WORKSPACE_SELECTOR_ITEM]).slice(0, 3).map((item) => {
             const Icon = item.icon;
-            const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
+            const active = pathname === item.to
+              ? (item.hash ? hash === item.hash : !hash)
+              : !item.hash && pathname.startsWith(`${item.to}/`);
             return (
               <Link
-                key={item.to}
+                key={`${item.to}-${item.hash || "root"}`}
                 to={item.to}
+                hash={item.hash}
                 className={cn(
                   "flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold",
                   active ? "bg-honey-100 text-grove-800" : "text-muted",
@@ -245,6 +257,8 @@ export function AppShell() {
             );
           })}
         </nav>
+
+        <AskMyBeeGuide />
 
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetContent>
@@ -276,7 +290,7 @@ export function PublicHeader() {
   return (
     <header className="flex items-center justify-between gap-3 px-4 py-4 md:px-8">
       <Link to="/" className="flex items-center gap-2 text-grove-800">
-        <span className="grid h-10 w-10 place-items-center rounded-xl bg-honey-400 text-grove-800">
+        <span className="grid h-10 w-10 place-items-center rounded-sm bg-honey-400 text-grove-800">
           <Hexagon size={20} />
         </span>
         <span className="font-display text-xl">HoneyChain</span>
@@ -288,16 +302,15 @@ export function PublicHeader() {
             Passport
           </Link>
         </Button>
-        {user ? (
+        {user && mode !== "demo" ? (
           <Button asChild>
-            {/* The selector, not a role's home screen: the product has nine
-                workspaces and only the signed-in identity can say which of them
-                it may open. */}
             <Link to="/portals">Workspaces</Link>
           </Button>
         ) : (
           <Button asChild>
-            <Link to="/login">Sign in</Link>
+            <Link to="/" hash="demo-roles">
+              {user ? "Demo roles" : "Demo portals"}
+            </Link>
           </Button>
         )}
       </div>
