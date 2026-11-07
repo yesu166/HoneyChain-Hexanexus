@@ -24,12 +24,9 @@ void main() {
   });
 
   Future<void> settle(WidgetTester tester) async {
-    // Pump enough time for normal route/dialog transitions, but do not wait
-    // for decorative repeat animations to become idle.
-    for (var frame = 0; frame < 20; frame++) {
-      await tester.pump(const Duration(milliseconds: 100));
-      if (!tester.binding.hasScheduledFrame) break;
-    }
+    // Advance through normal route/dialog transitions and short demo delays.
+    // Do not wait for unrelated decorative repeat animations to become idle.
+    await tester.pump(const Duration(milliseconds: 750));
   }
 
   Future<void> reveal(WidgetTester tester, Finder finder) async {
