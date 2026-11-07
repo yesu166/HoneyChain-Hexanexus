@@ -1,0 +1,83 @@
+name: HoneyChain Beekeeper APK Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/apk-release.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Show Flutter version
+        run: flutter --version
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze project
+        run: flutter analyze
+
+      - name: Run focused Beekeeper and offline-flow tests
+        run: >-
+          flutter test --reporter expanded
+          test/api_client_test.dart
+          test/honey_api_service_test.dart
+          test/auth_session_test.dart
+          test/sync_connectivity_test.dart
+          test/beekeeper_hive_flow_test.dart
+          test/ask_my_bee_screen_test.dart
+          test/backend_mode_integration_test.dart
+          test/productivity_test.dart
+
+      - name: Build Android APK
+        run: flutter build apk --release --dart-define=API_BASE_URL=https://honeychain-api.onrender.com
+
+      - name: Prepare stable download filename
+        run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/honeychain-beekeeper.apk
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: beekeeper-demo-v2.0.3-${{ github.run_number }}
+          name: HoneyChain Beekeeper Demo APK v2.0.3 (Build ${{ github.run_number }})
+          body: |
+            HoneyChain Beekeeper Android demonstration build.
+
+            Version: 2.0.3+5
+
+            Validation completed before packaging:
+            - flutter analyze
+            - focused API client and HoneyChain service tests
+            - auth/session and workspace tests
+            - offline sync queue and connectivity tests
+            - beekeeper hive workflow tests
+            - Ask My Bee screen tests
+            - backend-unavailable behavior tests
+            - productivity insight tests
+
+            Distribution limitations:
+            - This APK is release-mode but signed with the temporary GitHub Actions debug key.
+            - It is not Play Store or production signed.
+            - A prior APK signed with a different key may need to be uninstalled first.
+            - The live HoneyChain backend is currently unavailable. Offline capture is available,
+              but online synchronization and remote services are not currently operational.
+            - This release is a demonstration build, not a production deployment.
+          files: build/app/outputs/flutter-apk/honeychain-beekeeper.apk
+          generate_release_notes: false
