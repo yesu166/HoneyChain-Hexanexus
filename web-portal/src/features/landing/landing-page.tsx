@@ -127,7 +127,7 @@ export function LandingPage() {
     <div className="min-h-screen">
       <PublicHeader />
       <aside className="mx-auto max-w-7xl px-4 pt-2 md:px-8" aria-label="Demo environment notice">
-        <div role="status" className="flex flex-wrap items-center gap-3 border border-honey-200 bg-honey-50 px-4 py-3 text-sm text-grove-900">
+        <div role="status" className="hc-demo-notice flex flex-wrap items-center gap-3 border border-honey-200 bg-honey-50 px-4 py-3 text-sm text-grove-900">
           <span className="shrink-0 border border-honey-400 bg-white px-2.5 py-1 text-[10px] font-bold tracking-[0.14em] text-grove-800">DEMO ENVIRONMENT</span>
           <p className="min-w-0 flex-1 leading-5">
             The live backend is currently unavailable. This walkthrough uses sample records; changes are temporary and are not sent to a live service.
@@ -135,7 +135,7 @@ export function LandingPage() {
         </div>
       </aside>
       <main className="mx-auto max-w-7xl px-4 pb-20 md:px-8">
-        <section className="relative isolate overflow-hidden rounded-lg border border-grove-900/10 bg-white shadow-none">
+        <section className="hc-landing-hero relative isolate overflow-hidden rounded-2xl border border-grove-900/10 bg-white shadow-none">
 
           <div className="relative grid gap-8 p-6 md:grid-cols-[1.05fr_0.95fr] md:gap-10 md:p-10 lg:p-12">
             <div className="flex flex-col justify-center">
@@ -183,7 +183,7 @@ export function LandingPage() {
               </div>
             </div>
 
-            <aside className="relative flex flex-col justify-between overflow-hidden rounded-md bg-grove-800 p-5 text-white md:p-7">
+            <aside className="hc-landing-visual relative flex flex-col justify-between overflow-hidden rounded-2xl bg-grove-800 p-5 text-white md:p-7">
               <div aria-hidden="true" className="pointer-events-none absolute -right-14 -top-12 h-52 w-52 rounded-sm border border-white/10" />
               <div aria-hidden="true" className="pointer-events-none absolute -right-4 -top-2 h-32 w-32 rounded-sm border border-white/10" />
               <div className="relative">
@@ -270,7 +270,7 @@ export function LandingPage() {
             { icon: FlaskConical, label: "For quality teams", title: "Evidence stays with the batch", body: "Test requests and recorded outcomes stay visible without confusing them with ledger proofs." },
             { icon: PackageCheck, label: "For buyers", title: "Check before procurement", body: "Buyers review available lots and recorded custody and verification before proceeding." },
           ].map((item) => (
-            <article key={item.title} className="group rounded-md border border-black/[0.06] bg-white p-5 shadow-none transition duration-200 hover:border-grove-300 md:p-6">
+            <article key={item.title} className="hc-feature-card group rounded-2xl border border-black/[0.06] bg-white p-5 shadow-none transition duration-200 hover:border-grove-300 md:p-6">
               <span className="grid h-11 w-11 place-items-center rounded-md bg-grove-50 text-grove-800 transition group-hover:bg-honey-100"><item.icon size={21} /></span>
               <p className="mt-4 text-[10px] font-bold tracking-[0.16em] text-grove-700 uppercase">{item.label}</p>
               <h3 className="mt-2 font-display text-xl text-ink">{item.title}</h3>
@@ -305,7 +305,7 @@ export function LandingPage() {
                     {entries.map((entry) => {
                       const Icon = entry.icon;
                       return (
-                        <article key={entry.id} className="flex min-h-52 flex-col rounded-md border border-black/[0.06] bg-white p-5 shadow-none transition duration-200 hover:-translate-y-1 hover:border-honey-300 hover:shadow-[var(--shadow-card-hover)] md:p-6">
+                        <article key={entry.id} className="hc-role-card flex min-h-52 flex-col rounded-2xl border border-black/[0.06] bg-white p-5 shadow-none transition duration-200 hover:-translate-y-1 hover:border-honey-300 hover:shadow-[var(--shadow-card-hover)] md:p-6">
                           <div className="flex items-start justify-between gap-3">
                             <span className="grid h-11 w-11 place-items-center rounded-md bg-honey-100 text-grove-800">
                               <Icon size={21} />
