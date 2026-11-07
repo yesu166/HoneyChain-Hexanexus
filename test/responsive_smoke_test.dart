@@ -133,7 +133,11 @@ Future<void> openHives(WidgetTester tester) async {
 
 /// Wait for the UI to settle, but fail quickly if an animation never stops.
 Future<void> settle(WidgetTester tester) async {
-  await tester.pumpAndSettle(timeout: const Duration(seconds: 5));
+  for (var frame = 0; frame < 60; frame++) {
+    await tester.pump(const Duration(milliseconds: 100));
+    if (!tester.binding.hasScheduledFrame) return;
+  }
+  throw TestFailure('Responsive UI did not settle within 6 seconds.');
 }
 
 /// Scroll only the active, on-screen scrollable. Never target an offstage
