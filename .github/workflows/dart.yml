@@ -5,9 +5,47 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "lib/**"
+      - "test/**"
+      - "android/**"
+      - "assets/**"
+      - "ios/**"
+      - "macos/**"
+      - "windows/**"
+      - "web/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "analysis_options.yaml"
+      - "backend/**"
+      - "fabric/**"
+      - "fabric-gateway-service/**"
+      - "render.yaml"
+      - ".github/workflows/dart.yml"
   pull_request:
     branches:
       - main
+    paths:
+      - "lib/**"
+      - "test/**"
+      - "android/**"
+      - "assets/**"
+      - "ios/**"
+      - "macos/**"
+      - "windows/**"
+      - "web/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "analysis_options.yaml"
+      - "backend/**"
+      - "fabric/**"
+      - "fabric-gateway-service/**"
+      - "render.yaml"
+      - ".github/workflows/dart.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
