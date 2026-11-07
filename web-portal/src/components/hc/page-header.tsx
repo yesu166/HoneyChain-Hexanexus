@@ -59,7 +59,7 @@ export function PageHeader({
         {action ? <div className="shrink-0">{action}</div> : null}
       </header>
       {steps ? (
-        <ol aria-label="Workflow sequence" className="mt-5 grid gap-2 rounded-2xl border border-black/[0.06] bg-white/90 p-3 shadow-[var(--shadow-card)] sm:grid-cols-3 sm:gap-3 sm:p-4">
+        <ol aria-label="Workflow sequence" className="hc-workflow-steps mt-5 grid gap-2 rounded-2xl border border-black/[0.08] bg-white/95 p-3 shadow-[var(--shadow-card)] sm:grid-cols-3 sm:gap-3 sm:p-4">
           {steps.map((step, index) => (
             <li key={step.label} className="flex min-w-0 items-center gap-3 rounded-xl px-2 py-2 sm:px-3">
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-grove-800 text-xs font-bold text-white">{String(index + 1).padStart(2, "0")}</span>
