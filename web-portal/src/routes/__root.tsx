@@ -1,6 +1,7 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { FloatingBee } from "@/components/hc/floating-bee";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "HoneyChain";
@@ -35,6 +36,7 @@ export const Route = createRootRoute({
       </head>
       <body>
         <PreviewHostBridge />
+        <FloatingBee />
         <AuthProvider>
           <Outlet />
         </AuthProvider>

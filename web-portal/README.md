@@ -18,6 +18,17 @@
 
 ---
 
+## Demo environment and Android app
+
+The hosted walkthrough is currently a **demo environment** because the live HoneyChain backend is unavailable. Portal sample records are synthetic; edits made in Demo / Preview are temporary and are not submitted to an operational service. Do not enter real beekeeper, farmer, laboratory, buyer, or personal data.
+
+The separate offline-first Android application is distributed from GitHub Releases:
+
+- [Download the latest HoneyChain Beekeeper APK](https://github.com/yesu166/HoneyChain-Hexanexus/releases/latest/download/honeychain-beekeeper.apk)
+- [View APK release notes and build details](https://github.com/yesu166/HoneyChain-Hexanexus/releases/latest)
+
+The downloadable APK is a demonstration build and is not signed for Play Store or production distribution.
+
 ## Overview
 
 **HoneyChain** is a traceability platform designed to connect the honey supply chain from **beekeeper to consumer** through a shared backend and role-specific workspaces.
@@ -314,7 +325,7 @@ The important demonstration point is the continuity of one record across multipl
 
 ---
 
-## Honey Yatra QR & Honey Passport Verification
+## Passport & QR Verification
 
 The public passport is designed around a simple principle:
 
@@ -573,3 +584,7 @@ See the repository license file for the authoritative terms.
   <strong>HoneyChain</strong><br/>
   Hive → Harvest → Batch → Lab → Processing → Custody → Passport
 </p>
+
+## Project brief
+
+For the project's purpose, scope, current maturity, proposed roadmap, limitations, and collaboration opportunities, see [PROJECT_BRIEF.md](PROJECT_BRIEF.md).

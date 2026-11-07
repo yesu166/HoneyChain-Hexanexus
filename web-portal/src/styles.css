@@ -2,23 +2,23 @@
 @import "tw-animate-css";
 
 @theme {
-  --color-cream: #f7f1e6;
-  --color-cream-deep: #efe4d0;
-  --color-ink: #1c1915;
-  --color-paper: #fffcf6;
-  --color-honey-50: #fff8e8;
-  --color-honey-100: #fbe6b6;
-  --color-honey-200: #f0d089;
-  --color-honey-400: #e2a53a;
-  --color-honey-500: #c8881a;
-  --color-honey-600: #a86b12;
-  --color-grove-50: #eef5ef;
-  --color-grove-100: #d5e6d8;
-  --color-grove-600: #2f5d3a;
-  --color-grove-700: #24482d;
-  --color-grove-800: #1b3522;
-  --color-grove-900: #122018;
-  --color-muted: #6f675c;
+  --color-cream: #f5f7f2;
+  --color-cream-deep: #e9eee6;
+  --color-ink: #17261d;
+  --color-paper: #ffffff;
+  --color-honey-50: #fff9e8;
+  --color-honey-100: #ffedc2;
+  --color-honey-200: #f8d77d;
+  --color-honey-400: #f3b735;
+  --color-honey-500: #df9b16;
+  --color-honey-600: #925c0b;
+  --color-grove-50: #edf6ef;
+  --color-grove-100: #d5e9da;
+  --color-grove-600: #276540;
+  --color-grove-700: #1c4d30;
+  --color-grove-800: #173b27;
+  --color-grove-900: #10271a;
+  --color-muted: #58645b;
   --color-line: color-mix(in oklab, var(--color-ink) 10%, transparent);
 
   --color-background: var(--color-cream);
@@ -45,8 +45,8 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
-  --radius-xl: 24px;
-  --radius-2xl: 28px;
+  --radius-xl: 16px;
+  --radius-2xl: 18px;
 
   --shadow-card:
     0 0 0 1px color-mix(in oklab, var(--color-ink) 6%, transparent),
@@ -69,10 +69,7 @@
   body {
     margin: 0;
     min-height: 100%;
-    background:
-      radial-gradient(900px 420px at 8% -12%, rgba(232, 176, 80, 0.16), transparent 60%),
-      radial-gradient(800px 360px at 100% 0%, rgba(47, 93, 58, 0.08), transparent 58%),
-      var(--color-cream);
+    background: var(--color-cream);
     color: var(--color-ink);
     font-family: var(--font-sans);
   }
@@ -115,6 +112,19 @@
   }
 }
 
+@keyframes askbee-flight {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-2deg); }
+  50% { transform: translate3d(0, -7px, 0) rotate(2deg); }
+}
+@keyframes askbee-wing {
+  0%, 100% { transform: rotate(-10deg); }
+  50% { transform: rotate(22deg); }
+}
+.hc-bee-flight { animation: askbee-flight 4.8s ease-in-out infinite; }
+.hc-bee-wing { transform-box: fill-box; transform-origin: center; animation: askbee-wing 0.32s ease-in-out infinite; }
+.hc-bee-wing--right { animation-delay: 0.06s; }
+.hc-bee-panel { box-shadow: 0 20px 60px -28px rgba(16, 39, 26, 0.46), 0 8px 24px -16px rgba(16, 39, 26, 0.26); }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -124,4 +134,46 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+
+/* Lightweight decorative bee: pointer-follow on desktop, gentle drift on scroll. */
+.hc-floating-bee {
+  position: fixed;
+  z-index: 45;
+  top: 18vh;
+  left: calc(100vw - 58px);
+  width: 42px;
+  height: 42px;
+  pointer-events: none;
+  opacity: 0.92;
+  transition: left 160ms ease-out, top 160ms ease-out;
+  filter: drop-shadow(0 4px 8px rgba(23, 59, 39, 0.18));
+}
+.hc-floating-bee__sprite {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: hc-floating-bee-hover 4.6s ease-in-out infinite;
+}
+.hc-floating-bee__sprite svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.hc-floating-bee--roaming .hc-floating-bee__sprite {
+  animation: hc-floating-bee-roam 1.15s ease-in-out;
+}
+@keyframes hc-floating-bee-hover {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-5deg); }
+  50% { transform: translate3d(0, -6px, 0) rotate(5deg); }
+}
+@keyframes hc-floating-bee-roam {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  35% { transform: translate3d(22px, -14px, 0) rotate(12deg); }
+  70% { transform: translate3d(-10px, -22px, 0) rotate(-8deg); }
+  100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+}
+@media (max-width: 640px) {
+  .hc-floating-bee { width: 34px; height: 34px; opacity: 0.78; }
 }
