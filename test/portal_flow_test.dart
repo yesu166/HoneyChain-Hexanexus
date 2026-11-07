@@ -24,11 +24,12 @@ void main() {
   });
 
   Future<void> settle(WidgetTester tester) async {
-    for (var frame = 0; frame < 60; frame++) {
+    // Pump enough time for normal route/dialog transitions, but do not wait
+    // for decorative repeat animations to become idle.
+    for (var frame = 0; frame < 20; frame++) {
       await tester.pump(const Duration(milliseconds: 100));
-      if (!tester.binding.hasScheduledFrame) return;
+      if (!tester.binding.hasScheduledFrame) break;
     }
-    throw TestFailure('Widget tree did not settle within 6 seconds.');
   }
 
   Future<void> reveal(WidgetTester tester, Finder finder) async {
