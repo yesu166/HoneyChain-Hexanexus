@@ -24,7 +24,11 @@ void main() {
   });
 
   Future<void> settle(WidgetTester tester) async {
-    await tester.pumpAndSettle(timeout: const Duration(seconds: 5));
+    for (var frame = 0; frame < 60; frame++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      if (!tester.binding.hasScheduledFrame) return;
+    }
+    throw TestFailure('Widget tree did not settle within 6 seconds.');
   }
 
   Future<void> reveal(WidgetTester tester, Finder finder) async {
@@ -107,23 +111,6 @@ void main() {
     store.anchorV2Batch(batch, 'BATCH_VERIFIED');
     store.releaseV2BatchToMarket(batch);
     return store.batchById(batch.id)!;
-  }
-
-  Future<void> openRoleGate(WidgetTester tester) async {
-    await tester.pumpWidget(const HoneyChainApp());
-    await settle(tester);
-  }
-
-  /// Gate -> "Organization / FPO" -> org login -> portal.
-  Future<void> openOrgPortal(WidgetTester tester) async {
-    await openRoleGate(tester);
-    await see(tester, 'Organization / FPO');
-    await tester.tap(find.text('Organization / FPO'));
-    await settle(tester);
-    await tester.enterText(find.byType(TextField).first, 'Collector');
-    await tester.pump();
-    await tester.tap(find.text('Continue'));
-    await settle(tester);
   }
 
   Future<void> openBatchDetail(WidgetTester tester, Batch batch) async {
