@@ -2,24 +2,24 @@
 @import "tw-animate-css";
 
 @theme {
-  --color-cream: #f5f7f2;
-  --color-cream-deep: #e9eee6;
-  --color-ink: #17261d;
-  --color-paper: #ffffff;
-  --color-honey-50: #fff9e8;
-  --color-honey-100: #ffedc2;
-  --color-honey-200: #f8d77d;
-  --color-honey-400: #f3b735;
-  --color-honey-500: #df9b16;
-  --color-honey-600: #925c0b;
-  --color-grove-50: #edf6ef;
-  --color-grove-100: #d5e9da;
-  --color-grove-600: #276540;
-  --color-grove-700: #1c4d30;
-  --color-grove-800: #173b27;
-  --color-grove-900: #10271a;
-  --color-muted: #58645b;
-  --color-line: color-mix(in oklab, var(--color-ink) 10%, transparent);
+  --color-cream: #F2EBDD;
+  --color-cream-deep: #E6DCC8;
+  --color-ink: #1C3023;
+  --color-paper: #FFFCF4;
+  --color-honey-50: #FFF6DB;
+  --color-honey-100: #F8E7B6;
+  --color-honey-200: #EFCB70;
+  --color-honey-400: #E5AA2E;
+  --color-honey-500: #C8891F;
+  --color-honey-600: #895515;
+  --color-grove-50: #EAF1E6;
+  --color-grove-100: #D3E2CF;
+  --color-grove-600: #2E6743;
+  --color-grove-700: #1D5034;
+  --color-grove-800: #173D29;
+  --color-grove-900: #102B1E;
+  --color-muted: #58675B;
+  --color-line: color-mix(in oklab, var(--color-ink) 14%, transparent);
 
   --color-background: var(--color-cream);
   --color-foreground: var(--color-ink);
@@ -49,13 +49,13 @@
   --radius-2xl: 18px;
 
   --shadow-card:
-    0 0 0 1px color-mix(in oklab, var(--color-ink) 6%, transparent),
-    0 1px 2px -1px rgba(36, 28, 16, 0.06),
-    0 10px 28px -20px rgba(36, 28, 16, 0.35);
+    0 0 0 1px color-mix(in oklab, var(--color-ink) 8%, transparent),
+    0 2px 5px -3px rgba(31, 43, 31, 0.16),
+    0 14px 32px -22px rgba(31, 43, 31, 0.42);
   --shadow-card-hover:
-    0 0 0 1px color-mix(in oklab, var(--color-ink) 10%, transparent),
-    0 1px 2px -1px rgba(36, 28, 16, 0.08),
-    0 16px 32px -20px rgba(36, 28, 16, 0.4);
+    0 0 0 1px color-mix(in oklab, var(--color-ink) 14%, transparent),
+    0 3px 8px -4px rgba(31, 43, 31, 0.18),
+    0 20px 40px -22px rgba(31, 43, 31, 0.48);
 
   --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -266,4 +266,144 @@
   .hc-pollen-bloom {
     animation: none !important;
   }
+}
+
+
+/* HoneyChain visual system v2: warm, grounded, high-contrast, and consistent. */
+:root {
+  --hc-border: color-mix(in oklab, var(--color-ink) 13%, transparent);
+  --hc-border-strong: color-mix(in oklab, var(--color-ink) 20%, transparent);
+  --hc-surface-raised: color-mix(in oklab, var(--color-paper) 88%, white);
+  --hc-space-unit: 4px;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+}
+
+.bg-white { background-color: var(--color-paper); }
+
+.hc-app-shell {
+  background:
+    radial-gradient(ellipse at 88% 0%, rgba(222, 170, 63, 0.09), transparent 28rem),
+    var(--color-cream);
+}
+
+.hc-sidebar {
+  background: linear-gradient(165deg, #1B4931 0%, #173D29 48%, #102B1E 100%);
+  border-color: rgba(255, 255, 255, 0.13);
+  box-shadow: 8px 0 30px -28px rgba(15, 37, 24, 0.8);
+}
+
+.hc-topbar {
+  background: color-mix(in srgb, var(--color-paper) 93%, transparent);
+  border-color: var(--hc-border);
+  box-shadow: 0 1px 0 rgba(28, 48, 35, 0.045), 0 10px 22px -22px rgba(28, 48, 35, 0.42);
+}
+
+.hc-main {
+  background: radial-gradient(ellipse at 100% 0%, rgba(229, 170, 46, 0.055), transparent 26rem);
+}
+
+.hc-mobile-nav {
+  border-color: var(--hc-border-strong);
+  background: color-mix(in srgb, var(--color-paper) 96%, transparent);
+  box-shadow: 0 14px 36px -20px rgba(22, 48, 32, 0.42);
+}
+
+.hc-nav-link { position: relative; letter-spacing: 0.005em; }
+
+.hc-nav-link--active {
+  box-shadow: inset 3px 0 0 var(--color-honey-400), 0 4px 14px -12px rgba(0, 0, 0, 0.55);
+}
+
+.hc-page-heading {
+  padding-bottom: 1.45rem;
+  border-bottom: 1px solid var(--hc-border);
+}
+
+.hc-page-heading h1 { letter-spacing: -0.035em; }
+
+.hc-page-heading > header > div:first-child > p:last-child {
+  color: color-mix(in oklab, var(--color-ink) 70%, var(--color-muted));
+}
+
+.hc-workflow-steps {
+  background: linear-gradient(120deg, var(--color-paper), #F6F0E3);
+  border-color: var(--hc-border);
+}
+
+.hc-kpi-card {
+  background: linear-gradient(145deg, var(--color-paper) 0%, color-mix(in oklab, var(--color-paper) 88%, var(--color-honey-50)) 100%);
+  border-color: var(--hc-border);
+}
+
+.hc-kpi-card:hover {
+  border-color: color-mix(in oklab, var(--color-honey-500) 45%, var(--hc-border));
+}
+
+.hc-hero-status { box-shadow: var(--shadow-card); }
+
+.hc-landing-hero {
+  background:
+    radial-gradient(circle at 12% 12%, rgba(229, 170, 46, 0.11), transparent 23rem),
+    linear-gradient(135deg, #FFFCF4 0%, #F8F1E2 100%);
+  border-color: color-mix(in oklab, var(--color-grove-800) 18%, transparent);
+  box-shadow: 0 24px 70px -48px rgba(24, 57, 37, 0.52);
+}
+
+.hc-landing-visual {
+  background:
+    radial-gradient(circle at 90% 7%, rgba(229, 170, 46, 0.24), transparent 18rem),
+    linear-gradient(155deg, #20543A 0%, #173D29 55%, #102B1E 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.hc-demo-notice {
+  border-color: #E0B858;
+  background: linear-gradient(110deg, #FCEFC9 0%, #F8E6B2 100%);
+  box-shadow: 0 8px 22px -20px rgba(117, 77, 18, 0.5);
+}
+
+.hc-feature-card,
+.hc-role-card {
+  background: linear-gradient(145deg, var(--color-paper), #FAF4E8);
+  border-color: var(--hc-border);
+  box-shadow: 0 8px 26px -24px rgba(26, 48, 33, 0.5);
+}
+
+.hc-feature-card:hover,
+.hc-role-card:hover {
+  border-color: color-mix(in oklab, var(--color-honey-500) 55%, var(--hc-border));
+  box-shadow: var(--shadow-card-hover);
+}
+
+.hc-button {
+  letter-spacing: 0.005em;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.10), 0 3px 9px -7px rgba(16, 43, 30, 0.65);
+}
+
+.hc-button:not(:disabled):hover { transform: translateY(-1px); filter: saturate(1.08); }
+.hc-button:not(:disabled):active { transform: translateY(0) scale(0.985); }
+
+.hc-mobile-nav a[aria-current="page"] {
+  background: var(--color-grove-800);
+  color: var(--color-paper);
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid color-mix(in oklab, var(--color-honey-500) 75%, white);
+  outline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .hc-main { background: none; }
+  .hc-page-heading { padding-bottom: 1.1rem; }
+  .hc-landing-hero { box-shadow: 0 18px 40px -32px rgba(24, 57, 37, 0.5); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-button:not(:disabled):hover,
+  .hc-button:not(:disabled):active { transform: none; }
 }
