@@ -20,7 +20,8 @@ import { extractPassportSubject } from "@/lib/hc/passport";
 
 export function PassportPage() {
   const { mode, api } = useHoneyAuth();
-  const search = useSearch({ strict: false }) as { code?: string };
+  const search = useSearch({ strict: false }) as { code?: string; source?: "demo" };
+  const sampleRequested = search.source === "demo";
   const params = useParams({ strict: false }) as { code?: string };
   // The code can arrive via ?code=… (in-app links), /passport/<code> or
   // /verify/<code> (QR target and shared links) — all are the same lookup.
@@ -28,7 +29,7 @@ export function PassportPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const [passport, setPassport] = useState<PassportResponse | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const [source, setSource] = useState<"live" | "demo">(mode);
+  const [source, setSource] = useState<"live" | "demo">(sampleRequested || mode === "demo" ? "demo" : "live");
   const [pendingCode, setPendingCode] = useState("");
   // Which ledger the *authoritative* API is actually using. This is public on
   // HoneyChain, so the consumer-facing page can tell the truth about whether an
@@ -44,6 +45,12 @@ export function PassportPage() {
   const [ledgerUnreadable, setLedgerUnreadable] = useState(false);
 
   useEffect(() => {
+    // A sample passport is self-contained: do not probe the live ledger from a public demo URL.
+    if (sampleRequested || mode === "demo" || source === "demo") {
+      setLedger(null);
+      setLedgerUnreadable(false);
+      return;
+    }
     let cancelled = false;
     void liveApi
       .blockchainHealth()
@@ -62,7 +69,7 @@ export function PassportPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [sampleRequested, mode, source]);
 
   const lookup = async (raw: string, forceDemo = false) => {
     // The canonical parser is the one covered by `client.test.ts`. The local
@@ -74,19 +81,25 @@ export function PassportPage() {
     const code = subject?.code || "";
     if (!code) {
       setStatus("error");
-      setError(new ApiError(400, "That Honey Yatra QR did not contain a HoneyChain passport or batch code."));
+      setError(new ApiError(400, "That QR did not contain a HoneyChain passport or batch code."));
       setPassport(null);
       return;
+    }
+    const useDemo = forceDemo || mode === "demo" || sampleRequested || source === "demo";
+    if (useDemo) {
+      setLedger(null);
+      setLedgerUnreadable(false);
     }
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.set("code", code);
+      if (useDemo) url.searchParams.set("source", "demo");
+      else url.searchParams.delete("source");
       window.history.replaceState(null, "", url.toString());
     }
     setPendingCode(code);
     setStatus("loading");
     try {
-      const useDemo = forceDemo || mode === "demo";
       const data = useDemo ? await demoApi.passport(code) : await api.passport(code);
       setPassport(data);
       setSource(useDemo ? "demo" : "live");
@@ -99,9 +112,10 @@ export function PassportPage() {
   };
 
   useEffect(() => {
-    if (initial) void lookup(initial);
+    if (initial) void lookup(initial, sampleRequested);
+    // The URL is the source of truth for which public passport to load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initial, sampleRequested, mode]);
 
   const chain = chainState(passport?.anchor?.chain_status);
   const lab = passport?.verification?.result;
@@ -117,8 +131,8 @@ export function PassportPage() {
       <PublicHeader />
       <main className="mx-auto max-w-3xl px-4 pb-16 md:px-8">
         <PageHeader
-          eyebrow="Honey Yatra QR · Honey Passport"
-          title="Verify a HoneyChain product"
+          eyebrow="Consumer passport"
+          title="Look up a HoneyChain product"
           description="Scan a QR or enter a batch code. Decoding a QR is not verification. The passport API decides what is known."
         />
         {source === "demo" && status === "ok" ? (

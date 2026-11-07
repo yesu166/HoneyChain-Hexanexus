@@ -3,7 +3,7 @@
  * backend-backed public lookup, and the derived passport lifecycle.
  *
  * Security model (§8): the browser never trusts a passport object it received
- * from the Honey Yatra QR, a link, or localStorage. A scan resolves to an identifier, and
+ * from the QR, a link, or localStorage. A scan resolves to an identifier, and
  * the identifier is resolved by HoneyChain (`GET /api/v1/passport/{subject_code}`,
  * public + rate limited). Anything the server does not return is shown as "not
  * recorded" — never invented.
@@ -72,7 +72,7 @@ export function publicAppBase(): string {
 }
 
 /**
- * The exact string encoded into the Honey Yatra QR. It is a stable verification URL, never
+ * The exact string encoded into the QR. It is a stable verification URL, never
  * the passport JSON — scanning it opens this portal, which then asks HoneyChain.
  */
 export function passportVerifyUrl(code: string): string {

@@ -46,9 +46,9 @@ export function DataTable({
   if (!rows.length) return <EmptyState title={empty} />;
   return (
     <>
-      <div className="hidden overflow-x-auto rounded-2xl bg-paper shadow-[var(--shadow-card)] md:block">
+      <div className="hidden overflow-x-auto rounded-2xl border border-black/[0.06] bg-white shadow-[var(--shadow-card)] md:block">
         <table className="min-w-full text-left text-sm">
-          <thead className="bg-grove-50 text-[10px] tracking-[0.12em] text-grove-800 uppercase">
+          <thead className="bg-grove-50/90 text-[10px] tracking-[0.12em] text-grove-800 uppercase">
             <tr>
               {columns.map((col) => (
                 <th key={col.key} className="px-4 py-3 font-bold">
@@ -59,7 +59,7 @@ export function DataTable({
           </thead>
           <tbody>
             {rows.map((row, i) => (
-              <tr key={i} className="border-t border-black/5">
+              <tr key={i} className="border-t border-black/[0.05] transition-colors hover:bg-grove-50/50">
                 {columns.map((col) => (
                   <td key={col.key} className="px-4 py-3 align-top">
                     {row[col.key] ?? "Not available"}
@@ -72,7 +72,7 @@ export function DataTable({
       </div>
       <div className="grid gap-3 md:hidden">
         {rows.map((row, i) => (
-          <article key={i} className="rounded-2xl bg-paper p-4 shadow-[var(--shadow-card)]">
+          <article key={i} className="rounded-2xl border border-black/[0.06] bg-white p-4 shadow-[var(--shadow-card)]">
             {columns.map((col) => (
               <div key={col.key} className="flex items-start justify-between gap-3 py-1.5 text-sm">
                 <span className="text-muted">{col.label}</span>

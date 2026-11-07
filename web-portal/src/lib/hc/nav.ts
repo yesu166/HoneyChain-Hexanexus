@@ -7,10 +7,9 @@ import {
   Grid2x2,
   Hexagon,
   LayoutDashboard,
-  Leaf,
   PackageCheck,
   ShieldCheck,
-  Sparkles,
+  Truck,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "./types";
@@ -34,6 +33,8 @@ export type NavItem = {
   label: string;
   icon: LucideIcon;
   group: string;
+  /** Optional in-page destination. */
+  hash?: string;
 };
 
 export function navForRole(role: Role | string | undefined, roles: Role[] = []): NavItem[] {
@@ -44,7 +45,7 @@ export function navForRole(role: Role | string | undefined, roles: Role[] = []):
   const items: NavItem[] = [];
   const add = (candidate: NavItem[]) => {
     for (const item of candidate) {
-      if (!items.some((existing) => existing.to === item.to)) items.push(item);
+      if (!items.some((existing) => existing.to === item.to && existing.hash === item.hash)) items.push(item);
     }
   };
 
@@ -52,7 +53,9 @@ export function navForRole(role: Role | string | undefined, roles: Role[] = []):
     switch (currentRole) {
       case "institution":
         add([
-          { to: "/kvic", label: "Cluster status", icon: LayoutDashboard, group: "Overview" },
+          { to: "/kvic", label: "Cluster overview", icon: LayoutDashboard, group: "Government operations" },
+          { to: "/kvic", hash: "van-operations", label: "Mobile VAN operations", icon: Truck, group: "Government operations" },
+          { to: "/kvic", hash: "lab-oversight", label: "Laboratory oversight", icon: ClipboardCheck, group: "Government operations" },
           { to: "/alerts", label: "Alerts", icon: Bell, group: "Monitoring" },
           { to: "/passport", label: "Product passport", icon: FileCheck2, group: "Traceability" },
         ]);
@@ -61,15 +64,12 @@ export function navForRole(role: Role | string | undefined, roles: Role[] = []):
         add([
           { to: "/org", label: "Today", icon: LayoutDashboard, group: "Overview" },
           { to: "/alerts", label: "Alerts", icon: Bell, group: "Monitoring" },
-          { to: "/ask-my-bee", label: "Ask My Bee", icon: Sparkles, group: "Guidance" },
         ]);
         break;
+      // Beekeepers use the separate offline-first Flutter app. This web
+      // portal exposes supply-chain operations, not a second beekeeper console.
       case "beekeeper":
-        add([
-          { to: "/beekeeper", label: "My hives", icon: Leaf, group: "Overview" },
-          { to: "/ask-my-bee", label: "Ask My Bee", icon: Sparkles, group: "Guidance" },
-          { to: "/alerts", label: "Alerts", icon: Bell, group: "Monitoring" },
-        ]);
+        add([{ to: "/passport", label: "Product passport", icon: FileCheck2, group: "Traceability" }]);
         break;
       case "lab":
         add([
@@ -90,18 +90,17 @@ export function navForRole(role: Role | string | undefined, roles: Role[] = []):
         ]);
         break;
       case "admin":
-        // Admin is the full-access operator account. Surface every existing
-        // portal/workspace in navigation so the UI matches the server-side
-        // admin permission set and does not hide capabilities the account can use.
+        // Admin is the full-access online operator. Show the web supply-chain
+        // and governance surfaces; offline beekeeper capture remains in Flutter.
         add([
           { to: "/admin", label: "Business ops", icon: ShieldCheck, group: "Business" },
-          { to: "/kvic", label: "Clusters", icon: Hexagon, group: "Business" },
+          { to: "/kvic", label: "Cluster overview", icon: Hexagon, group: "Business" },
+          { to: "/kvic", hash: "van-operations", label: "Mobile VAN operations", icon: Truck, group: "Business" },
+          { to: "/kvic", hash: "lab-oversight", label: "Laboratory oversight", icon: ClipboardCheck, group: "Business" },
           { to: "/org", label: "FPO / Collection", icon: LayoutDashboard, group: "Supply chain" },
           { to: "/lab", label: "Laboratory", icon: ClipboardCheck, group: "Supply chain" },
           { to: "/processor", label: "Processor", icon: Factory, group: "Supply chain" },
           { to: "/buyer", label: "Buyer / Procurement", icon: PackageCheck, group: "Supply chain" },
-          { to: "/beekeeper", label: "Beekeeper", icon: Leaf, group: "Field" },
-          { to: "/ask-my-bee", label: "Ask My Bee", icon: Sparkles, group: "Field" },
           { to: "/passport", label: "Product passport", icon: FileCheck2, group: "Traceability" },
           { to: "/admin/platform", label: "Platform", icon: Activity, group: "System" },
           { to: "/alerts", label: "Alerts", icon: Bell, group: "System" },
@@ -110,7 +109,8 @@ export function navForRole(role: Role | string | undefined, roles: Role[] = []):
       case "platform_oversight":
         add([
           { to: "/admin/platform", label: "Platform", icon: Activity, group: "Oversight" },
-          { to: "/kvic", label: "Clusters", icon: Hexagon, group: "Oversight" },
+          { to: "/kvic", label: "Cluster overview", icon: Hexagon, group: "Oversight" },
+          { to: "/kvic", hash: "lab-oversight", label: "Laboratory oversight", icon: ClipboardCheck, group: "Oversight" },
           { to: "/alerts", label: "Alerts", icon: Bell, group: "Oversight" },
         ]);
         break;
@@ -127,10 +127,10 @@ export function navForRole(role: Role | string | undefined, roles: Role[] = []):
  * The link back to the HoneyChain workspace selector.
  *
  * It is returned separately from `navForRole` rather than inside it, because it
- * must not appear in a demo session: a demo identity is a single synthetic
- * person, and offering the platform selector there would amount to switching
- * between demo roles, which is exactly the fake role switching the portal
- * refuses to offer.
+ * must not appear in a demo session. Demo role changes are an explicit action
+ * from the public landing page; shared sample records are preserved and the
+ * role-scoped query cache prevents one persona's rows leaking to another.
+ * The authenticated selector remains a live-session navigation surface.
  */
 export const WORKSPACE_SELECTOR_ITEM: NavItem = {
   to: "/portals",
@@ -158,7 +158,10 @@ export function allowedRolesForPath(pathname: string): string[] | null {
   }
   if (pathname.startsWith("/kvic")) return ["institution", "admin", "platform_oversight"];
   if (pathname.startsWith("/org")) return ["fpo", "admin"];
-  if (pathname.startsWith("/beekeeper")) return ["beekeeper", "admin"];
+  // Legacy web routes stay registered for compatibility, but field capture and
+  // voice-first Ask My Bee belong to the separate offline-first Flutter app.
+  if (pathname.startsWith("/beekeeper")) return [];
+  if (pathname.startsWith("/ask-my-bee")) return [];
   if (pathname.startsWith("/lab")) return ["lab", "admin"];
   if (pathname.startsWith("/processor")) return ["processor", "admin"];
   if (pathname.startsWith("/buyer")) return ["buyer", "admin"];
@@ -167,7 +170,6 @@ export function allowedRolesForPath(pathname: string): string[] | null {
   // that screen is built around.
   if (pathname.startsWith("/admin/platform")) return ["admin", "platform_oversight"];
   if (pathname.startsWith("/admin")) return ["admin"];
-  if (pathname.startsWith("/ask-my-bee")) return ["beekeeper", "fpo", "admin"];
   if (pathname.startsWith("/alerts")) {
     return [
       "beekeeper",

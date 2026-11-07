@@ -1,8 +1,8 @@
 /**
- * Real, scannable Honey Yatra QR generation for the Honey Passport.
+ * Real, scannable QR generation for the Honey Passport.
  *
  * The QR encodes a stable verification URL (see `passportVerifyUrl`) — never the
- * passport JSON — so a phone camera opens the HoneyChain portal, which then asks HoneyChain.
+ * passport JSON — so a phone camera opens this portal, which then asks HoneyChain.
  *
  * `qrcode` is imported lazily and only in the browser: its platform entry point
  * does not exist on the server, and the passport page only renders a QR after
@@ -85,5 +85,5 @@ export function printDocument(): void {
 }
 
 export function safeFilename(value: string): string {
-  return value.replace(/[^A-Za-z0-9._-]+/g, "-").slice(0, 80) || "honey-yatra-qr";
+  return value.replace(/[^A-Za-z0-9._-]+/g, "-").slice(0, 80) || "honeychain-passport";
 }

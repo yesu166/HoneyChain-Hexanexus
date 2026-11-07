@@ -264,9 +264,17 @@ export function HoneyAuthProvider({ children }: { children: ReactNode }) {
       enterDemo: (role) => {
         // The ONLY entry point into demo mode. Nothing in the failure path of
         // a live request calls this.
-        resetDemo(role);
         const matched = demoUserForRole(role);
-        setDemoUser(matched);
+        const switchingWithinDemo = phase === "demo-preview" && getStoredMode() === "demo";
+        if (switchingWithinDemo) {
+          // Keep the shared sample supply-chain records when a visitor moves
+          // from FPO to Lab, Processor or Buyer. Only the active persona changes.
+          setDemoUser(matched);
+        } else {
+          // A fresh demo session starts from a clean seed.
+          resetDemo(role);
+          setDemoUser(matched);
+        }
         setToken(null);
         setStoredMode("demo");
         setStoredDemoUser(JSON.stringify(matched));

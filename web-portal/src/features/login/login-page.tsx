@@ -1,21 +1,19 @@
 import { Link, Navigate, useNavigate } from "@tanstack/react-router";
-import { Eye, Hexagon } from "lucide-react";
+import { Hexagon } from "lucide-react";
 import { useState } from "react";
-import { homeForRole, useHoneyAuth } from "@/lib/hc/auth";
-import { DEMO_ROLES } from "@/lib/hc/demo";
+import { useHoneyAuth } from "@/lib/hc/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiOrigin, describeApiError } from "@/lib/hc/client";
 
 export function LoginPage() {
-  const { user, login, enterDemo, loading, connection, refreshConnection } = useHoneyAuth();
+  const { user, login, loading, connection, refreshConnection } = useHoneyAuth();
   const navigate = useNavigate();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
 
   if (loading) {
     return (
@@ -119,47 +117,9 @@ export function LoginPage() {
         </p>
       ) : null}
 
-      {/* ---------------------------------------------------------------          Demo Workspace — deliberately OUTSIDE the live flow.
-          It is reached only by this explicit button, it can never be entered
-          by a failed request, and it sends nothing to the production API.
-          --------------------------------------------------------------- */}
-      <section className="mt-8 rounded-3xl border border-honey-200 bg-honey-50 p-5">
-        <p className="flex items-center gap-2 text-[11px] font-bold tracking-[0.16em] text-honey-600 uppercase">
-          <Eye size={13} /> Demo workspace
-        </p>
-        <h2 className="mt-1 font-display text-xl text-ink">Sample data, not HoneyChain records</h2>
-        <p className="mt-2 text-sm text-muted">
-          Sample records so the interface can be explored. Nothing here reaches the HoneyChain
-          backend, and it is never shown to a signed-in live operator.
-        </p>
-
-        <Button
-          type="button"
-          variant="secondary"
-          className="mt-4 w-full"
-          onClick={() => setShowPreview((open) => !open)}
-        >
-          {showPreview ? "Hide demo roles" : "Choose a demo role"}
-        </Button>
-
-        {showPreview ? (
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            {DEMO_ROLES.map((item) => (
-              <Button
-                key={item.role}
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  const me = enterDemo(item.role);
-                  void navigate({ to: homeForRole(me.role) });
-                }}
-              >
-                {item.name}
-              </Button>
-            ))}
-          </div>
-        ) : null}
-      </section>
+      <p className="mt-8 text-center text-xs leading-5 text-muted">
+        Looking to try the sample workflows? Return to the HoneyChain homepage and choose a supply-chain demo.
+      </p>
     </div>
   );
 }

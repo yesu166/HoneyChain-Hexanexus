@@ -55,9 +55,9 @@ export function QrPackagePanel() {
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Honey Yatra QR · Processor"
-        title="Honey Yatra QR — Package Labels"
-        description="Issue Honey Yatra QR package identities for packed batches, and scan codes to check a label. Reuse signals are computed by HoneyChain from the recorded scan history."
+        eyebrow="Processor"
+        title="Package labels"
+        description="Issue a printed identity for a packed batch, and scan codes to check a label. Reuse signals are computed by HoneyChain from the recorded scan history."
       />
       <HeroStatus
         tone={flaggedRows.length ? "warn" : "ok"}
@@ -97,7 +97,7 @@ export function QrPackagePanel() {
           />
         </label>
         <Button type="submit" disabled={scan.isPending}>
-          {scan.isPending ? "Scanning…" : "Scan Honey Yatra QR"}
+          {scan.isPending ? "Scanning…" : "Scan"}
         </Button>
       </form>
 
@@ -183,7 +183,7 @@ export function QrPackagePanel() {
           />
         </label>
         <Button type="submit" disabled={issue.isPending}>
-          {issue.isPending ? "Issuing…" : "Issue Honey Yatra QR"}
+          {issue.isPending ? "Issuing…" : "Issue label"}
         </Button>
       </form>
 

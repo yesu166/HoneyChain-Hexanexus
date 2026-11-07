@@ -17,36 +17,24 @@ import type { Role } from "./types";
  * The HoneyChain platform, described once.
  *
  * This catalog is deliberately a *product* description, not a permission list.
- * It holds exactly eight cards in four groups — six operator personas plus the
- * two surfaces that exist outside the portal's login (the beekeeper mobile app
- * and the public Honey Passport) — whether or not the account that happens to
- * be signed in is allowed into all of them, so the selector shows the whole
- * platform and states plainly which parts this identity can open.
+ * It holds nine entries in four groups: seven online roles or workflow
+ * entry points plus the beekeeper mobile app and public Honey Passport. The
+ * selector shows the platform clearly while stating which workspaces each
+ * identity is allowed to open.
  *
- * Two rules keep it honest:
+ * Availability is derived from the authenticated role and never grants access
+ * by itself. The mobile beekeeper app stays separate from the web portal, and
+ * the public Honey Passport needs no account. VAN is a direct-entry shortcut
+ * into the existing KVIC workflow; it does not duplicate its route or API.
  *
- *   1. Availability is decided ONLY by `user.role`, which comes from the
- *      authoritative `GET /auth/me`. Nothing here grants access, and a card that
- *      is marked unavailable does not link anywhere, so a 403 cannot be walked
- *      around by clicking harder.
- *   2. A surface that is not a web workspace says so in words. The beekeeper
- *      card describes the mobile app instead of publishing a web route, and the
- *      public Honey Passport needs no account at all. Nothing here invents a
- *      workspace the API cannot gate.
- *
- * Market Linkage, the QR clone/reuse detector, the mobile processing van,
- * genealogy and blockchain are CAPABILITIES of these surfaces, not surfaces of
- * their own. They live on the FPO/Buyer, Processor, KVIC Field Officer and
- * Batch Detail screens respectively, and must never appear here as separate
- * portals. Market linkage is a tab in the FPO workspace and the whole Buyer
- * workspace; QR package identity and reuse detection is a panel on the
- * Processor workspace; the mobile processing van is a submodule of the KVIC
- * Field Officer screen. Each is backed by a real API and persisted rows — none
- * is a client-side simulation.
+ * Market linkage, package QR identity, genealogy and blockchain are capabilities
+ * of the existing FPO/Buyer, Processor, Batch Detail and verification screens,
+ * not independent portals.
  */
 export type WorkspaceId =
   | "kvic-admin"
   | "kvic-field-officer"
+  | "van-ops"
   | "lab-inspector"
   | "fpo"
   | "processor"
@@ -55,18 +43,18 @@ export type WorkspaceId =
   | "consumer";
 
 /**
- * The four selector groups. Ordered Government Operations → Supply Chain →
+ * The four selector groups. Ordered Government & Institutional Operations → Supply Chain →
  * Mobile → Public: who governs, who makes the honey, where the field work
  * happens, and what the public can see without an account.
  */
 export type WorkspaceGroup =
-  | "Government Operations"
+  | "Government & Institutional Operations"
   | "Supply Chain"
   | "Mobile"
   | "Public";
 
 export const WORKSPACE_GROUPS: WorkspaceGroup[] = [
-  "Government Operations",
+  "Government & Institutional Operations",
   "Supply Chain",
   "Mobile",
   "Public",
@@ -91,6 +79,10 @@ export type Workspace = {
    * reached by its own route, or for a surface served outside the portal.
    */
   path?: AppPath;
+  /** Optional in-page destination for a sub-workflow. */
+  hash?: string;
+  /** Role-specific in-page destination when a workspace is read-only. */
+  hashForRole?: (role: Role) => string | undefined;
   /**
    * Some roles land on a different screen of the same workspace. The
    * `platform_oversight` role still exists in the backend RBAC matrix (it owns
@@ -125,7 +117,7 @@ export type Workspace = {
 export const WORKSPACES: Workspace[] = [
   {
     id: "kvic-admin",
-    group: "Government Operations",
+    group: "Government & Institutional Operations",
     name: "KVIC Admin",
     purpose:
       "Government operations for HoneyChain: cluster oversight, business operations, platform governance, and the risk & alerts view.",
@@ -140,8 +132,8 @@ export const WORKSPACES: Workspace[] = [
   },
   {
     id: "kvic-field-officer",
-    group: "Government Operations",
-    name: "KVIC Field Officer",
+    group: "Government & Institutional Operations",
+    name: "KVIC Field & Cluster Oversight",
     purpose:
       "Field operations for a cluster: mobile processing van visits, sample intake, and issues needing institutional attention.",
     icon: Landmark,
@@ -150,13 +142,26 @@ export const WORKSPACES: Workspace[] = [
     provisioned: true,
   },
   {
+    id: "van-ops",
+    group: "Government & Institutional Operations",
+    name: "Mobile VAN Operations",
+    purpose: "Direct entry to field visits, arrival, batch sample collection and field observations inside KVIC operations.",
+    icon: Smartphone,
+    roles: ["institution", "admin"],
+    path: "/kvic",
+    hash: "van-operations",
+    provisioned: true,
+  },
+  {
     id: "lab-inspector",
-    group: "Government Operations",
-    name: "Lab Inspector",
-    purpose: "Laboratory queue → test → result → certificate for incoming samples.",
+    group: "Government & Institutional Operations",
+    name: "Laboratory Verification Portal",
+    purpose: "Lab staff record testing outcomes and certificates. KVIC officers can inspect lab status from cluster oversight; result entry remains role-gated.",
     icon: ClipboardCheck,
-    roles: ["lab", "admin"],
+    roles: ["lab", "admin", "institution"],
     path: "/lab",
+    pathForRole: (role) => role === "institution" ? "/kvic" : "/lab",
+    hashForRole: (role) => role === "institution" ? "lab-oversight" : undefined,
     provisioned: true,
   },
   {
@@ -241,6 +246,16 @@ export function workspacePathFor(workspace: Workspace, role: Role | string | und
   }
   if (workspace.path && allRoles.some((r) => workspace.roles.includes(r as Role))) return workspace.path;
   return undefined;
+}
+
+/** Role-aware anchor for a workspace that enters an existing sub-workflow. */
+export function workspaceHashFor(workspace: Workspace, role: Role | string | undefined, roles: Role[] = []): string | undefined {
+  const allRoles = roles.length > 0 ? roles : role ? [role as Role] : [];
+  if (workspace.hashForRole) {
+    const matching = allRoles.find((candidate) => workspace.roles.includes(candidate));
+    return matching ? workspace.hashForRole(matching) : undefined;
+  }
+  return workspace.hash;
 }
 
 export type WorkspaceAvailability =

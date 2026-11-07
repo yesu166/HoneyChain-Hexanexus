@@ -10,8 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useHcQuery } from "@/lib/hc/query";
 import { asString, fmtNum, isDeviceHealthy } from "@/lib/hc/format";
 import { ledgerHeadline, readLedgerHealth } from "@/lib/hc/blockchain";
+import { useHoneyAuth } from "@/lib/hc/auth";
 
 export function AdminWorkspace({ panel = "business" }: { panel?: "business" | "platform" }) {
+  const { mode } = useHoneyAuth();
   const stats = useHcQuery(["platform", "stats"], (api) => api.platformStats());
   const orgs = useHcQuery(["platform", "orgs"], (api) => api.platformOrganizations());
   // HoneyChain exposes platform-wide beekeeper membership (`/platform/beekeepers`);
@@ -56,7 +58,7 @@ export function AdminWorkspace({ panel = "business" }: { panel?: "business" | "p
       <HeroStatus
         tone={opState.tone}
         title={opState.title}
-        detail={`Every figure below comes from HoneyChain. ${ledgerHeadline(ledger)}. A connected ledger adapter is not a purity claim.`}
+        detail={`${mode === "demo" ? "These are synthetic sample records; changes are temporary and are not sent to HoneyChain." : "Figures below are returned by the live HoneyChain API."} ${ledgerHeadline(ledger)}. A connected ledger adapter is not a purity claim.`}
       />
 
       {notesUnreadable || devicesUnreadable ? (

@@ -7,9 +7,12 @@ export function useHcQuery<T>(
   fn: (api: HoneyChainApi) => Promise<T>,
   options?: { enabled?: boolean },
 ) {
-  const { api, mode } = useHoneyAuth();
+  const { api, mode, user } = useHoneyAuth();
+  // A demo is mutable in-memory state. Include the selected identity in the
+  // cache namespace so switching FPO to Lab cannot render another role's rows.
+  const scope = user?.id ?? (mode === "demo" ? "anonymous-demo" : "anonymous-live");
   const query = useQuery({
-    queryKey: [mode, ...key],
+    queryKey: [mode, ...key, scope],
     queryFn: () => fn(api),
     enabled: options?.enabled ?? true,
     // The one controlled retry lives in `client.ts`, not here.

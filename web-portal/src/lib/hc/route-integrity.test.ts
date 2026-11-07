@@ -22,8 +22,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-import { WORKSPACES, workspacePathFor } from "./workspaces.ts";
-import { navForRole } from "./nav.ts";
+import { WORKSPACES, workspaceHashFor, workspacePathFor } from "./workspaces.ts";
+import { allowedRolesForPath, navForRole } from "./nav.ts";
+import { DEMO_ROLES, demoApi, demoUserForRole, resetDemo, setDemoUser } from "./demo.ts";
+import { homeForRole } from "./format.ts";
 import type { Role } from "./types.ts";
 
 // This file lives at src/lib/hc/, so the repository root is three levels up.
@@ -139,6 +141,65 @@ const ROLES: Role[] = [
   "platform_oversight",
 ];
 
+test("shared demo records survive an in-session role switch", async () => {
+  resetDemo("fpo");
+  const created = await demoApi.createHive({
+    hive_code: "HC-ROLE-SWITCH-CHECK",
+    location: "Demo test apiary",
+  });
+
+  // The demo selector changes the active persona without reseeding the shared
+  // in-memory supply-chain state. The next role can see the same record.
+  setDemoUser(demoUserForRole("lab"));
+  const hives = await demoApi.hives();
+  assert.ok(hives.some((hive) => hive.id === created.id));
+
+  // Do not leak this test record into any later test.
+  resetDemo("fpo");
+});
+
+test("offline beekeeper and voice-first assistant routes are not web workspaces", () => {
+  assert.deepEqual(allowedRolesForPath("/beekeeper"), []);
+  assert.deepEqual(allowedRolesForPath("/ask-my-bee"), []);
+  assert.equal(navForRole("admin").some((item) => item.to === "/beekeeper"), false);
+  assert.equal(navForRole("admin").some((item) => item.to === "/ask-my-bee"), false);
+  assert.equal(navForRole("fpo").some((item) => item.to === "/ask-my-bee"), false);
+});
+
+test("homepage demo roles are web-only and each opens a real seeded workspace", () => {
+  assert.equal(
+    DEMO_ROLES.some((item) => item.role === "beekeeper"),
+    false,
+    "the beekeeper field experience is a separate offline-first mobile app, not an online portal demo",
+  );
+
+  for (const item of DEMO_ROLES) {
+    const seeded = demoUserForRole(item.role);
+    assert.equal(seeded.role, item.role, `missing seeded demo identity for ${item.role}`);
+    const destination = homeForRole(item.role);
+    assert.ok(
+      generatedPaths.has(destination),
+      `demo role ${item.role} points to missing route ${destination}`,
+    );
+  }
+});
+
+test("government roles have direct VAN and read-only lab oversight entries", () => {
+  const institutional = navForRole("institution");
+  assert.ok(institutional.some((item) => item.to === "/kvic" && item.hash === "van-operations"));
+  assert.ok(institutional.some((item) => item.to === "/kvic" && item.hash === "lab-oversight"));
+  assert.equal(allowedRolesForPath("/lab")?.includes("institution"), false);
+  assert.ok(WORKSPACES.some((workspace) => workspace.id === "van-ops" && workspace.hash === "van-operations"));
+  const labPortal = WORKSPACES.find((workspace) => workspace.id === "lab-inspector");
+  assert.ok(labPortal);
+  assert.equal(workspacePathFor(labPortal, "institution", ["institution"]), "/kvic");
+  assert.equal(workspacePathFor(labPortal, "lab", ["lab"]), "/lab");
+  const vanPortal = WORKSPACES.find((workspace) => workspace.id === "van-ops");
+  assert.ok(vanPortal);
+  assert.equal(workspaceHashFor(vanPortal, "institution", ["institution"]), "van-operations");
+  assert.equal(workspaceHashFor(labPortal, "institution", ["institution"]), "lab-oversight");
+});
+
 test("every navigation entry resolves to a real route", () => {
   const advertised = new Set<string>();
   for (const role of ROLES) {
@@ -230,18 +291,15 @@ test("every workspace the catalog advertises is described honestly", () => {
 });
 
 /**
- * The locked product surface: eight cards in four groups, in this order.
- *
- * "Six personas" counts only the operator personas; the beekeeper app and the
- * public Honey Passport are product surfaces, not personas, and stay in the
- * catalog. Market Linkage, the QR clone/reuse detector, the mobile processing
- * van, genealogy and blockchain are CAPABILITIES of these cards and must never
- * be added here as portals of their own.
+ * Catalog contract: the VAN tile provides direct entry to the existing KVIC
+ * workflow. The beekeeper app and public passport remain separate product
+ * surfaces, not online role demos.
  */
 const CATALOG = [
-  { id: "kvic-admin", group: "Government Operations", name: "KVIC Admin" },
-  { id: "kvic-field-officer", group: "Government Operations", name: "KVIC Field Officer" },
-  { id: "lab-inspector", group: "Government Operations", name: "Lab Inspector" },
+  { id: "kvic-admin", group: "Government & Institutional Operations", name: "KVIC Admin" },
+  { id: "kvic-field-officer", group: "Government & Institutional Operations", name: "KVIC Field & Cluster Oversight" },
+  { id: "van-ops", group: "Government & Institutional Operations", name: "Mobile VAN Operations" },
+  { id: "lab-inspector", group: "Government & Institutional Operations", name: "Laboratory Verification Portal" },
   { id: "fpo", group: "Supply Chain", name: "FPO / Collection Manager" },
   { id: "processor", group: "Supply Chain", name: "Processor" },
   { id: "buyer", group: "Supply Chain", name: "Buyer / Procurement" },
@@ -249,12 +307,12 @@ const CATALOG = [
   { id: "consumer", group: "Public", name: "Consumer / Honey Passport" },
 ];
 
-test("the catalog is exactly the locked eight-card, four-group surface", () => {
-  assert.equal(WORKSPACES.length, 8, "the catalog holds exactly eight cards");
+test("the catalog presents government operations, supply chain, mobile and public entry points", () => {
+  assert.equal(WORKSPACES.length, 9, "VAN has a direct-entry tile into the existing workflow");
   assert.deepEqual(
     WORKSPACES.map((w) => ({ id: w.id, group: w.group, name: w.name })),
     CATALOG,
-    "the catalog must stay the eight locked cards, grouped and ordered as agreed",
+    "the nine entries stay grouped and ordered as agreed",
   );
 
   // Surfaces the product deliberately retired: generic role cards and the
@@ -268,8 +326,8 @@ test("the catalog is exactly the locked eight-card, four-group surface", () => {
     );
   }
 
-  // A capability must never grow into a portal.
-  const notASurface = ["market", "qr", "van", "genealogy", "blockchain"];
+  // VAN is a direct-entry shortcut into the existing KVIC workflow.
+  const notASurface = ["market", "qr", "genealogy", "blockchain"];
   for (const workspace of WORKSPACES) {
     const name = workspace.name.toLowerCase();
     for (const capability of notASurface) {

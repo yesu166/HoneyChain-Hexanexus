@@ -1,4 +1,4 @@
-import { ApiError, type HoneyChainApi, type Role, type UserMe } from "./types";
+import { ApiError, type HoneyChainApi, type Role, type UserMe } from "./types.ts";
 import type {
   AIChatRequest,
   AIChatResponse,
@@ -63,8 +63,9 @@ const DEMO_USERS: UserMe[] = [
   { id: "u-lab", email: "lab@honeychain.in", name: "Coimbatore Quality Lab", phone: "", role: "lab", roles: ["lab"], org_id: "org-lab-cbe" },
   { id: "u-proc", email: "processor@honeychain.in", name: "Western Ghats Processing", phone: "", role: "processor", roles: ["processor"], org_id: "org-proc" },
   { id: "u-buyer", email: "buyer@honeychain.in", name: "Heritage Foods Procurement", phone: "", role: "buyer", roles: ["buyer"], org_id: "org-buyer" },
-  { id: "u-kvic", email: "kvic@honeychain.in", name: "KVIC Institutional Oversight", phone: "", role: "institution", roles: ["institution"], org_id: "org-kvic" },
+  { id: "u-kvic", email: "kvic@honeychain.in", name: "KVIC Field Officer", phone: "", role: "institution", roles: ["institution"], org_id: "org-kvic" },
   { id: "u-admin", email: "admin@honeychain.in", name: "Platform administrator", phone: "", role: "admin", roles: ["admin"], org_id: "org-platform" },
+  { id: "u-oversight", email: "oversight@honeychain.in", name: "Platform Oversight", phone: "", role: "platform_oversight", roles: ["platform_oversight"], org_id: "org-platform" },
 ];
 
 function iso(daysAgo: number, hour = 9): string {
@@ -316,14 +317,53 @@ export function demoUserForRole(role: Role | string): UserMe {
   return DEMO_USERS.find((u) => u.role === role) || DEMO_USERS[0];
 }
 
-export const DEMO_ROLES: { role: Role; email: string; name: string }[] = [
-  { role: "institution", email: "kvic@honeychain.in", name: "KVIC / Institution" },
-  { role: "fpo", email: "org@honeychain.in", name: "FPO manager" },
-  { role: "beekeeper", email: "demo@honeychain.in", name: "Beekeeper" },
-  { role: "lab", email: "lab@honeychain.in", name: "Laboratory" },
-  { role: "processor", email: "processor@honeychain.in", name: "Processor" },
-  { role: "buyer", email: "buyer@honeychain.in", name: "Buyer" },
-  { role: "admin", email: "admin@honeychain.in", name: "Platform admin" },
+/**
+ * Web-only demo roles. The beekeeper experience is a separate offline-first
+ * Flutter app and is intentionally not presented as an online portal demo.
+ */
+export const DEMO_ROLES: { role: Role; email: string; name: string; description: string }[] = [
+  {
+    role: "fpo",
+    email: "org@honeychain.in",
+    name: "FPO / Collection Manager",
+    description: "Collect harvests, build batches, follow lab verification and manage market linkage.",
+  },
+  {
+    role: "lab",
+    email: "lab@honeychain.in",
+    name: "Laboratory",
+    description: "Review incoming samples, record test outcomes and manage certificates.",
+  },
+  {
+    role: "processor",
+    email: "processor@honeychain.in",
+    name: "Processor / Packager",
+    description: "Follow custody, process verified lots and issue package QR identities.",
+  },
+  {
+    role: "buyer",
+    email: "buyer@honeychain.in",
+    name: "Buyer / Procurement",
+    description: "Browse eligible lots, request quantities and follow purchase orders.",
+  },
+  {
+    role: "institution",
+    email: "kvic@honeychain.in",
+    name: "KVIC Field Officer",
+    description: "Review cluster operations, field visits, sample intake and van workflows.",
+  },
+  {
+    role: "admin",
+    email: "admin@honeychain.in",
+    name: "Platform Administrator",
+    description: "Inspect business operations, alerts and system health.",
+  },
+  {
+    role: "platform_oversight",
+    email: "oversight@honeychain.in",
+    name: "Platform Oversight",
+    description: "Review platform-level organization and membership oversight.",
+  },
 ];
 
 function scopedHives(): Hive[] {

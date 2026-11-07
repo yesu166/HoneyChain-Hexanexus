@@ -94,17 +94,24 @@ export function KvicOverview() {
         />
       </div>
 
-      {/* Mobile processing van — a submodule of this surface, not a portal. */}
-      <VanSubmodule />
+      <section id="van-operations" className="scroll-mt-28 rounded-3xl border border-grove-100 bg-white p-4 shadow-[var(--shadow-card)] md:p-6">
+        <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-[10px] font-bold tracking-[0.16em] text-grove-700 uppercase">Government field operations · 01</p>
+            <h2 className="mt-2 font-display text-2xl text-ink md:text-3xl">Mobile VAN operations</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">Run the field sequence in order: schedule a visit, record arrival, collect a batch sample, then log a field observation. A VAN result is not a laboratory certificate.</p>
+          </div>
+          <span className="inline-flex w-fit items-center rounded-full bg-honey-100 px-3 py-1.5 text-xs font-semibold text-honey-600">KVIC field workflow</span>
+        </div>
+        <VanSubmodule />
+      </section>
 
-      <section>
+      <section id="lab-oversight" className="scroll-mt-28">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 className="font-display text-2xl">Cluster management</h2>
-            <p className="mt-1 text-sm text-muted">
-              Compact cluster health. Expand a row for counts, then open the cluster for the full
-              path from members to verification.
-            </p>
+            <p className="text-[10px] font-bold tracking-[0.16em] text-grove-700 uppercase">Government quality oversight · 02</p>
+            <h2 className="mt-2 font-display text-2xl md:text-3xl">Cluster & laboratory oversight</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">Review cluster batches and pending laboratory evidence here. Recording results and issuing certificates remains inside the Laboratory Verification Portal and requires the appropriate role.</p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
             <Input

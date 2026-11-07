@@ -13,6 +13,7 @@ import {
   WORKSPACE_GROUPS,
   workspaceAvailability,
   workspacePathFor,
+  workspaceHashFor,
   type Workspace,
   type WorkspaceAvailability,
 } from "@/lib/hc/workspaces";
@@ -83,7 +84,7 @@ export function PortalSelector() {
         detail={`${openable} of ${WORKSPACES.length} HoneyChain surfaces are open in this portal. The rest sit outside the portal or need a role this account does not hold. Session verified against ${apiOrigin()}.`}
       />
 
-      {/* The eight cards are grouped the way the product is actually organised:
+      {/* The workspace cards are grouped the way the product is actually organised:
           who governs, who makes the honey, where the field work happens, and
           what the public can reach without an account. Grouping is presentational
           only — availability still comes from `workspaceAvailability`. */}
@@ -145,6 +146,7 @@ function WorkspaceCard({
       unavailableNote={workspace.unavailableNote}
       requiredRoles={workspace.roles}
       to={path}
+      hash={workspaceHashFor(workspace, role, roles)}
     />
   );
 }
@@ -160,6 +162,7 @@ function WorkspaceTile({
   unavailableNote,
   requiredRoles,
   to,
+  hash,
 }: {
   icon: React.ReactNode;
   name: string;
@@ -174,6 +177,7 @@ function WorkspaceTile({
   unavailableNote?: string;
   requiredRoles: string[];
   to?: string;
+  hash?: string;
 }) {
   if (availability === "public") {
     // The consumer passport needs no account, so it is a plain link out of the
@@ -293,7 +297,8 @@ function WorkspaceTile({
   return (
     <Link
       to={to}
-      className="group flex h-full flex-col rounded-2xl bg-paper p-5 shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-grove-700 focus-visible:outline-none"
+      hash={hash}
+      className="group flex h-full flex-col rounded-2xl border border-black/[0.06] bg-white p-6 shadow-[var(--shadow-card)] transition duration-200 hover:-translate-y-1 hover:border-honey-300 hover:shadow-[var(--shadow-card-hover)] focus-visible:ring-2 focus-visible:ring-grove-700 focus-visible:outline-none"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="grid h-11 w-11 place-items-center rounded-2xl bg-honey-100 text-honey-600">
