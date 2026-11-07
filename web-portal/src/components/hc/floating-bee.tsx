@@ -8,29 +8,80 @@ export function FloatingBee() {
     if (!bee || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     let frame = 0;
-    let pointerX = 0;
-    let pointerY = 0;
+    let lastTimestamp = 0;
+    let currentX = 0;
+    let currentY = 0;
+    let targetX = 0;
+    let targetY = 0;
+    let velocityX = 0;
+    let velocityY = 0;
+    let initialized = false;
+
+    const animateChase = (timestamp: number) => {
+      frame = 0;
+      const dt = lastTimestamp
+        ? Math.min((timestamp - lastTimestamp) / 1000, 0.04)
+        : 1 / 60;
+      lastTimestamp = timestamp;
+
+      // A lightly under-damped spring gives the bee a visible chase and a
+      // little overshoot, instead of snapping directly onto the pointer.
+      const stiffness = 34;
+      const damping = 8;
+
+      velocityX += ((targetX - currentX) * stiffness - velocityX * damping) * dt;
+      velocityY += ((targetY - currentY) * stiffness - velocityY * damping) * dt;
+      currentX += velocityX * dt;
+      currentY += velocityY * dt;
+
+      bee.style.left = `${currentX}px`;
+      bee.style.top = `${currentY}px`;
+      bee.style.right = "auto";
+      bee.style.bottom = "auto";
+
+      const bank = Math.max(-12, Math.min(12, -velocityX * 0.035));
+      bee.style.setProperty("--hc-bee-bank", `${bank.toFixed(2)}deg`);
+
+      const settled =
+        Math.abs(targetX - currentX) < 0.45 &&
+        Math.abs(targetY - currentY) < 0.45 &&
+        Math.abs(velocityX) < 2 &&
+        Math.abs(velocityY) < 2;
+
+      if (settled) {
+        currentX = targetX;
+        currentY = targetY;
+        velocityX = 0;
+        velocityY = 0;
+        bee.style.left = `${currentX}px`;
+        bee.style.top = `${currentY}px`;
+        bee.style.setProperty("--hc-bee-bank", "0deg");
+        lastTimestamp = 0;
+        return;
+      }
+
+      frame = window.requestAnimationFrame(animateChase);
+    };
 
     const followPointer = (event: PointerEvent) => {
       if (event.pointerType === "touch") return;
 
-      pointerX = event.clientX;
-      pointerY = event.clientY;
-      if (frame) return;
+      const width = bee.offsetWidth || 82;
+      const height = bee.offsetHeight || 66;
+      targetX = Math.max(6, Math.min(window.innerWidth - width - 6, event.clientX + 22));
+      targetY = Math.max(6, Math.min(window.innerHeight - height - 6, event.clientY + 14));
 
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        const width = bee.offsetWidth || 76;
-        const height = bee.offsetHeight || 64;
-        const left = Math.max(6, Math.min(window.innerWidth - width - 6, pointerX + 22));
-        const top = Math.max(6, Math.min(window.innerHeight - height - 6, pointerY + 14));
+      if (!initialized) {
+        const rect = bee.getBoundingClientRect();
+        currentX = rect.left;
+        currentY = rect.top;
+        initialized = true;
+      }
 
-        bee.style.left = `${left}px`;
-        bee.style.top = `${top}px`;
-        bee.style.right = "auto";
-        bee.style.bottom = "auto";
-        bee.classList.add("hc-floating-bee--following");
-      });
+      if (!frame) {
+        lastTimestamp = 0;
+        frame = window.requestAnimationFrame(animateChase);
+      }
     };
 
     window.addEventListener("pointermove", followPointer, { passive: true });
