@@ -14,7 +14,7 @@ export function KpiCard({
 }) {
   return (
     <article className={cn(
-      "relative min-w-0 overflow-hidden rounded-2xl border border-black/[0.06] bg-white p-4 shadow-[var(--shadow-card)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)] md:p-5",
+      "hc-kpi-card relative min-w-0 overflow-hidden rounded-2xl border border-black/[0.06] bg-white p-4 shadow-[var(--shadow-card)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)] md:p-5",
       level === 1 && "border-honey-300 bg-honey-50",
       level === 3 && "bg-white/80",
     )}>
@@ -48,7 +48,7 @@ export function HeroStatus({
     bad: "bg-red-500",
   };
   return (
-    <section className={cn("relative overflow-hidden rounded-2xl border p-5 shadow-[var(--shadow-card)] md:p-6", colors[tone])}>
+    <section className={cn("hc-hero-status relative overflow-hidden rounded-2xl border p-5 shadow-[var(--shadow-card)] md:p-6", colors[tone])}>
       <span aria-hidden="true" className={cn("absolute inset-y-0 left-0 w-1.5", accents[tone])} />
       <p className="pl-2 text-[10px] font-bold tracking-[0.17em] text-grove-700 uppercase">Current status</p>
       <h2 className="mt-2 pl-2 font-display text-2xl leading-tight text-ink md:text-3xl">{title}</h2>
