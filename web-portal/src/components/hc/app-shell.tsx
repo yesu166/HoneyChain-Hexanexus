@@ -63,13 +63,13 @@ function NavList({
                   hash={item.hash}
                   onClick={onNavigate}
                   className={cn(
-                    "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition",
+                    "hc-nav-link flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition",
                     inverted
                       ? active
-                        ? "bg-paper text-grove-800"
+                        ? "hc-nav-link--active bg-paper text-grove-800"
                         : "text-white/75 hover:bg-white/10 hover:text-white"
                       : active
-                        ? "bg-grove-50 text-grove-800"
+                        ? "hc-nav-link--active bg-grove-50 text-grove-800"
                         : "text-ink/70 hover:bg-black/5",
                   )}
                 >
@@ -165,8 +165,8 @@ export function AppShell() {
     : !item.hash && pathname.startsWith(`${item.to}/`));
 
   return (
-    <div className="min-h-screen bg-cream md:grid md:grid-cols-[240px_1fr]">
-      <aside className="hidden border-r border-black/5 bg-grove-800 text-cream md:flex md:flex-col">
+    <div className="hc-app-shell min-h-screen bg-cream md:grid md:grid-cols-[240px_1fr]">
+      <aside className="hc-sidebar hidden border-r border-black/5 bg-grove-800 text-cream md:flex md:flex-col">
         <div className="border-b border-white/10 px-5 py-6">
           <Brand />
         </div>
@@ -196,7 +196,7 @@ export function AppShell() {
       </aside>
 
       <div className="flex min-h-screen min-w-0 flex-col">
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-black/5 bg-cream/90 px-4 py-3 backdrop-blur-xl md:px-8">
+        <header className="hc-topbar sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-black/5 bg-cream/90 px-4 py-3 backdrop-blur-xl md:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <Button
               variant="secondary"
@@ -225,13 +225,13 @@ export function AppShell() {
           </div>
         ) : null}
 
-        <main className="flex-1 px-4 py-6 pb-28 md:px-10 md:py-10 md:pb-12">
+        <main className="hc-main flex-1 px-4 py-6 pb-28 md:px-10 md:py-10 md:pb-12">
           <div className="mx-auto w-full max-w-[1440px]">
             <Outlet />
           </div>
         </main>
 
-        <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-3 gap-1 rounded-2xl border border-black/5 bg-paper/95 p-1.5 shadow-[var(--shadow-card)] backdrop-blur-xl md:hidden">
+        <nav className="hc-mobile-nav fixed inset-x-3 bottom-3 z-40 grid grid-cols-3 gap-1 rounded-2xl border border-black/5 bg-paper/95 p-1.5 shadow-[var(--shadow-card)] backdrop-blur-xl md:hidden">
           {/* The selector leads the sidebar, but on a phone the three most
               useful destinations are the workspace itself and the routes it is
               usually reached through, so the bar uses the role's own items and
@@ -288,7 +288,7 @@ export function AppShell() {
 export function PublicHeader() {
   const { user, mode } = useHoneyAuth();
   return (
-    <header className="flex items-center justify-between gap-3 px-4 py-4 md:px-8">
+    <header className="hc-public-header flex items-center justify-between gap-3 px-4 py-4 md:px-8">
       <Link to="/" className="flex items-center gap-2 text-grove-800">
         <span className="grid h-10 w-10 place-items-center rounded-sm bg-honey-400 text-grove-800">
           <Hexagon size={20} />
